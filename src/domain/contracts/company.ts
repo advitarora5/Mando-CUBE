@@ -31,6 +31,7 @@ export interface Score {
   timing_evidence: string;
   total: number;
   tier: Tier;
+  tier_reason?: string;
 }
 
 export interface CompanyListItem extends Company {

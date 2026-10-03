@@ -35,7 +35,7 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
     <header><Link href="/">mando <span>/ prospect intelligence</span></Link></header>
     <nav className="breadcrumb"><Link href="/">← Company priorities</Link></nav>
     <section className="detail-heading"><div><p className="eyebrow">COMPANY PROFILE</p><h1>{c.name}</h1><p>{c.industry ?? "Industry pending"} · {c.headquarters ?? "Headquarters pending"}</p></div><div className="score-summary"><strong>{c.score?.total ?? "—"}</strong><span>{c.score?.tier ?? "Unscored"}</span></div></section>
-    <aside>Scores reflect the latest saved assessment.</aside>
+    <aside>{c.score?.tier_reason ?? "No qualification assessment is available yet."}</aside>
     <div className="detail-grid">
       <section className="panel detail-section"><Editor title="Company overview" action={saveCompany} hidden={{ company_id: c.id, updated_at: c.updated_at }} fields={companyFields}>
         <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{c.employee_count?.toLocaleString() ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div></dl><Source value={c.source} />

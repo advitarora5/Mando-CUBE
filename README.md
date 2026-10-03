@@ -64,3 +64,9 @@ Search matches company names, domains, industry, headquarters, why-now text, and
 Click the Rank, Company A–Z, Total /100, or Tier column header to toggle ascending/descending ordering. Arrows and accessible sort states indicate the active direction. Rank defaults to ascending (highest scores first); tier descending places Qualified before Maybe and Disqualified, with unscored records last. Missing values sort last; company names sort naturally. Ranks are computed from the full scored dataset before filtering or display sorting. Ties share a competition rank (1, 2, 2, 4); unscored companies have no rank. Portfolio counts describe the full dataset, while the result count describes the filtered list. Filters are currently local page state and reset on a reload.
 
 Run `npm test` for focused ranking/filtering checks.
+
+## Tier eligibility
+
+The shared tier evaluator recomputes totals from the five category scores and derives the displayed tier on both list and detail reads. Qualified requires 80+, Maybe requires 55+, and both require Authority and Reachability evidence formatted as `http(s)://source | nonempty reason`. Timing-only assessments (no Authority, Reachability or Budget points) are Disqualified. Invalid/out-of-range category values fail closed. The detail page explains the result.
+
+Evidence checks validate presence and format, not factual accuracy or buying authority. Research verification and evidence-to-score generation remain separate. Existing database assessment rows are not rewritten; displayed tiers are evaluated using current rules. New demo assessments also use the evaluator. Future import/scoring/snapshot writers must call the same evaluator before saving a tier. No SQL migration is needed for this application change.

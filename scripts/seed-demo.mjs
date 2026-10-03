@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { evaluateTier } from "../src/domain/scoring/tier-rules.ts";
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SECRET_KEY;
@@ -24,8 +25,6 @@ for (let index = 0; index < fixtures.length; index++) {
   const companyId = id(n === 1 ? 1 : n * 10);
   const scoreId = id(n === 1 ? 2 : n * 10 + 1);
   const contactId = id(n === 1 ? 3 : n * 10 + 2);
-  const total = fixtures[index].reduce((a, b) => a + b, 0);
-  const tier = total >= 80 ? "Qualified" : total >= 55 ? "Maybe" : "Disqualified";
   await save("companies", {
     id: companyId, name: `Demo Company ${n}`, domain: n === 1 ? "mando-demo.example" : `demo-company-${n}.example`,
     industry: industries[index], headquarters: n % 2 ? "Chicago, IL" : "New York, NY",
@@ -36,12 +35,13 @@ for (let index = 0; index < fixtures.length; index++) {
   const existing = await db.from("scores").select("id").eq("id", scoreId).maybeSingle();
   if (existing.error) throw new Error(existing.error.message);
   if (!existing.data) {
-    const score = { id: scoreId, company_id: companyId, assessed_at: "2026-10-03T15:00:00Z", rubric_version: "week2-100-demo-fixture", tier };
+    const score = { id: scoreId, company_id: companyId, assessed_at: "2026-10-03T15:00:00Z", rubric_version: "week2-100-demo-fixture" };
     categories.forEach((category, i) => {
       score[`${category}_score`] = fixtures[index][i];
       score[`${category}_evidence`] = `${source} | Demo Company ${n}: ${reasons[i]}`;
     });
-    const { error } = await db.from("scores").insert(score);
+    const { tier } = evaluateTier(score);
+    const { error } = await db.from("scores").insert({ ...score, tier });
     if (error) throw new Error(error.message);
   }
   await save("company_insights", { company_id: companyId, persona_generated: "HRIS systems buyer (fictional)", level_generated: "Director", why_now_generated: `Fictional demo ${n}: sample Workday signals and buyer readiness for dashboard testing.`, generated_at: "2026-10-03T15:00:00Z" });
