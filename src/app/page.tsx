@@ -1,28 +1,7 @@
 import { getCompanies } from "@/server/repositories/companies";
 import Link from "next/link";
-import { categories, type Score } from "@/domain/contracts/company";
+import { CompanyList } from "@/features/company-list/company-list";
 
-function safeUrl(value: string | null) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return ["https:", "http:"].includes(url.protocol) ? url.href : null;
-  } catch { return null; }
-}
-
-function ScoreCells({ score }: { score: Score | null }) {
-  return categories.map(category => {
-    const evidence = score?.[`${category}_evidence`] ?? "";
-    const separator = evidence.indexOf(" | ");
-    const url = safeUrl(separator >= 0 ? evidence.slice(0, separator) : null);
-    const reason = separator >= 0 ? evidence.slice(separator + 3) : evidence;
-    return <td key={category} className="category-score">
-      <strong>{score?.[`${category}_score`] ?? "Unscored"}</strong>
-      {reason && <small>{reason}</small>}
-      {url && <a className="source-link" href={url} target="_blank" rel="noopener noreferrer">Source ↗</a>}
-    </td>;
-  });
-}
 export const dynamic = "force-dynamic";
 export default async function Home() {
  const { companies, mode, error } = await getCompanies();
@@ -32,7 +11,7 @@ export default async function Home() {
   {mode === "sample" && <aside>Sample data: fictional, unscored examples.</aside>}
   {error && <p role="alert" className="error">{error}</p>}
   <section className="stats"><article><span>Companies</span><strong>{companies.length}</strong></article><article><span>Scored companies</span><strong>{companies.filter(c=>c.score).length}</strong></article><article><span>Qualified</span><strong>{companies.filter(c=>c.score?.tier === "Qualified").length}</strong></article></section>
-  <section className="panel"><div className="panel-heading"><h2>Company priorities</h2><p>Highest scores first. Unscored companies appear last.</p></div><div className="scroll"><table><thead><tr><th>Company</th><th>Employees</th><th>Authority</th><th>Reachability</th><th>Budget</th><th>Release alignment</th><th>Timing trigger</th><th>Total</th><th>Tier</th><th>Why now</th><th>Contacts</th></tr></thead><tbody>{companies.map(c=><tr key={c.id}><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{c.employee_count?.toLocaleString() ?? "—"}</td><ScoreCells score={c.score} /><td>{c.score?.total ?? "—"}</td><td>{c.score?.tier ?? "Pending"}</td><td>{c.why_now ?? "Research pending"}</td><td>{c.contacts.length ? c.contacts.map(contact => <div key={contact.id}>{safeUrl(contact.linkedin_url) ? <a className="source-link" href={safeUrl(contact.linkedin_url)!} target="_blank" rel="noopener noreferrer">{contact.name} ↗</a> : contact.name}<small>{contact.title}</small></div>) : "Contacts pending"}</td></tr>)}</tbody></table></div>{!companies.length && !error && <p className="empty">No companies yet. Load verified company data to begin.</p>}</section>
+  {!error && <CompanyList companies={companies} mode={mode} />}
   <footer>Click a company to view its evidence, contacts, and editable insights.</footer>
  </main>;
 }

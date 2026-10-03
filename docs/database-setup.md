@@ -27,7 +27,7 @@ Append new score rows; never update a row referenced by history. Immutable datab
 
 ## Pending rules
 
-Timing Trigger is 15 on Week 2 slide 7 but 10 on slide 5 and the Week 3 brief. Schema allows up to 15 without selecting a rubric. No scoring formulas or tiers are fabricated. Confirm evidence gates, timing formula and tie rules before implementing the engine.
+Week 2 slide 7 is authoritative per the user: Authority 25, Reachability 25, Budget 20, Release Alignment 15, Timing Trigger 15 (100 total). Category allocation and evidence-driven automatic scoring remain to be clarified. Dashboard ranks use competition ranking for tied totals. Confirm tier evidence gates and the timing formula before implementing the engine.
 
 The Week 1 CSV uses Gone Live, Buyer Persona, Job Posting, Budget and Warm Channel. Preserve its legacy rubric instead of silently remapping scores. The original remains unchanged outside the repository; it has not been imported.
 

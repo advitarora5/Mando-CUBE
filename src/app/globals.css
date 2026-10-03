@@ -81,3 +81,24 @@ footer { padding-top: 24px; font-size: 12px; color: #868078; }
 .add-contact { border-top: 1px solid var(--border); margin-top: 22px; padding-top: 22px; }
 @media (max-width: 800px) { .detail-grid, .contact-grid { grid-template-columns: 1fr; } .evidence-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 500px) { .field-grid, .evidence-grid { grid-template-columns: 1fr; } .detail-heading { align-items: flex-start; } .score-summary { min-width: 85px; padding: 10px; } }
+
+.list-controls { display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(110px, 1fr)) auto; gap: 12px; padding: 0 24px 18px; align-items: end; }
+.list-controls label { font-size: 12px; color: #665f56; }
+.list-controls input, .list-controls select { display: block; width: 100%; min-height: 40px; margin-top: 7px; padding: 9px; border: 1px solid #d8d2c9; border-radius: 6px; font: inherit; background: white; color: #171717; }
+.list-controls .button { min-height: 40px; }
+.result-count { margin: 0; padding: 0 24px 18px; font-size: 12px; color: #77716b; }
+.filter-error { margin: 0; padding: 0 24px 18px; color: #a82b2b; font-size: 13px; }
+td.rank-cell { min-width: 75px; font-weight: 650; color: var(--accent); }
+.rank-cell + td { min-width: 205px; }
+.tier-badge { display: inline-block; padding: 4px 9px; border-radius: 20px; background: #f2f0ed; white-space: nowrap; font-size: 12px; }
+.tier-badge.qualified { color: #316943; background: #eaf3ec; }
+.tier-badge.maybe { color: #8b622e; background: #f7efdf; }
+.tier-badge.disqualified { color: #975656; background: #f7eaea; }
+@media (max-width: 1000px) { .list-controls { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 550px) { .list-controls { grid-template-columns: 1fr 1fr; } .search-control { grid-column: 1 / -1; } }
+
+.sort-heading { display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
+.sort-heading span { font-size: 16px; color: #aaa095; }
+.sort-heading.active, .sort-heading:hover, .sort-heading.active span { color: var(--accent); }
+.sort-heading:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 2px; }
+.total-score strong { font-size: 18px; }

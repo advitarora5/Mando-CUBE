@@ -18,7 +18,7 @@ Open http://localhost:3000. Development binds to 127.0.0.1 because access contro
 
 Project: https://fkhychihxpregusklggo.supabase.co
 
-The SQL migration in `supabase/migrations/202610020001_initial_schema.sql` has NOT been applied. See [database setup](docs/database-setup.md).
+The initial SQL migration has been applied to the connected Supabase project. New database projects should apply `supabase/migrations/202610020001_initial_schema.sql` once. See [database setup](docs/database-setup.md).
 
 Set `SUPABASE_SECRET_KEY` in `.env.local` to a Supabase server-only secret key (legacy service-role keys also work). Never use a publishable/anon key for this adapter or put secrets in chat or NEXT_PUBLIC variables. Restart after environment changes.
 
@@ -47,7 +47,7 @@ Production builds use the supported Webpack option because Turbopack worker port
 
 ## Fictional demo fixture
 
-`npm run seed:demo` writes a clearly labeled fictional company, John Smith contact, a five-category assessment totaling 83, and sample insights into the configured database. Links use google.com as placeholders. The fixture is explicitly not an approved scoring methodology. Stable IDs prevent duplicate demo records on reruns. Rerunning resets the fixture values; do not rerun after using its score in weekly snapshots. The source spreadsheet is not imported.
+`npm run seed:demo` writes nine fictional companies named Demo Company 1–9, with John Smith contacts and Google placeholder links. Totals range from 38 to 95, including tier boundaries of 55 and 80. Stable IDs avoid duplicates, and Company 1 reuses the original demo record. Existing assessments are preserved; reruns reset demo company/contact fields and generated insights but preserve manual insight overrides. These are testing fixtures, not researched prospects or automated scoring results. The source spreadsheet is not imported.
 
 ## Company detail
 
@@ -56,3 +56,11 @@ Click a company name on the dashboard to open `/companies/[id]`. The detail page
 Each editable section has Save/Cancel controls. Company and insight updates detect stale versions and ask the user to refresh rather than overwriting a concurrent edit. Contact updates are currently last-write-wins. Saving blank insight overrides restores the generated value. Scores remain the latest saved assessment; automatic recalculation awaits the approved scoring engine. Source links accept HTTP/HTTPS only.
 
 No SQL migration is required for detail editing. Mutations are limited to localhost/127.0.0.1 requests and disabled on Vercel while access control is deferred. This is a development guard, not a substitute for authentication before deployment. Weekly history is deferred.
+
+## Dashboard controls
+
+Search matches company names, domains, industry, headquarters, why-now text, and contact names/titles. Filters combine tier and inclusive minimum/maximum total scores on the confirmed 100-point rubric. Invalid ranges show an error. Unscored records are excluded when a score limit is applied. Reset restores all records and the default highest-score-first sort.
+
+Click the Rank, Company A–Z, Total /100, or Tier column header to toggle ascending/descending ordering. Arrows and accessible sort states indicate the active direction. Rank defaults to ascending (highest scores first); tier descending places Qualified before Maybe and Disqualified, with unscored records last. Missing values sort last; company names sort naturally. Ranks are computed from the full scored dataset before filtering or display sorting. Ties share a competition rank (1, 2, 2, 4); unscored companies have no rank. Portfolio counts describe the full dataset, while the result count describes the filtered list. Filters are currently local page state and reset on a reload.
+
+Run `npm test` for focused ranking/filtering checks.
