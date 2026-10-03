@@ -18,7 +18,7 @@ export async function getCompanies(): Promise<{ companies: CompanyListItem[]; mo
     const companies = (data ?? []).map((row) => {
       const scores = row.scores as Score[];
       const latest = scores.sort((a,b) => b.assessed_at.localeCompare(a.assessed_at))[0] ?? null;
-      const insight = row.company_insights?.[0];
+      const insight = Array.isArray(row.company_insights) ? row.company_insights[0] : row.company_insights;
       return { ...(row as Company), contacts: row.contacts ?? [], score: latest, why_now: insight?.why_now_override ?? insight?.why_now_generated ?? null };
     }).sort((a,b) => (b.score?.total ?? -1) - (a.score?.total ?? -1));
     return { companies, mode: "database" };
