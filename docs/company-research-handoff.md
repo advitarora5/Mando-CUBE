@@ -1,10 +1,10 @@
 # Nevin: company research handoff
 
-Research cutoff: 2026-10-04. Scope: the company/contact dataset and research methodology. No database schema, scoring algorithm, authentication, weekly snapshot, or deployment changes.
+Company research cutoff: 2026-10-04. Contact follow-up: 2026-10-05. Scope: the company/contact dataset and research methodology. No database schema, scoring algorithm, authentication, weekly snapshot, or deployment changes.
 
 ## Deliverables
 
-- `src/data/research/workday-companies.json`: 110 distinct organizations with company-specific Workday HCM confirmation, 54 sourced contacts across 54 companies, and evidence/review notes keyed by existing IDs.
+- `src/data/research/workday-companies.json`: 110 distinct organizations with company-specific Workday HCM confirmation, 73 sourced contacts across 72 companies, and evidence/review notes keyed by existing IDs. The October 5 follow-up adds 19 contacts across 18 previously uncovered companies, supported by employer sources and matching public profiles. 38 companies still have no matched contact.
 - `src/data/research/methodology.json`: canonical methodology rendered by `/methodology`, linked from the dashboard footer.
 - `scripts/research-data.mjs`: validates existing table fields, IDs, source coverage, LinkedIn profile format, and research gaps; optionally exports CSVs and JSON. It performs no database writes and makes no network requests.
 - `docs/company-research-methodology.md`: readable methodology export for Group 1 review.
@@ -20,15 +20,15 @@ The company and contact CSVs use the exact existing `companies` and `contacts` f
 
 Every company links to an official Workday story whose product list explicitly includes Human Capital Management. 102 have a sourced workforce snapshot of at least 3,000. Seven have no extracted workforce count; CL Grupo Industrial’s approximately-3,000 threshold remains unresolved and is stored as null. Counts are historical/rounded source snapshots, not audited current headcounts. Veolia UK & Ireland and Sopra Steria Scandinavia use regional figures. The British Heart Foundation source contains conflicting 4,000/4,500 figures, disclosed in its evidence note.
 
-The contact source establishes a reported employer/role; the identity source links to the matching public profile or a primary biography that links it. Current roles must be reviewed before outreach. Broader HR/IT leadership and systems-owner equivalents retain their actual titles; they are not mislabeled VP HR or IT Operations Manager. Mutuals are null because none were visible. Companies with no confidently matched target contact have an explicit gap rather than a fabricated person. The 54 contacts are research leads, not 54 verified current buying authorities.
+The contact source establishes a reported employer/role; the identity source links to the matching public profile or a primary biography that links it. Nineteen contacts are marked `company_listed_role_checked`, with October 5 employer-source/profile evidence; 54 older leads remain marked `requires_current_role_review`. A company listing does not establish direct buying authority, reachability or a warm connection. Recheck before outreach. Broader HR/IT leadership and systems-owner equivalents retain their actual titles; they are not mislabeled VP HR or IT Operations Manager. Mutuals are null because none were visible. Companies with no confidently matched target contact have an explicit gap rather than a fabricated person.
 
-Known stale/ambiguous candidates were excluded, including Nathalie Carruthers at Blue Yonder, Brian Seely at Shake Shack, Fredrik Wetterlundh at Scandic, and same-name Topcon profiles. Jennifer Hornery’s record explicitly flags that her public profile points to Cochlear Foundation; her sourced operating-company role is historical.
+Known stale/ambiguous candidates were excluded, including Nathalie Carruthers at Blue Yonder, Brian Seely at Shake Shack, Fredrik Wetterlundh at Scandic, and same-name Topcon profiles. Follow-up found company-listed replacements Jamie Griffin at Shake Shack and Elin Ekrol at Scandic. Natalie Bickford is not added for Sanofi: her public profile indicates a move to Diageo. Sanofi lists Véronique Jaillet as interim CPO, but a matching profile was not confidently resolved. Jennifer Hornery’s older record explicitly flags that her public profile points to Cochlear Foundation; her sourced operating-company role is historical.
 
 ## Integration with Group 2’s importer and scorer
 
 Use the existing tables. `dataset.companies` and `dataset.contacts` contain only existing schema fields; `company_evidence` and `contact_evidence` are file-level research metadata, not new database tables or columns. Preserve this provenance file when importing. Resolve existing IDs/domains/names/reviewed aliases first, remap contact foreign keys to any existing company ID, and deduplicate LinkedIn profile URLs before inserting. Do not blindly upsert over hand-edited records. Check parent/subsidiary scope manually; do not count a rebrand as a new company.
 
-No live Supabase import was performed: database credentials were not configured in this workspace. Keep any import credentials in ignored local environment files, never in Git or a PR. Group 2’s assigned importer can load the reviewed table arrays through its server-side client.
+No live Supabase import was performed. The user now has dashboard access; this contact-research follow-up makes no database writes. Keep any import credentials in ignored local environment files, never in Git or a PR. Group 2’s assigned importer can load the reviewed table arrays through its server-side client.
 
 No numeric category scores, total, tier, or qualification rank are supplied. The existing repository includes tier evaluation, but the evidence-to-category assessment rubric and real company assessments are not available here. Public profile access alone does not establish reachability or authority; workforce scale alone does not establish budget. Exact HCM go-live dates and active internal Workday jobs are unverified in this cohort. Those fields stay null/unverified. The file’s research queue puts sourced size and matched contacts first, then names alphabetically; it must not be presented as a scored TAM ranking.
 

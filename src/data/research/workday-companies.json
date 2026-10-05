@@ -14,6 +14,26 @@
       "source": "https://www.workday.com/en-us/customer-stories/a-h/3m-extend-global-product-powerhouse.html"
     },
     {
+      "id": "c0fcbcd1-c86a-5d47-9144-001b6ec1f518",
+      "name": "A1 Group",
+      "domain": null,
+      "industry": "Technology",
+      "headquarters": null,
+      "employee_count": 17000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/a1-unifying-hr-processes-cloud-based-solution.html"
+    },
+    {
+      "id": "7e44bded-da78-545a-ae07-fb8d8d6e8563",
+      "name": "abrdn",
+      "domain": null,
+      "industry": "Financial Services",
+      "headquarters": null,
+      "employee_count": 5000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/abrdn-keeps-all-eyes-on-future-investment.html"
+    },
+    {
       "id": "f51f6c35-229a-5f15-8ae1-eae30e5f6dbf",
       "name": "Affin Bank",
       "domain": null,
@@ -34,6 +54,16 @@
       "source": "https://www.workday.com/en-us/customer-stories/a-h/aia-lays-foundation-data-driven-hr.html"
     },
     {
+      "id": "803efcb6-1347-5ad7-ba39-6051ed1fb5c9",
+      "name": "Air Liquide",
+      "domain": null,
+      "industry": "Manufacturing",
+      "headquarters": null,
+      "employee_count": 66000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/air-liquide-hr-digital-transformation-talent-focus.html"
+    },
+    {
       "id": "6f8ab56d-76be-5c54-85e2-801fc4930725",
       "name": "Aliaxis",
       "domain": null,
@@ -52,6 +82,16 @@
       "employee_count": 16500,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/a-h/amadeus-changing-mindsets-while-remaining-true-to-core.html"
+    },
+    {
+      "id": "d5689f2d-d89e-54bc-96d9-c3700b0c7e4a",
+      "name": "Asda",
+      "domain": null,
+      "industry": "Retail",
+      "headquarters": null,
+      "employee_count": 150000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/asda-transforms-hr-at-scale-workday-hcm.html"
     },
     {
       "id": "552a8920-947a-5a1d-8c0e-03267663ebd1",
@@ -184,6 +224,16 @@
       "source": "https://www.workday.com/en-us/customer-stories/a-h/ai-and-ml-technologies-empower-ferring.html"
     },
     {
+      "id": "fc4bdc61-c1d7-5d37-ad30-a9e84761c4c0",
+      "name": "Flix",
+      "domain": null,
+      "industry": "Transportation",
+      "headquarters": null,
+      "employee_count": 5600,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/flix-transforms-global-planning-with-workday.html"
+    },
+    {
       "id": "2edf52e7-25ec-5084-9671-487fcf595917",
       "name": "Freudenberg Group",
       "domain": null,
@@ -244,6 +294,26 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/iu-group-facilitates-sustained-growth-with-workday.html"
     },
     {
+      "id": "bc2ae135-27a4-556c-aadd-a7ee06699451",
+      "name": "JLL",
+      "domain": null,
+      "industry": "Financial Services",
+      "headquarters": null,
+      "employee_count": 114000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/jll-singapore-uses-ai-to-empower-agile-workforce.html"
+    },
+    {
+      "id": "56731dc9-e070-5ca3-8730-53a7819e440a",
+      "name": "John Muir Health",
+      "domain": null,
+      "industry": "Healthcare",
+      "headquarters": null,
+      "employee_count": 6000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/john-muir-health-gains-efficiency-single-finance-hr-system.html"
+    },
+    {
       "id": "60231dd9-6c95-525a-b60b-d18137152a73",
       "name": "Johnson Electric",
       "domain": null,
@@ -262,6 +332,16 @@
       "employee_count": 10000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/i-p/kgi-financial-creates-sought-after-workplace.html"
+    },
+    {
+      "id": "d6abfb39-4e7c-5d56-a2e8-3af7afb3c277",
+      "name": "Land O’Lakes",
+      "domain": null,
+      "industry": "Retail",
+      "headquarters": null,
+      "employee_count": 9000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/land-o-lakes-saves-time-payroll-boosts-compliance.html"
     },
     {
       "id": "c4b2055d-c231-5a32-8246-25335ace9da9",
@@ -284,6 +364,16 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/levi-strauss-drives-innovation-with-workday.html"
     },
     {
+      "id": "5aa11642-a518-55cd-bd58-15f13429e058",
+      "name": "Maisons du Monde",
+      "domain": null,
+      "industry": "Retail",
+      "headquarters": null,
+      "employee_count": 8000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/driving-transformation-to-scale-talent-and-culture.html"
+    },
+    {
       "id": "4b3ed735-c4f4-5c62-bdd1-ab5c6f580be7",
       "name": "Medtronic",
       "domain": null,
@@ -292,6 +382,16 @@
       "employee_count": 100000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/i-p/medtronic-complexity-into-clarity-conversational-ai.html"
+    },
+    {
+      "id": "3b08e722-9790-55ee-911f-eb0e89bd4ac1",
+      "name": "Memorial Healthcare System",
+      "domain": null,
+      "industry": "Healthcare",
+      "headquarters": null,
+      "employee_count": 17000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/memorial-healthcare-system-elevates-patient-care.html"
     },
     {
       "id": "00e6f2f2-171e-5cd9-9776-93e13ac0a3fb",
@@ -314,6 +414,16 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/msd-biopharmaceutical-maps-skills-existing-talent.html"
     },
     {
+      "id": "7a1ae9f8-8328-5112-a5b2-e44389adf93f",
+      "name": "Norconsult",
+      "domain": null,
+      "industry": "Professional and Business Services",
+      "headquarters": null,
+      "employee_count": 3800,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/norconsult-runs-more-efficiently-hr-automation.html"
+    },
+    {
       "id": "b407f588-c9d3-5166-995c-f3de60ee5c27",
       "name": "NVIDIA",
       "domain": null,
@@ -334,6 +444,16 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/ono-pharmaceutical-evolves-its-hr-management-globally.html"
     },
     {
+      "id": "54729602-95a9-50bf-b65d-d375df11c642",
+      "name": "Otis",
+      "domain": null,
+      "industry": "Manufacturing",
+      "headquarters": null,
+      "employee_count": 68000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/otis-extend-elevated-commitment-to-better-world.html"
+    },
+    {
       "id": "3fb3afbb-7a0f-5036-be75-3dde891191a1",
       "name": "Portland General Electric",
       "domain": null,
@@ -342,6 +462,16 @@
       "employee_count": 3000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/i-p/portland-general-electric-sustainable-renewal.html"
+    },
+    {
+      "id": "d0b6dc81-28c6-5d75-9445-52032c75ea3f",
+      "name": "Posti Group",
+      "domain": null,
+      "industry": "Other",
+      "headquarters": null,
+      "employee_count": 17000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/creating-a-unified-culture-through-support-of-the-right-platform.html"
     },
     {
       "id": "34d06ced-211d-595b-80e7-e86ce410903a",
@@ -394,6 +524,26 @@
       "source": "https://www.workday.com/en-us/customer-stories/q-z/sagility-adopts-intelligent-decision-making-rapid-growth.html"
     },
     {
+      "id": "1d3c6696-d69f-5fdc-b408-2acfe1698038",
+      "name": "Scandic",
+      "domain": null,
+      "industry": "Hospitality",
+      "headquarters": null,
+      "employee_count": 18000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/scandic-standardizes-hr-processes-scales.html"
+    },
+    {
+      "id": "c148a9b2-d440-566f-adbc-30c253387d53",
+      "name": "Shake Shack",
+      "domain": null,
+      "industry": "Hospitality",
+      "headquarters": null,
+      "employee_count": 7700,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/shake-shack-turns-fast-food-into-fast-business-growth.html"
+    },
+    {
       "id": "3c87bbb2-782c-50c5-b416-fcf672dfa9d9",
       "name": "SoftServe",
       "domain": null,
@@ -432,6 +582,16 @@
       "employee_count": 17000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/q-z/st-john-of-god-health-care-honors-its-evp.html"
+    },
+    {
+      "id": "1e7ad73f-eea9-55af-9d8c-26b846ffb2ed",
+      "name": "St. Luke's University Health Network",
+      "domain": null,
+      "industry": "Healthcare",
+      "headquarters": null,
+      "employee_count": 18000,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/st-lukes-university-health-network-improve-retention.html"
     },
     {
       "id": "0f5a3b7b-a2f9-5a2b-bc81-72fc8a8074d5",
@@ -484,6 +644,16 @@
       "source": "https://www.workday.com/en-us/customer-stories/q-z/veolia-group-seamless-launch-new-finance-HR-system.html"
     },
     {
+      "id": "273c8483-a7d0-5601-975c-9640b8e555af",
+      "name": "Washington State University",
+      "domain": null,
+      "industry": "Education",
+      "headquarters": null,
+      "employee_count": 13500,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/washington-state-university-greater-r1-research-success.html"
+    },
+    {
       "id": "9f597da8-b270-522d-9b8d-60f880df7be7",
       "name": "Wawa",
       "domain": null,
@@ -504,26 +674,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/q-z/yokogawa-electric-transforms-hr-data-ai-personalization.html"
     },
     {
-      "id": "c0fcbcd1-c86a-5d47-9144-001b6ec1f518",
-      "name": "A1 Group",
-      "domain": null,
-      "industry": "Technology",
-      "headquarters": null,
-      "employee_count": 17000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/a1-unifying-hr-processes-cloud-based-solution.html"
-    },
-    {
-      "id": "7e44bded-da78-545a-ae07-fb8d8d6e8563",
-      "name": "abrdn",
-      "domain": null,
-      "industry": "Financial Services",
-      "headquarters": null,
-      "employee_count": 5000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/abrdn-keeps-all-eyes-on-future-investment.html"
-    },
-    {
       "id": "28f1118b-1f41-53c3-bc32-ae8b8ea7ec80",
       "name": "Adeo",
       "domain": null,
@@ -542,26 +692,6 @@
       "employee_count": 9000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/a-h/advantech-builds-flexible-mobile-global-workforce.html"
-    },
-    {
-      "id": "803efcb6-1347-5ad7-ba39-6051ed1fb5c9",
-      "name": "Air Liquide",
-      "domain": null,
-      "industry": "Manufacturing",
-      "headquarters": null,
-      "employee_count": 66000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/air-liquide-hr-digital-transformation-talent-focus.html"
-    },
-    {
-      "id": "d5689f2d-d89e-54bc-96d9-c3700b0c7e4a",
-      "name": "Asda",
-      "domain": null,
-      "industry": "Retail",
-      "headquarters": null,
-      "employee_count": 150000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/asda-transforms-hr-at-scale-workday-hcm.html"
     },
     {
       "id": "db71855e-9dd9-542a-8da9-647042bab6ea",
@@ -654,16 +784,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/a-h/flex-maintains-simplicity-single-system-global-workforce.html"
     },
     {
-      "id": "fc4bdc61-c1d7-5d37-ad30-a9e84761c4c0",
-      "name": "Flix",
-      "domain": null,
-      "industry": "Transportation",
-      "headquarters": null,
-      "employee_count": 5600,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/flix-transforms-global-planning-with-workday.html"
-    },
-    {
       "id": "a15d3d64-345e-52e9-98e6-c64abd59746a",
       "name": "Florida Atlantic University",
       "domain": null,
@@ -724,26 +844,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/jardine-matheson-data-driven-excellence.html"
     },
     {
-      "id": "bc2ae135-27a4-556c-aadd-a7ee06699451",
-      "name": "JLL",
-      "domain": null,
-      "industry": "Financial Services",
-      "headquarters": null,
-      "employee_count": 114000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/jll-singapore-uses-ai-to-empower-agile-workforce.html"
-    },
-    {
-      "id": "56731dc9-e070-5ca3-8730-53a7819e440a",
-      "name": "John Muir Health",
-      "domain": null,
-      "industry": "Healthcare",
-      "headquarters": null,
-      "employee_count": 6000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/john-muir-health-gains-efficiency-single-finance-hr-system.html"
-    },
-    {
       "id": "3462609e-b445-55f7-b42c-b9d714516846",
       "name": "Kolmar Holdings",
       "domain": null,
@@ -754,16 +854,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/kolmar-digital-transformation-employee-experience.html"
     },
     {
-      "id": "d6abfb39-4e7c-5d56-a2e8-3af7afb3c277",
-      "name": "Land O’Lakes",
-      "domain": null,
-      "industry": "Retail",
-      "headquarters": null,
-      "employee_count": 9000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/land-o-lakes-saves-time-payroll-boosts-compliance.html"
-    },
-    {
       "id": "e963b98a-6dde-52a1-a82a-c5a4b8ba9e20",
       "name": "Li & Fung",
       "domain": null,
@@ -772,16 +862,6 @@
       "employee_count": 5000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/i-p/li-fung-embeds-agility-adapt-changing-environments.html"
-    },
-    {
-      "id": "5aa11642-a518-55cd-bd58-15f13429e058",
-      "name": "Maisons du Monde",
-      "domain": null,
-      "industry": "Retail",
-      "headquarters": null,
-      "employee_count": 8000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/driving-transformation-to-scale-talent-and-culture.html"
     },
     {
       "id": "37342b6c-13ee-5365-b43f-675c0ea5db85",
@@ -802,16 +882,6 @@
       "employee_count": 6000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/i-p/melitta-filtering-complexity-with-workday.html"
-    },
-    {
-      "id": "3b08e722-9790-55ee-911f-eb0e89bd4ac1",
-      "name": "Memorial Healthcare System",
-      "domain": null,
-      "industry": "Healthcare",
-      "headquarters": null,
-      "employee_count": 17000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/memorial-healthcare-system-elevates-patient-care.html"
     },
     {
       "id": "a42a4a1a-63a0-57dd-b7b4-7a3477c93234",
@@ -844,16 +914,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/moongy-enriched-experience-increased-fluidity.html"
     },
     {
-      "id": "7a1ae9f8-8328-5112-a5b2-e44389adf93f",
-      "name": "Norconsult",
-      "domain": null,
-      "industry": "Professional and Business Services",
-      "headquarters": null,
-      "employee_count": 3800,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/norconsult-runs-more-efficiently-hr-automation.html"
-    },
-    {
       "id": "a271f381-d15b-50cc-9ee9-e892d33d414c",
       "name": "NZ Transport Agency",
       "domain": null,
@@ -864,16 +924,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/i-p/nzta-gains-real-time-visibility.html"
     },
     {
-      "id": "54729602-95a9-50bf-b65d-d375df11c642",
-      "name": "Otis",
-      "domain": null,
-      "industry": "Manufacturing",
-      "headquarters": null,
-      "employee_count": 68000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/otis-extend-elevated-commitment-to-better-world.html"
-    },
-    {
       "id": "582998d4-a063-5853-bbe6-f488327f8e5c",
       "name": "Parques Reunidos",
       "domain": null,
@@ -882,16 +932,6 @@
       "employee_count": 18000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/i-p/parques-reunidos-transforms-hr-finance-with-workday.html"
-    },
-    {
-      "id": "d0b6dc81-28c6-5d75-9445-52032c75ea3f",
-      "name": "Posti Group",
-      "domain": null,
-      "industry": "Other",
-      "headquarters": null,
-      "employee_count": 17000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/creating-a-unified-culture-through-support-of-the-right-platform.html"
     },
     {
       "id": "59c4c900-2919-50ab-ba25-1dc7fd8af6eb",
@@ -924,16 +964,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/q-z/roswell-park-discovers-better-processes-insight-outcomes.html"
     },
     {
-      "id": "1d3c6696-d69f-5fdc-b408-2acfe1698038",
-      "name": "Scandic",
-      "domain": null,
-      "industry": "Hospitality",
-      "headquarters": null,
-      "employee_count": 18000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/scandic-standardizes-hr-processes-scales.html"
-    },
-    {
       "id": "5ec9bee4-793b-5831-8613-a7fb8ffe4045",
       "name": "SGS",
       "domain": null,
@@ -944,16 +974,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/q-z/sgs-unifies-employee-experience.html"
     },
     {
-      "id": "c148a9b2-d440-566f-adbc-30c253387d53",
-      "name": "Shake Shack",
-      "domain": null,
-      "industry": "Hospitality",
-      "headquarters": null,
-      "employee_count": 7700,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/shake-shack-turns-fast-food-into-fast-business-growth.html"
-    },
-    {
       "id": "df141ae3-8162-549f-ba1e-2a4d2c3280b1",
       "name": "SS&C Technologies",
       "domain": null,
@@ -962,16 +982,6 @@
       "employee_count": 27000,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/q-z/collaboration-leads-to-better-service-for-ssc-clients.html"
-    },
-    {
-      "id": "1e7ad73f-eea9-55af-9d8c-26b846ffb2ed",
-      "name": "St. Luke's University Health Network",
-      "domain": null,
-      "industry": "Healthcare",
-      "headquarters": null,
-      "employee_count": 18000,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/st-lukes-university-health-network-improve-retention.html"
     },
     {
       "id": "094b7420-2082-53c5-a3df-130ed6e95cfc",
@@ -1014,16 +1024,6 @@
       "source": "https://www.workday.com/en-us/customer-stories/q-z/university-of-queensland-data-automation-student-experience.html"
     },
     {
-      "id": "273c8483-a7d0-5601-975c-9640b8e555af",
-      "name": "Washington State University",
-      "domain": null,
-      "industry": "Education",
-      "headquarters": null,
-      "employee_count": 13500,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/washington-state-university-greater-r1-research-success.html"
-    },
-    {
       "id": "031cda41-d7cb-5797-b599-5e28bcc363a5",
       "name": "Banner Health",
       "domain": null,
@@ -1032,6 +1032,16 @@
       "employee_count": null,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/a-h/banner-health-efficient-workforce-with-workday-vndly.html"
+    },
+    {
+      "id": "61cb52d7-9836-502d-aa20-b696cfac4fa3",
+      "name": "Cinemark",
+      "domain": null,
+      "industry": "Hospitality",
+      "headquarters": null,
+      "employee_count": null,
+      "workday_signal_date": null,
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/cinemark-spotlights-employee-recruiting-retention.html"
     },
     {
       "id": "d61013b8-dfbd-5c63-bf4b-53608c4db63a",
@@ -1062,16 +1072,6 @@
       "employee_count": null,
       "workday_signal_date": null,
       "source": "https://www.workday.com/en-us/customer-stories/q-z/target-extend-apps-for-unique-business-needs.html"
-    },
-    {
-      "id": "61cb52d7-9836-502d-aa20-b696cfac4fa3",
-      "name": "Cinemark",
-      "domain": null,
-      "industry": "Hospitality",
-      "headquarters": null,
-      "employee_count": null,
-      "workday_signal_date": null,
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/cinemark-spotlights-employee-recruiting-retention.html"
     },
     {
       "id": "59173e6a-ad62-53b0-99b4-d92654e5d954",
@@ -1106,12 +1106,354 @@
   ],
   "contacts": [
     {
+      "id": "3c976ae5-2d32-592d-9182-467634525b4d",
+      "company_id": "803efcb6-1347-5ad7-ba39-6051ed1fb5c9",
+      "name": "Amelia Irion",
+      "title": "Group Vice President, Human Resources",
+      "linkedin_url": "https://www.linkedin.com/in/amelia-irion-450561",
+      "source": "https://www.airliquide.com/group/executive-committee",
+      "mutual_connection": null
+    },
+    {
+      "id": "7b6efa21-c505-5f6b-abe8-ab0a43b53d65",
+      "company_id": "d0b6dc81-28c6-5d75-9445-52032c75ea3f",
+      "name": "Anna Kuusisto",
+      "title": "Senior Vice President, People, Communications and Sustainability",
+      "linkedin_url": "https://www.linkedin.com/in/annakuusisto",
+      "source": "https://www.posti.com/en/investors/leadership-team",
+      "mutual_connection": null
+    },
+    {
+      "id": "0b3c7ff9-aebf-5c5d-8708-0ad5db1417d6",
+      "company_id": "fc4bdc61-c1d7-5d37-ad30-a9e84761c4c0",
+      "name": "Daniel Krauss",
+      "title": "Chief Information Officer & Chief HR Officer",
+      "linkedin_url": "https://www.linkedin.com/in/danielmkrauss",
+      "source": "https://corporate.flix.com/flix-management-leadership-team/",
+      "mutual_connection": null
+    },
+    {
+      "id": "33905bb8-95e3-575f-88b7-48009511c426",
+      "company_id": "1d3c6696-d69f-5fdc-b408-2acfe1698038",
+      "name": "Elin Ekrol",
+      "title": "Interim Chief HR Officer & Director of HR Operations",
+      "linkedin_url": "https://www.linkedin.com/in/elin-ekrol-6b803319",
+      "source": "https://www.scandichotelsgroup.com/our-company/organisation-and-management/executive-committee/",
+      "mutual_connection": null
+    },
+    {
+      "id": "00c498f2-696e-505d-87fd-206eb227cc3e",
+      "company_id": "c0fcbcd1-c86a-5d47-9144-001b6ec1f518",
+      "name": "Eva Zehetner",
+      "title": "Director Group HR",
+      "linkedin_url": "https://www.linkedin.com/in/evazehetner",
+      "source": "https://a1.com/management/",
+      "mutual_connection": null
+    },
+    {
+      "id": "09fc4b11-a370-5851-8db1-ab7efa582a20",
+      "company_id": "1e7ad73f-eea9-55af-9d8c-26b846ffb2ed",
+      "name": "Evan Ochs",
+      "title": "Senior Vice President and Chief Human Resources Officer",
+      "linkedin_url": "https://www.linkedin.com/in/evanbeererochs",
+      "source": "https://www.slhn.org/about/leadership/executive-leadership",
+      "mutual_connection": null
+    },
+    {
+      "id": "b734027f-d7a1-5b71-ba00-6ec352a5c300",
+      "company_id": "5aa11642-a518-55cd-bd58-15f13429e058",
+      "name": "Ingrid Crambes-Tisserand",
+      "title": "Chief Human Resources Officer",
+      "linkedin_url": "https://www.linkedin.com/in/ingrid-crambes-tisserand-804ba416",
+      "source": "https://corporate.maisonsdumonde.com/en/about-us/our-governance",
+      "mutual_connection": null
+    },
+    {
+      "id": "3037bc94-8f31-585d-9433-57214b45dcad",
+      "company_id": "d5689f2d-d89e-54bc-96d9-c3700b0c7e4a",
+      "name": "James Goodman",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/james-goodman-a605794",
+      "source": "https://corporate.asda.com/leadership/james-goodman",
+      "mutual_connection": null
+    },
+    {
+      "id": "5a6fdfbe-476e-55f4-a491-ec3eb77aa9f1",
+      "company_id": "c148a9b2-d440-566f-adbc-30c253387d53",
+      "name": "Jamie Griffin",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/jamiejgriffin",
+      "source": "https://www.linkedin.com/posts/shakeshack_news-we-are-thrilled-to-welcome-jamie-activity-7350629486427602945-R0BW",
+      "mutual_connection": null
+    },
+    {
+      "id": "ad6aa95b-bb6f-5bbd-a887-b27025dddf88",
+      "company_id": "273c8483-a7d0-5601-975c-9640b8e555af",
+      "name": "Jennifer Klein",
+      "title": "Vice President and Chief Human Resource Officer",
+      "linkedin_url": "https://www.linkedin.com/in/jennifer-klein-phr-27619720",
+      "source": "https://hrs.wsu.edu/resources/hrs-leadership/",
+      "mutual_connection": null
+    },
+    {
+      "id": "3bae9c49-d409-5596-bffa-ff5e55b1f583",
+      "company_id": "d6abfb39-4e7c-5d56-a2e8-3af7afb3c277",
+      "name": "Julie Sexton",
+      "title": "Senior Vice President & Chief Human Resources Officer",
+      "linkedin_url": "https://www.linkedin.com/in/julie-sexton",
+      "source": "https://www.landolakesinc.com/who-we-are/leadership/",
+      "mutual_connection": null
+    },
+    {
+      "id": "cc1c0cd4-26e5-5a4b-a323-4c27c0f79ab5",
+      "company_id": "54729602-95a9-50bf-b65d-d375df11c642",
+      "name": "Kim Gosk",
+      "title": "Executive Vice President & Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/kim-gosk-9850a83",
+      "source": "https://www.otis.com/en/us/our-company/our-leadership",
+      "mutual_connection": null
+    },
+    {
+      "id": "5bced6f1-7e65-5b6c-82da-8e8c5677f397",
+      "company_id": "bc2ae135-27a4-556c-aadd-a7ee06699451",
+      "name": "Laura Adams",
+      "title": "Chief Human Resources Officer",
+      "linkedin_url": "https://www.linkedin.com/in/laura-adams-a565658",
+      "source": "https://www.jll.com/en-uk/about-jll/leadership",
+      "mutual_connection": null
+    },
+    {
+      "id": "4ef0f32e-9222-5811-88f9-0d213ea6836a",
+      "company_id": "3b08e722-9790-55ee-911f-eb0e89bd4ac1",
+      "name": "Margie Vargas",
+      "title": "Senior Vice President and Chief Human Resources Officer",
+      "linkedin_url": "https://www.linkedin.com/in/margie-vargas-64844227",
+      "source": "https://www.mhs.net/about/leadership/leadership-team",
+      "mutual_connection": null
+    },
+    {
+      "id": "adab3086-f23e-5678-b210-0937f2c7dbb1",
+      "company_id": "7a1ae9f8-8328-5112-a5b2-e44389adf93f",
+      "name": "Marisa Ruiz Retamar",
+      "title": "Executive Vice President, People & Culture",
+      "linkedin_url": "https://www.linkedin.com/in/marisa-ruiz-retamar",
+      "source": "https://investor.norconsult.com/corporate-governance/executive-management-team/",
+      "mutual_connection": null
+    },
+    {
+      "id": "46667d83-8e91-57b3-b01e-f5abe506c485",
+      "company_id": "56731dc9-e070-5ca3-8730-53a7819e440a",
+      "name": "Rebekah Martinek-Williams",
+      "title": "Senior Vice President, Chief People and Engagement Officer",
+      "linkedin_url": "https://www.linkedin.com/in/rebekah-martinek-williams-242a343",
+      "source": "https://www.johnmuirhealth.com/about-john-muir-health/executive-team",
+      "mutual_connection": null
+    },
+    {
+      "id": "a20d191e-7a55-5999-80dd-25e9df431a0a",
+      "company_id": "56731dc9-e070-5ca3-8730-53a7819e440a",
+      "name": "Sanjib Dutt",
+      "title": "Chief Information Officer",
+      "linkedin_url": "https://www.linkedin.com/in/sanjibdutt",
+      "source": "https://www.johnmuirhealth.com/about-john-muir-health/executive-team",
+      "mutual_connection": null
+    },
+    {
+      "id": "15831dd1-7bdc-5e3c-a5ad-97ac72a8adb9",
+      "company_id": "61cb52d7-9836-502d-aa20-b696cfac4fa3",
+      "name": "Sid Srivastava",
+      "title": "Executive Vice President, Human Resources",
+      "linkedin_url": "https://www.linkedin.com/in/sidsriv",
+      "source": "https://careers.cinemark.com/why-cinemark/about",
+      "mutual_connection": null
+    },
+    {
+      "id": "09108f67-6c9a-5581-9aba-416bcf1c3bff",
+      "company_id": "7e44bded-da78-545a-ae07-fb8d8d6e8563",
+      "name": "Tracey Hahn",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/traceyehahn",
+      "source": "https://www.aberdeenplc.com/en-gb/about-us/our-leadership-team",
+      "mutual_connection": null
+    },
+    {
+      "id": "4f501cdb-4f7e-56bc-a04f-545147aac551",
+      "company_id": "00e6f2f2-171e-5cd9-9776-93e13ac0a3fb",
+      "name": "Aaron Colley",
+      "title": "Workday Technology Lead and HR Solution Architect",
+      "linkedin_url": "https://www.linkedin.com/in/aaron-colley-18a1743",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/mondelez-faster-integrations-make-tasty-profits.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "0f8cfde3-3f6b-5ad3-b3a9-0d1b398db334",
+      "company_id": "fd1944dc-6a8e-5075-bed9-2ae50cad52c5",
+      "name": "Abhishek Jain",
+      "title": "HRIS Director",
+      "linkedin_url": "https://www.linkedin.com/in/abhishek-jain-54a27ba",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/concentrix-streamlines-hiring-onboarding.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "6aaa8c85-54de-51a4-9a44-4cfefd6a3843",
+      "company_id": "29b4e402-901c-57df-8ea5-10c20a610b88",
+      "name": "Alvin Valeriano",
+      "title": "Global Director, Data Planning and Management COE",
+      "linkedin_url": "https://www.linkedin.com/in/alvinvaleriano",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/yokogawa-electric-transforms-hr-data-ai-personalization.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "da8f5d84-53b3-5729-be8c-59d2b6582adf",
+      "company_id": "82b3841c-eda7-5305-9304-7a996184259c",
+      "name": "Andy Omann",
+      "title": "Director of Engineering",
+      "linkedin_url": "https://www.linkedin.com/in/andy-omann-b9827b",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/target-extend-apps-for-unique-business-needs.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "33cc6c2d-3d67-5bb1-a203-2fe220bb01ef",
+      "company_id": "354673ea-47f9-5871-8a88-26d9a239085b",
+      "name": "Anton Ketelaars",
+      "title": "Global HR Leader, Processes & Solutions",
+      "linkedin_url": "https://www.linkedin.com/in/antonketelaars",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/bdr-thermea-revolutionizes-hr-sustainable-future.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "b19804bc-70de-5d00-9f72-58eabdd064a5",
+      "company_id": "36890587-f5bf-59af-ad10-f62c4b822862",
+      "name": "Ashley Kruse",
+      "title": "Manager of HR Technology and Automation",
+      "linkedin_url": "https://www.linkedin.com/in/ashley-kruse-6613b22a",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/3m-extend-global-product-powerhouse.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "9e2b514d-acd3-5c65-9973-d0a3c428981a",
+      "company_id": "b407f588-c9d3-5166-995c-f3de60ee5c27",
+      "name": "Brad Staresnick",
+      "title": "HR Technology Architect",
+      "linkedin_url": "https://www.linkedin.com/in/brad-staresnick",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/nvidia-hires-game-changers.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "e9603611-b42a-57df-a227-fce2f681aa7e",
+      "company_id": "01e66a13-d283-55ca-9980-5e402299fcea",
+      "name": "Carla Bonev",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/carla-salvador-bonev-b4537216",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/st-john-of-god-health-care-honors-its-evp.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "f71469c6-4628-5f59-8c3b-de67a657420a",
+      "company_id": "3fb3afbb-7a0f-5036-be75-3dde891191a1",
+      "name": "Carmen Milashouskas",
+      "title": "Manager of HR Strategy and Operations",
+      "linkedin_url": "https://www.linkedin.com/in/carmen-milashouskas-6bb41215",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/portland-general-electric-sustainable-renewal.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "7c097f67-a7fe-5185-b13b-cd43c28bc38a",
+      "company_id": "5b50ed55-6726-53a5-9dde-839f3e084429",
+      "name": "ChangWan Park",
+      "title": "Head of Global HR",
+      "linkedin_url": "https://www.linkedin.com/in/changwan-park-551138a3",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/celltrion-unifies-hr-manages-talent-drives-growth.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "51b1f68f-5dbc-5ac5-a77f-e8b0b5c4ec9b",
+      "company_id": "60231dd9-6c95-525a-b60b-d18137152a73",
+      "name": "Christian Moeller",
+      "title": "Chief Human Resources Officer",
+      "linkedin_url": "https://www.linkedin.com/in/christian-moeller-8199a68",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/johnson-electric-explores-future-hr-era-genai.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "c116b7b1-825d-51b2-9a56-58f42c273d2e",
+      "company_id": "81e53346-4db1-5a34-9dd8-77ee0746e7b1",
+      "name": "Daniela Lindenberg",
+      "title": "Workday Platform Team Lead",
+      "linkedin_url": "https://www.linkedin.com/in/daniela-lindenberg",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/iu-group-facilitates-sustained-growth-with-workday.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "28248fba-9a18-5919-9a4a-4471cbbbb3eb",
+      "company_id": "a5e79ea9-0935-5909-a36d-48600599fb62",
+      "name": "Darren Fewster",
+      "title": "Transformation, Communications & People Executive",
+      "linkedin_url": "https://www.linkedin.com/in/darren-fewster-b5774a3",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/telstra-how-planning-empower-motivate-agile-organization.html",
+      "mutual_connection": null
+    },
+    {
       "id": "7dbbf468-0d99-5dec-b07d-3b0280432f61",
       "company_id": "c16783e2-b38a-5bd1-9cdd-aee9a826b833",
       "name": "Denise Ferguson",
       "title": "Assistant Vice President of People and Communications Technology",
       "linkedin_url": "https://www.linkedin.com/in/denise-ferguson-62933b",
       "source": "https://www.workday.com/en-us/customer-stories/q-z/unum-benefits-provider-HR-achievement-badge-app.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "1a6ab637-c750-5768-826e-4e6a04d9f0bc",
+      "company_id": "f51f6c35-229a-5f15-8ae1-eae30e5f6dbf",
+      "name": "Dr. Syukri Sudari",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/syukri-sudari",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/affin-bank-fostering-workplace-where-ideas-flourish.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "8c85fc16-66bd-5848-82a0-b3d0aefcff9e",
+      "company_id": "44c3c931-a5ca-5899-ace8-4de96269c36c",
+      "name": "Eric Ervin",
+      "title": "Executive Director, HR Technology Solutions and Strategy",
+      "linkedin_url": "https://www.linkedin.com/in/eric-ervin-229b74",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/msd-biopharmaceutical-maps-skills-existing-talent.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "c036f0bc-0d52-5fd8-b108-c740ac41f92a",
+      "company_id": "28b86c2d-b75e-564c-a3c1-2b3b56d8d8ee",
+      "name": "Esther Schümann",
+      "title": "Vice President People Technology & AI",
+      "linkedin_url": "https://www.linkedin.com/in/esther-s-2b6a001a4",
+      "source": "https://www.linkedin.com/posts/esther-s-2b6a001a4_since-stepping-into-my-new-role-as-vice-president-activity-7417970948080959488-bRPs",
+      "mutual_connection": null
+    },
+    {
+      "id": "092e9168-b631-5913-a751-fe891e75d7a9",
+      "company_id": "c4b2055d-c231-5a32-8246-25335ace9da9",
+      "name": "Francesco Rogo",
+      "title": "CIO",
+      "linkedin_url": "https://www.linkedin.com/in/francesco-rogo-b4278727",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/leonardo-enhances-business-cohesion-common-language.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "e7286d00-c5f7-57a7-bc89-37b4ee6db6d6",
+      "company_id": "31981bd6-f31c-599c-b080-71099efd4004",
+      "name": "Gianluca Richi",
+      "title": "HRIS Lead",
+      "linkedin_url": "https://www.linkedin.com/in/gianlucarichi",
+      "source": "https://be.linkedin.com/in/gianlucarichi",
+      "mutual_connection": null
+    },
+    {
+      "id": "f6544a54-f6a9-514c-9d09-61bf25cb5eea",
+      "company_id": "5f220800-f82b-5fff-bc0a-da70f811366f",
+      "name": "Ingvild Bjerke Fosse",
+      "title": "Manager HR Tech",
+      "linkedin_url": "https://www.linkedin.com/in/ingvild-bjerke-fosse-122244153",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/sopra-steria-drive-hr-excellence-with-data-analytics.html",
       "mutual_connection": null
     },
     {
@@ -1124,12 +1466,174 @@
       "mutual_connection": null
     },
     {
-      "id": "6e88f02c-344a-5129-9b37-ca1c132a8814",
-      "company_id": "f3f8581b-b489-5a20-a507-0039d20a69d3",
-      "name": "Patricia de la Fuente Fernández",
-      "title": "Global Head of HR Technology",
-      "linkedin_url": "https://www.linkedin.com/in/patriciadelafuente",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/amadeus-changing-mindsets-while-remaining-true-to-core.html",
+      "id": "6ac561a8-e41d-5784-af96-5ce833d5fa64",
+      "company_id": "f72c302d-8220-5b51-bb34-8678fd7cdea1",
+      "name": "Jason Frank",
+      "title": "SVP Integrated Workforce & Operations Technology",
+      "linkedin_url": "https://www.linkedin.com/in/jason-frank",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/rochester-regional-health-lower-attrition-better-care.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "8fec4071-2845-5d31-81bc-4ab8103df239",
+      "company_id": "3bf17c01-c151-5d52-b6b8-94f2d32f14be",
+      "name": "Jennifer Hornery",
+      "title": "Senior Vice President of Global People & Culture",
+      "linkedin_url": "https://www.linkedin.com/in/jenniferhornery",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/cochlear-embeds-ai-in-its-hr-organization.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "ae8bbac4-6464-51b9-94ea-c6e6bf6c3839",
+      "company_id": "9f597da8-b270-522d-9b8d-60f880df7be7",
+      "name": "Jim McKnight",
+      "title": "Leader of HR Systems",
+      "linkedin_url": "https://www.linkedin.com/in/jamesmcknight",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/wawa-boosts-agility-efficiency-insights-fresh-hr-system.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "55a90f9d-cf16-5e53-b165-d66052976894",
+      "company_id": "8eac8553-a522-5ff3-99f2-13b6e51791f7",
+      "name": "Jürgen Schwenk",
+      "title": "Head of HR IT (international subsidiaries)",
+      "linkedin_url": "https://www.linkedin.com/in/juergenschwenk",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/db-cargos-journey-to-hr-excellence-with-workday.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "1a5bb1f2-5373-560c-8ef7-033536648723",
+      "company_id": "c6d1f296-daa5-54b6-a71f-f17105670e4a",
+      "name": "Kate Litchford",
+      "title": "Senior Manager, HRIS",
+      "linkedin_url": "https://www.linkedin.com/in/kate-litchford",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/cooper-standard-builds-agility-data-innovation.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "d274c7da-2615-5919-b204-a41f65990991",
+      "company_id": "2db82b39-effe-59bd-912a-a3df0af2f9d1",
+      "name": "Kerry Smith",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/kerrysmithj",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/british-heart-foundation-improved-talent-retention-skills.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "6446b891-c90f-582b-8db1-5c154809bcde",
+      "company_id": "15d16044-4b5a-5a79-8fe2-d7a79fe94db0",
+      "name": "Kiran Brar",
+      "title": "Chief Human Resource Officer",
+      "linkedin_url": "https://www.linkedin.com/in/kiran-brar-904289a",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/signify-illuminates-hr-transformation-with-workday.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "b49ce40f-2e42-59b6-b4cc-2dc476226f55",
+      "company_id": "03e0cd1e-7b4e-516d-98a2-bffb3485dcd2",
+      "name": "Kristen Constant",
+      "title": "Chief Information Officer",
+      "linkedin_url": "https://www.linkedin.com/in/kristen-constant-83b06919",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/iowa-state-university-graduate-green-screens-cloud.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "fc54c4ae-21df-5e2e-b991-c89e0c505842",
+      "company_id": "0df0af2a-ff75-5e4c-9a56-938187e4eeaf",
+      "name": "Kunal Mulchandani",
+      "title": "Director of Human Resources",
+      "linkedin_url": "https://www.linkedin.com/in/kunal-mulchandani-sphri-phri-8a705729",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/esf-unifies-hr-to-shape-future-of-education.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "f337f815-4328-5aae-a022-34729b3c0717",
+      "company_id": "4b3ed735-c4f4-5c62-bdd1-ab5c6f580be7",
+      "name": "Kunal Sethi",
+      "title": "VP, HR & Finance Digital Technologies and Enablement",
+      "linkedin_url": "https://www.linkedin.com/in/sethikunal",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/medtronic-complexity-into-clarity-conversational-ai.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "4f10c309-f554-5cb6-ba19-080d0ead4d3f",
+      "company_id": "d61013b8-dfbd-5c63-bf4b-53608c4db63a",
+      "name": "Kylie Riley",
+      "title": "People Tech & Portfolio Enablement Leader",
+      "linkedin_url": "https://www.linkedin.com/in/kylie-riley-3693647a",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/patagonia-unifies-its-workforce-to-drive-engagement-and-growth.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "b7c0af0e-a7d1-55e6-a465-d7145e3f7a10",
+      "company_id": "5ebefc64-8e92-5291-9ee9-df3ff6c1a9f8",
+      "name": "Leonard Lai",
+      "title": "Group Head of HR Transformation, Analytics & Governance",
+      "linkedin_url": "https://www.linkedin.com/in/leonard-lai-61b4554",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/aia-lays-foundation-data-driven-hr.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "1f9bfd74-6634-535d-8f10-bc07202088d3",
+      "company_id": "552a8920-947a-5a1d-8c0e-03267663ebd1",
+      "name": "Liam Hayes",
+      "title": "Chief People Officer",
+      "linkedin_url": "https://www.linkedin.com/in/liamhayes",
+      "source": "https://au.linkedin.com/in/liamhayes",
+      "mutual_connection": null
+    },
+    {
+      "id": "6ebdd20a-b1f4-5336-96b5-6f00425dddb2",
+      "company_id": "4ad1408b-29ea-5b97-8588-7c151ef58e8e",
+      "name": "Manish Dubey",
+      "title": "SVP & Global Head of Enterprise Technology",
+      "linkedin_url": "https://www.linkedin.com/in/manishrdubey",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/sagility-adopts-intelligent-decision-making-rapid-growth.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "4c96d98b-efe5-5e48-b32a-c6a3e91f91d4",
+      "company_id": "0c9a3679-c609-5441-bac6-3e2ecf163a62",
+      "name": "Manish Pandey",
+      "title": "Director of Enterprise Technology Services",
+      "linkedin_url": "https://www.linkedin.com/in/manishkpandey",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/rmit-leads-with-intelligent-digital-infrastructure.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "c1fc395b-573b-5aa0-89db-ee53d324f348",
+      "company_id": "fdae1414-9777-5775-9ed1-dc67d2aa5498",
+      "name": "Mark Eaglefield",
+      "title": "Head of Corporate Systems",
+      "linkedin_url": "https://www.linkedin.com/in/mark-eaglefield-30701b23",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/veolia-group-seamless-launch-new-finance-HR-system.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "18e34873-b28a-52cb-8993-c05b37622f62",
+      "company_id": "95ef7076-99ae-555d-915c-3f8c168651c3",
+      "name": "Melody Chen",
+      "title": "Executive Vice President and Chief HR Officer",
+      "linkedin_url": "https://www.linkedin.com/in/melody-chen-350a4b85",
+      "source": "https://www.workday.com/en-us/customer-stories/i-p/kgi-financial-creates-sought-after-workplace.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "55c25d4c-52b8-57dd-9048-106ae3fba08e",
+      "company_id": "abffd2dc-b473-5728-b47e-849d64d93460",
+      "name": "Merin Dalmo",
+      "title": "Head of People Digital Solutions",
+      "linkedin_url": "https://www.linkedin.com/in/merin-dalmo-59770a76",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/saab-from-transactional-hr-to-data-driven-intelligent.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "0bf99f1a-3580-5a28-aebc-b34476262cd1",
+      "company_id": "074b1f36-8d02-5d58-b2c8-864103766afc",
+      "name": "Michael Torti",
+      "title": "Process Excellence Consultant, Human Resources Productivity and Operations",
+      "linkedin_url": "https://www.linkedin.com/in/michael-torti",
+      "source": "https://www.workday.com/en-us/customer-stories/q-z/thermo-fisher-empowers-employees-to-do-their-best-work.html",
       "mutual_connection": null
     },
     {
@@ -1151,159 +1655,6 @@
       "mutual_connection": null
     },
     {
-      "id": "51b1f68f-5dbc-5ac5-a77f-e8b0b5c4ec9b",
-      "company_id": "60231dd9-6c95-525a-b60b-d18137152a73",
-      "name": "Christian Moeller",
-      "title": "Chief Human Resources Officer",
-      "linkedin_url": "https://www.linkedin.com/in/christian-moeller-8199a68",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/johnson-electric-explores-future-hr-era-genai.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "55c25d4c-52b8-57dd-9048-106ae3fba08e",
-      "company_id": "abffd2dc-b473-5728-b47e-849d64d93460",
-      "name": "Merin Dalmo",
-      "title": "Head of People Digital Solutions",
-      "linkedin_url": "https://www.linkedin.com/in/merin-dalmo-59770a76",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/saab-from-transactional-hr-to-data-driven-intelligent.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "c1fc395b-573b-5aa0-89db-ee53d324f348",
-      "company_id": "fdae1414-9777-5775-9ed1-dc67d2aa5498",
-      "name": "Mark Eaglefield",
-      "title": "Head of Corporate Systems",
-      "linkedin_url": "https://www.linkedin.com/in/mark-eaglefield-30701b23",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/veolia-group-seamless-launch-new-finance-HR-system.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "8fec4071-2845-5d31-81bc-4ab8103df239",
-      "company_id": "3bf17c01-c151-5d52-b6b8-94f2d32f14be",
-      "name": "Jennifer Hornery",
-      "title": "Senior Vice President of Global People & Culture",
-      "linkedin_url": "https://www.linkedin.com/in/jenniferhornery",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/cochlear-embeds-ai-in-its-hr-organization.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "b19804bc-70de-5d00-9f72-58eabdd064a5",
-      "company_id": "36890587-f5bf-59af-ad10-f62c4b822862",
-      "name": "Ashley Kruse",
-      "title": "Manager of HR Technology and Automation",
-      "linkedin_url": "https://www.linkedin.com/in/ashley-kruse-6613b22a",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/3m-extend-global-product-powerhouse.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "11363c34-0f9a-5c0c-b7e6-99f6abff35da",
-      "company_id": "6f8ab56d-76be-5c54-85e2-801fc4930725",
-      "name": "Veronique Van Middelem",
-      "title": "Global HR Solutions Program Lead",
-      "linkedin_url": "https://www.linkedin.com/in/verovanmiddelem",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/aliaxis-drives-digital-transformation.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "fc54c4ae-21df-5e2e-b991-c89e0c505842",
-      "company_id": "0df0af2a-ff75-5e4c-9a56-938187e4eeaf",
-      "name": "Kunal Mulchandani",
-      "title": "Director of Human Resources",
-      "linkedin_url": "https://www.linkedin.com/in/kunal-mulchandani-sphri-phri-8a705729",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/esf-unifies-hr-to-shape-future-of-education.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "4f10c309-f554-5cb6-ba19-080d0ead4d3f",
-      "company_id": "d61013b8-dfbd-5c63-bf4b-53608c4db63a",
-      "name": "Kylie Riley",
-      "title": "People Tech & Portfolio Enablement Leader",
-      "linkedin_url": "https://www.linkedin.com/in/kylie-riley-3693647a",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/patagonia-unifies-its-workforce-to-drive-engagement-and-growth.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "f6544a54-f6a9-514c-9d09-61bf25cb5eea",
-      "company_id": "5f220800-f82b-5fff-bc0a-da70f811366f",
-      "name": "Ingvild Bjerke Fosse",
-      "title": "Manager HR Tech",
-      "linkedin_url": "https://www.linkedin.com/in/ingvild-bjerke-fosse-122244153",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/sopra-steria-drive-hr-excellence-with-data-analytics.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "f71469c6-4628-5f59-8c3b-de67a657420a",
-      "company_id": "3fb3afbb-7a0f-5036-be75-3dde891191a1",
-      "name": "Carmen Milashouskas",
-      "title": "Manager of HR Strategy and Operations",
-      "linkedin_url": "https://www.linkedin.com/in/carmen-milashouskas-6bb41215",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/portland-general-electric-sustainable-renewal.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "c116b7b1-825d-51b2-9a56-58f42c273d2e",
-      "company_id": "81e53346-4db1-5a34-9dd8-77ee0746e7b1",
-      "name": "Daniela Lindenberg",
-      "title": "Workday Platform Team Lead",
-      "linkedin_url": "https://www.linkedin.com/in/daniela-lindenberg",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/iu-group-facilitates-sustained-growth-with-workday.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "fb2dcad1-a85d-5ae8-bf01-e5f0a2916e13",
-      "company_id": "031cda41-d7cb-5797-b599-5e28bcc363a5",
-      "name": "Sarah Keisling",
-      "title": "VP, Talent Management and HR Technology & Workforce Strategy",
-      "linkedin_url": "https://www.linkedin.com/in/sarahmkeisling",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/banner-health-efficient-workforce-with-workday-vndly.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "9e2b514d-acd3-5c65-9973-d0a3c428981a",
-      "company_id": "b407f588-c9d3-5166-995c-f3de60ee5c27",
-      "name": "Brad Staresnick",
-      "title": "HR Technology Architect",
-      "linkedin_url": "https://www.linkedin.com/in/brad-staresnick",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/nvidia-hires-game-changers.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "ae8bbac4-6464-51b9-94ea-c6e6bf6c3839",
-      "company_id": "9f597da8-b270-522d-9b8d-60f880df7be7",
-      "name": "Jim McKnight",
-      "title": "Leader of HR Systems",
-      "linkedin_url": "https://www.linkedin.com/in/jamesmcknight",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/wawa-boosts-agility-efficiency-insights-fresh-hr-system.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "33cc6c2d-3d67-5bb1-a203-2fe220bb01ef",
-      "company_id": "354673ea-47f9-5871-8a88-26d9a239085b",
-      "name": "Anton Ketelaars",
-      "title": "Global HR Leader, Processes & Solutions",
-      "linkedin_url": "https://www.linkedin.com/in/antonketelaars",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/bdr-thermea-revolutionizes-hr-sustainable-future.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "55a90f9d-cf16-5e53-b165-d66052976894",
-      "company_id": "8eac8553-a522-5ff3-99f2-13b6e51791f7",
-      "name": "Jürgen Schwenk",
-      "title": "Head of HR IT (international subsidiaries)",
-      "linkedin_url": "https://www.linkedin.com/in/juergenschwenk",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/db-cargos-journey-to-hr-excellence-with-workday.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "e9603611-b42a-57df-a227-fce2f681aa7e",
-      "company_id": "01e66a13-d283-55ca-9980-5e402299fcea",
-      "name": "Carla Bonev",
-      "title": "Chief People Officer",
-      "linkedin_url": "https://www.linkedin.com/in/carla-salvador-bonev-b4537216",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/st-john-of-god-health-care-honors-its-evp.html",
-      "mutual_connection": null
-    },
-    {
       "id": "5af559e3-13a4-5992-bded-1d3bfbd1da3a",
       "company_id": "3c87bbb2-782c-50c5-b416-fcf672dfa9d9",
       "name": "Orest Oleksovskyy",
@@ -1313,21 +1664,21 @@
       "mutual_connection": null
     },
     {
-      "id": "0f8cfde3-3f6b-5ad3-b3a9-0d1b398db334",
-      "company_id": "fd1944dc-6a8e-5075-bed9-2ae50cad52c5",
-      "name": "Abhishek Jain",
-      "title": "HRIS Director",
-      "linkedin_url": "https://www.linkedin.com/in/abhishek-jain-54a27ba",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/concentrix-streamlines-hiring-onboarding.html",
+      "id": "6e88f02c-344a-5129-9b37-ca1c132a8814",
+      "company_id": "f3f8581b-b489-5a20-a507-0039d20a69d3",
+      "name": "Patricia de la Fuente Fernández",
+      "title": "Global Head of HR Technology",
+      "linkedin_url": "https://www.linkedin.com/in/patriciadelafuente",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/amadeus-changing-mindsets-while-remaining-true-to-core.html",
       "mutual_connection": null
     },
     {
-      "id": "1a5bb1f2-5373-560c-8ef7-033536648723",
-      "company_id": "c6d1f296-daa5-54b6-a71f-f17105670e4a",
-      "name": "Kate Litchford",
-      "title": "Senior Manager, HRIS",
-      "linkedin_url": "https://www.linkedin.com/in/kate-litchford",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/cooper-standard-builds-agility-data-innovation.html",
+      "id": "62a202e2-da0b-57c0-81ee-c65ed6e366b2",
+      "company_id": "acc549f9-c7e3-5db4-8e28-a2e00635bdf1",
+      "name": "Piyush Mehta",
+      "title": "Chief Human Resources Officer and Country Manager, India",
+      "linkedin_url": "https://www.linkedin.com/in/piyushmehta01",
+      "source": "https://in.linkedin.com/in/piyushmehta01",
       "mutual_connection": null
     },
     {
@@ -1340,30 +1691,30 @@
       "mutual_connection": null
     },
     {
-      "id": "1a6ab637-c750-5768-826e-4e6a04d9f0bc",
-      "company_id": "f51f6c35-229a-5f15-8ae1-eae30e5f6dbf",
-      "name": "Dr. Syukri Sudari",
+      "id": "fb2dcad1-a85d-5ae8-bf01-e5f0a2916e13",
+      "company_id": "031cda41-d7cb-5797-b599-5e28bcc363a5",
+      "name": "Sarah Keisling",
+      "title": "VP, Talent Management and HR Technology & Workforce Strategy",
+      "linkedin_url": "https://www.linkedin.com/in/sarahmkeisling",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/banner-health-efficient-workforce-with-workday-vndly.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "92d53ce4-f612-5006-9f94-d7b9d8e9dd51",
+      "company_id": "2edf52e7-25ec-5084-9671-487fcf595917",
+      "name": "Sarah O’Hare",
+      "title": "Global Head of HR",
+      "linkedin_url": "https://www.linkedin.com/in/sarah-o-hare-38801a10",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/hr-implementation-revolutionizes-freudenberg-group.html",
+      "mutual_connection": null
+    },
+    {
+      "id": "c6dc9d1c-9db1-5329-8cde-1de3223a287a",
+      "company_id": "f4db56e0-db5d-5693-8227-9a1fc90810bd",
+      "name": "Scott Hill",
       "title": "Chief People Officer",
-      "linkedin_url": "https://www.linkedin.com/in/syukri-sudari",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/affin-bank-fostering-workplace-where-ideas-flourish.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "b7c0af0e-a7d1-55e6-a465-d7145e3f7a10",
-      "company_id": "5ebefc64-8e92-5291-9ee9-df3ff6c1a9f8",
-      "name": "Leonard Lai",
-      "title": "Group Head of HR Transformation, Analytics & Governance",
-      "linkedin_url": "https://www.linkedin.com/in/leonard-lai-61b4554",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/aia-lays-foundation-data-driven-hr.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "6446b891-c90f-582b-8db1-5c154809bcde",
-      "company_id": "15d16044-4b5a-5a79-8fe2-d7a79fe94db0",
-      "name": "Kiran Brar",
-      "title": "Chief Human Resource Officer",
-      "linkedin_url": "https://www.linkedin.com/in/kiran-brar-904289a",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/signify-illuminates-hr-transformation-with-workday.html",
+      "linkedin_url": "https://www.linkedin.com/in/scott-hill-603bab14",
+      "source": "https://uk.linkedin.com/in/scott-hill-603bab14",
       "mutual_connection": null
     },
     {
@@ -1373,69 +1724,6 @@
       "title": "Director People Systems",
       "linkedin_url": "https://www.linkedin.com/in/sheenakunhiraman",
       "source": "https://www.workday.com/en-us/customer-stories/i-p/levi-strauss-drives-innovation-with-workday.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "8c85fc16-66bd-5848-82a0-b3d0aefcff9e",
-      "company_id": "44c3c931-a5ca-5899-ace8-4de96269c36c",
-      "name": "Eric Ervin",
-      "title": "Executive Director, HR Technology Solutions and Strategy",
-      "linkedin_url": "https://www.linkedin.com/in/eric-ervin-229b74",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/msd-biopharmaceutical-maps-skills-existing-talent.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "4f501cdb-4f7e-56bc-a04f-545147aac551",
-      "company_id": "00e6f2f2-171e-5cd9-9776-93e13ac0a3fb",
-      "name": "Aaron Colley",
-      "title": "Workday Technology Lead and HR Solution Architect",
-      "linkedin_url": "https://www.linkedin.com/in/aaron-colley-18a1743",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/mondelez-faster-integrations-make-tasty-profits.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "da8f5d84-53b3-5729-be8c-59d2b6582adf",
-      "company_id": "82b3841c-eda7-5305-9304-7a996184259c",
-      "name": "Andy Omann",
-      "title": "Director of Engineering",
-      "linkedin_url": "https://www.linkedin.com/in/andy-omann-b9827b",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/target-extend-apps-for-unique-business-needs.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "092e9168-b631-5913-a751-fe891e75d7a9",
-      "company_id": "c4b2055d-c231-5a32-8246-25335ace9da9",
-      "name": "Francesco Rogo",
-      "title": "CIO",
-      "linkedin_url": "https://www.linkedin.com/in/francesco-rogo-b4278727",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/leonardo-enhances-business-cohesion-common-language.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "6ac561a8-e41d-5784-af96-5ce833d5fa64",
-      "company_id": "f72c302d-8220-5b51-bb34-8678fd7cdea1",
-      "name": "Jason Frank",
-      "title": "SVP Integrated Workforce & Operations Technology",
-      "linkedin_url": "https://www.linkedin.com/in/jason-frank",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/rochester-regional-health-lower-attrition-better-care.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "28248fba-9a18-5919-9a4a-4471cbbbb3eb",
-      "company_id": "a5e79ea9-0935-5909-a36d-48600599fb62",
-      "name": "Darren Fewster",
-      "title": "Transformation, Communications & People Executive",
-      "linkedin_url": "https://www.linkedin.com/in/darren-fewster-b5774a3",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/telstra-how-planning-empower-motivate-agile-organization.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "1f9bfd74-6634-535d-8f10-bc07202088d3",
-      "company_id": "552a8920-947a-5a1d-8c0e-03267663ebd1",
-      "name": "Liam Hayes",
-      "title": "Chief People Officer",
-      "linkedin_url": "https://www.linkedin.com/in/liamhayes",
-      "source": "https://au.linkedin.com/in/liamhayes",
       "mutual_connection": null
     },
     {
@@ -1457,24 +1745,6 @@
       "mutual_connection": null
     },
     {
-      "id": "62a202e2-da0b-57c0-81ee-c65ed6e366b2",
-      "company_id": "acc549f9-c7e3-5db4-8e28-a2e00635bdf1",
-      "name": "Piyush Mehta",
-      "title": "Chief Human Resources Officer and Country Manager, India",
-      "linkedin_url": "https://www.linkedin.com/in/piyushmehta01",
-      "source": "https://in.linkedin.com/in/piyushmehta01",
-      "mutual_connection": null
-    },
-    {
-      "id": "c6dc9d1c-9db1-5329-8cde-1de3223a287a",
-      "company_id": "f4db56e0-db5d-5693-8227-9a1fc90810bd",
-      "name": "Scott Hill",
-      "title": "Chief People Officer",
-      "linkedin_url": "https://www.linkedin.com/in/scott-hill-603bab14",
-      "source": "https://uk.linkedin.com/in/scott-hill-603bab14",
-      "mutual_connection": null
-    },
-    {
       "id": "19256ec9-146a-5042-8e0e-32f7dc930a9d",
       "company_id": "4c047923-3949-55f4-b3e1-7aab24071f5d",
       "name": "Teruaki Yasumoto",
@@ -1484,111 +1754,12 @@
       "mutual_connection": null
     },
     {
-      "id": "c036f0bc-0d52-5fd8-b108-c740ac41f92a",
-      "company_id": "28b86c2d-b75e-564c-a3c1-2b3b56d8d8ee",
-      "name": "Esther Schümann",
-      "title": "Vice President People Technology & AI",
-      "linkedin_url": "https://www.linkedin.com/in/esther-s-2b6a001a4",
-      "source": "https://www.linkedin.com/posts/esther-s-2b6a001a4_since-stepping-into-my-new-role-as-vice-president-activity-7417970948080959488-bRPs",
-      "mutual_connection": null
-    },
-    {
-      "id": "0bf99f1a-3580-5a28-aebc-b34476262cd1",
-      "company_id": "074b1f36-8d02-5d58-b2c8-864103766afc",
-      "name": "Michael Torti",
-      "title": "Process Excellence Consultant, Human Resources Productivity and Operations",
-      "linkedin_url": "https://www.linkedin.com/in/michael-torti",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/thermo-fisher-empowers-employees-to-do-their-best-work.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "e7286d00-c5f7-57a7-bc89-37b4ee6db6d6",
-      "company_id": "31981bd6-f31c-599c-b080-71099efd4004",
-      "name": "Gianluca Richi",
-      "title": "HRIS Lead",
-      "linkedin_url": "https://www.linkedin.com/in/gianlucarichi",
-      "source": "https://be.linkedin.com/in/gianlucarichi",
-      "mutual_connection": null
-    },
-    {
-      "id": "d274c7da-2615-5919-b204-a41f65990991",
-      "company_id": "2db82b39-effe-59bd-912a-a3df0af2f9d1",
-      "name": "Kerry Smith",
-      "title": "Chief People Officer",
-      "linkedin_url": "https://www.linkedin.com/in/kerrysmithj",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/british-heart-foundation-improved-talent-retention-skills.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "6ebdd20a-b1f4-5336-96b5-6f00425dddb2",
-      "company_id": "4ad1408b-29ea-5b97-8588-7c151ef58e8e",
-      "name": "Manish Dubey",
-      "title": "SVP & Global Head of Enterprise Technology",
-      "linkedin_url": "https://www.linkedin.com/in/manishrdubey",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/sagility-adopts-intelligent-decision-making-rapid-growth.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "b49ce40f-2e42-59b6-b4cc-2dc476226f55",
-      "company_id": "03e0cd1e-7b4e-516d-98a2-bffb3485dcd2",
-      "name": "Kristen Constant",
-      "title": "Chief Information Officer",
-      "linkedin_url": "https://www.linkedin.com/in/kristen-constant-83b06919",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/iowa-state-university-graduate-green-screens-cloud.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "4c96d98b-efe5-5e48-b32a-c6a3e91f91d4",
-      "company_id": "0c9a3679-c609-5441-bac6-3e2ecf163a62",
-      "name": "Manish Pandey",
-      "title": "Director of Enterprise Technology Services",
-      "linkedin_url": "https://www.linkedin.com/in/manishkpandey",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/rmit-leads-with-intelligent-digital-infrastructure.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "6aaa8c85-54de-51a4-9a44-4cfefd6a3843",
-      "company_id": "29b4e402-901c-57df-8ea5-10c20a610b88",
-      "name": "Alvin Valeriano",
-      "title": "Global Director, Data Planning and Management COE",
-      "linkedin_url": "https://www.linkedin.com/in/alvinvaleriano",
-      "source": "https://www.workday.com/en-us/customer-stories/q-z/yokogawa-electric-transforms-hr-data-ai-personalization.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "7c097f67-a7fe-5185-b13b-cd43c28bc38a",
-      "company_id": "5b50ed55-6726-53a5-9dde-839f3e084429",
-      "name": "ChangWan Park",
-      "title": "Head of Global HR",
-      "linkedin_url": "https://www.linkedin.com/in/changwan-park-551138a3",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/celltrion-unifies-hr-manages-talent-drives-growth.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "18e34873-b28a-52cb-8993-c05b37622f62",
-      "company_id": "95ef7076-99ae-555d-915c-3f8c168651c3",
-      "name": "Melody Chen",
-      "title": "Executive Vice President and Chief HR Officer",
-      "linkedin_url": "https://www.linkedin.com/in/melody-chen-350a4b85",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/kgi-financial-creates-sought-after-workplace.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "92d53ce4-f612-5006-9f94-d7b9d8e9dd51",
-      "company_id": "2edf52e7-25ec-5084-9671-487fcf595917",
-      "name": "Sarah O’Hare",
-      "title": "Global Head of HR",
-      "linkedin_url": "https://www.linkedin.com/in/sarah-o-hare-38801a10",
-      "source": "https://www.workday.com/en-us/customer-stories/a-h/hr-implementation-revolutionizes-freudenberg-group.html",
-      "mutual_connection": null
-    },
-    {
-      "id": "f337f815-4328-5aae-a022-34729b3c0717",
-      "company_id": "4b3ed735-c4f4-5c62-bdd1-ab5c6f580be7",
-      "name": "Kunal Sethi",
-      "title": "VP, HR & Finance Digital Technologies and Enablement",
-      "linkedin_url": "https://www.linkedin.com/in/sethikunal",
-      "source": "https://www.workday.com/en-us/customer-stories/i-p/medtronic-complexity-into-clarity-conversational-ai.html",
+      "id": "11363c34-0f9a-5c0c-b7e6-99f6abff35da",
+      "company_id": "6f8ab56d-76be-5c54-85e2-801fc4930725",
+      "name": "Veronique Van Middelem",
+      "title": "Global HR Solutions Program Lead",
+      "linkedin_url": "https://www.linkedin.com/in/verovanmiddelem",
+      "source": "https://www.workday.com/en-us/customer-stories/a-h/aliaxis-drives-digital-transformation.html",
       "mutual_connection": null
     }
   ],
@@ -1616,7 +1787,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 82
+      "research_order": 89
     },
     {
       "company_id": "c4b2055d-c231-5a32-8246-25335ace9da9",
@@ -1641,7 +1812,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 27
+      "research_order": 35
     },
     {
       "company_id": "c16783e2-b38a-5bd1-9cdd-aee9a826b833",
@@ -1664,7 +1835,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 47
+      "research_order": 63
     },
     {
       "company_id": "2423f06e-b3f0-5739-860d-e3fb32f56453",
@@ -1689,7 +1860,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 99
+      "research_order": 100
     },
     {
       "company_id": "dc448146-ee50-53a2-83bb-b9766eb10394",
@@ -1714,7 +1885,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 41
+      "research_order": 56
     },
     {
       "company_id": "f3f8581b-b489-5a20-a507-0039d20a69d3",
@@ -1739,7 +1910,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 5
+      "research_order": 8
     },
     {
       "company_id": "f72c302d-8220-5b51-bb34-8678fd7cdea1",
@@ -1762,7 +1933,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 37
+      "research_order": 50
     },
     {
       "company_id": "a5e79ea9-0935-5909-a36d-48600599fb62",
@@ -1787,7 +1958,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 45
+      "research_order": 61
     },
     {
       "company_id": "ed44b10f-a81d-52ce-b808-7c5ebc14e793",
@@ -1810,7 +1981,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 91
+      "research_order": 95
     },
     {
       "company_id": "d634b3cb-af91-511a-a52a-9a4bfcc3c153",
@@ -1835,7 +2006,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 22
+      "research_order": 27
     },
     {
       "company_id": "af7b3c8c-513e-5962-a005-42ee2caf48b1",
@@ -1860,7 +2031,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 18
+      "research_order": 22
     },
     {
       "company_id": "60231dd9-6c95-525a-b60b-d18137152a73",
@@ -1885,7 +2056,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 25
+      "research_order": 32
     },
     {
       "company_id": "54729602-95a9-50bf-b65d-d375df11c642",
@@ -1908,9 +2079,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 87
+      "research_order": 45,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "fc4bdc61-c1d7-5d37-ad30-a9e84761c4c0",
@@ -1931,9 +2103,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 66
+      "research_order": 23,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "59c4c900-2919-50ab-ba25-1dc7fd8af6eb",
@@ -1958,7 +2131,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 90
+      "research_order": 94
     },
     {
       "company_id": "abffd2dc-b473-5728-b47e-849d64d93460",
@@ -1983,7 +2156,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 38
+      "research_order": 51
     },
     {
       "company_id": "552a8920-947a-5a1d-8c0e-03267663ebd1",
@@ -2008,7 +2181,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 6
+      "research_order": 10
     },
     {
       "company_id": "7e44bded-da78-545a-ae07-fb8d8d6e8563",
@@ -2029,9 +2202,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 52
+      "research_order": 3,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "9bdf1dea-b73d-5b0b-85c6-4f32df65e045",
@@ -2056,7 +2230,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 17
+      "research_order": 21
     },
     {
       "company_id": "fdae1414-9777-5775-9ed1-dc67d2aa5498",
@@ -2081,7 +2255,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 48
+      "research_order": 64
     },
     {
       "company_id": "3bf17c01-c151-5d52-b6b8-94f2d32f14be",
@@ -2106,7 +2280,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 12
+      "research_order": 16
     },
     {
       "company_id": "36890587-f5bf-59af-ad10-f62c4b822862",
@@ -2154,7 +2328,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 44
+      "research_order": 60
     },
     {
       "company_id": "bc2ae135-27a4-556c-aadd-a7ee06699451",
@@ -2177,9 +2351,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 73
+      "research_order": 30,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "d6abfb39-4e7c-5d56-a2e8-3af7afb3c277",
@@ -2202,9 +2377,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 76
+      "research_order": 34,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "acc549f9-c7e3-5db4-8e28-a2e00635bdf1",
@@ -2229,7 +2405,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 21
+      "research_order": 26
     },
     {
       "company_id": "f4db56e0-db5d-5693-8227-9a1fc90810bd",
@@ -2254,7 +2430,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 10
+      "research_order": 14
     },
     {
       "company_id": "6f8ab56d-76be-5c54-85e2-801fc4930725",
@@ -2277,7 +2453,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 4
+      "research_order": 7
     },
     {
       "company_id": "68122fc0-9812-5d8c-b638-29d994f59240",
@@ -2302,7 +2478,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 71
+      "research_order": 83
     },
     {
       "company_id": "0df0af2a-ff75-5e4c-9a56-938187e4eeaf",
@@ -2325,7 +2501,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 16
+      "research_order": 20
     },
     {
       "company_id": "4c047923-3949-55f4-b3e1-7aab24071f5d",
@@ -2348,7 +2524,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 33
+      "research_order": 44
     },
     {
       "company_id": "d0b6dc81-28c6-5d75-9445-52032c75ea3f",
@@ -2371,9 +2547,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 89
+      "research_order": 47,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "861e11d3-b57a-53a2-87ed-24b40b324f28",
@@ -2398,7 +2575,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 69
+      "research_order": 81
     },
     {
       "company_id": "5f220800-f82b-5fff-bc0a-da70f811366f",
@@ -2423,7 +2600,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 42
+      "research_order": 57
     },
     {
       "company_id": "582998d4-a063-5853-bbe6-f488327f8e5c",
@@ -2448,7 +2625,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 88
+      "research_order": 93
     },
     {
       "company_id": "3fb3afbb-7a0f-5036-be75-3dde891191a1",
@@ -2473,7 +2650,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 34
+      "research_order": 46
     },
     {
       "company_id": "28b86c2d-b75e-564c-a3c1-2b3b56d8d8ee",
@@ -2496,7 +2673,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 20
+      "research_order": 25
     },
     {
       "company_id": "a1b1d95d-2b09-58ce-b0a3-c529119b88b5",
@@ -2519,7 +2696,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 62
+      "research_order": 75
     },
     {
       "company_id": "3b08e722-9790-55ee-911f-eb0e89bd4ac1",
@@ -2540,9 +2717,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 81
+      "research_order": 39,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "8bfebe9d-91f5-5398-9f22-22a2bc4d9962",
@@ -2567,7 +2745,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 28
+      "research_order": 36
     },
     {
       "company_id": "d6956351-5110-5442-aabd-8fc1ce15c556",
@@ -2590,7 +2768,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 61
+      "research_order": 74
     },
     {
       "company_id": "56731dc9-e070-5ca3-8730-53a7819e440a",
@@ -2611,9 +2789,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 74
+      "research_order": 31,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "43aa9418-67ae-5f33-810b-0064d3ffa9cd",
@@ -2636,7 +2815,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 60
+      "research_order": 73
     },
     {
       "company_id": "074b1f36-8d02-5d58-b2c8-864103766afc",
@@ -2659,7 +2838,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 46
+      "research_order": 62
     },
     {
       "company_id": "81e53346-4db1-5a34-9dd8-77ee0746e7b1",
@@ -2684,7 +2863,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 24
+      "research_order": 29
     },
     {
       "company_id": "31981bd6-f31c-599c-b080-71099efd4004",
@@ -2707,7 +2886,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 7
+      "research_order": 11
     },
     {
       "company_id": "d5689f2d-d89e-54bc-96d9-c3700b0c7e4a",
@@ -2730,9 +2909,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 56
+      "research_order": 9,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "db71855e-9dd9-542a-8da9-647042bab6ea",
@@ -2757,7 +2937,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 57
+      "research_order": 70
     },
     {
       "company_id": "9f597da8-b270-522d-9b8d-60f880df7be7",
@@ -2782,7 +2962,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 49
+      "research_order": 66
     },
     {
       "company_id": "354673ea-47f9-5871-8a88-26d9a239085b",
@@ -2807,7 +2987,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 8
+      "research_order": 12
     },
     {
       "company_id": "983e7d26-fb29-528a-97a1-a33f8608741b",
@@ -2830,7 +3010,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 100
+      "research_order": 101
     },
     {
       "company_id": "2db82b39-effe-59bd-912a-a3df0af2f9d1",
@@ -2853,7 +3033,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 9
+      "research_order": 13
     },
     {
       "company_id": "3462609e-b445-55f7-b42c-b9d714516846",
@@ -2878,7 +3058,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 75
+      "research_order": 85
     },
     {
       "company_id": "d3001d6b-b60f-5470-a47f-fcae204c8895",
@@ -2903,7 +3083,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 101
+      "research_order": 102
     },
     {
       "company_id": "273c8483-a7d0-5601-975c-9640b8e555af",
@@ -2924,9 +3104,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 102
+      "research_order": 65,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "2552c597-e93e-5997-9898-20cc3ace9718",
@@ -2949,7 +3130,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 68
+      "research_order": 80
     },
     {
       "company_id": "cab05429-f4b4-575d-ae63-c328966fbd61",
@@ -2974,7 +3155,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 63
+      "research_order": 76
     },
     {
       "company_id": "76cef539-31bf-5365-ae73-ada7b22f5ad1",
@@ -2999,7 +3180,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 54
+      "research_order": 69
     },
     {
       "company_id": "c0fcbcd1-c86a-5d47-9144-001b6ec1f518",
@@ -3022,9 +3203,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 51
+      "research_order": 2,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "4ad1408b-29ea-5b97-8588-7c151ef58e8e",
@@ -3047,7 +3229,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 39
+      "research_order": 52
     },
     {
       "company_id": "03e0cd1e-7b4e-516d-98a2-bffb3485dcd2",
@@ -3070,7 +3252,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 23
+      "research_order": 28
     },
     {
       "company_id": "a15d3d64-345e-52e9-98e6-c64abd59746a",
@@ -3093,7 +3275,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 67
+      "research_order": 79
     },
     {
       "company_id": "88a11128-5b23-50df-b93c-6fe87f59de09",
@@ -3118,7 +3300,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 80
+      "research_order": 88
     },
     {
       "company_id": "ab4abb26-bb1c-5289-b32c-f4d5aca96380",
@@ -3143,7 +3325,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 59
+      "research_order": 72
     },
     {
       "company_id": "a271f381-d15b-50cc-9ee9-e892d33d414c",
@@ -3166,7 +3348,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 86
+      "research_order": 92
     },
     {
       "company_id": "1e7ad73f-eea9-55af-9d8c-26b846ffb2ed",
@@ -3187,9 +3369,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 97
+      "research_order": 59,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "59173e6a-ad62-53b0-99b4-d92654e5d954",
@@ -3237,9 +3420,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 55
+      "research_order": 6,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "f8999d86-8581-5148-9b55-466217b6dd0f",
@@ -3264,7 +3448,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 83
+      "research_order": 90
     },
     {
       "company_id": "0c9a3679-c609-5441-bac6-3e2ecf163a62",
@@ -3289,7 +3473,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 36
+      "research_order": 49
     },
     {
       "company_id": "e963b98a-6dde-52a1-a82a-c5a4b8ba9e20",
@@ -3314,7 +3498,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 77
+      "research_order": 86
     },
     {
       "company_id": "29b4e402-901c-57df-8ea5-10c20a610b88",
@@ -3337,7 +3521,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 50
+      "research_order": 67
     },
     {
       "company_id": "8eac8553-a522-5ff3-99f2-13b6e51791f7",
@@ -3360,7 +3544,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 15
+      "research_order": 19
     },
     {
       "company_id": "05360993-fa21-567c-8259-66f58ea118bd",
@@ -3385,7 +3569,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 58
+      "research_order": 71
     },
     {
       "company_id": "0282dc1a-dd1e-5c2b-a286-dac058777c01",
@@ -3408,7 +3592,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 64
+      "research_order": 77
     },
     {
       "company_id": "01e66a13-d283-55ca-9980-5e402299fcea",
@@ -3433,7 +3617,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 43
+      "research_order": 58
     },
     {
       "company_id": "094b7420-2082-53c5-a3df-130ed6e95cfc",
@@ -3458,7 +3642,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 98
+      "research_order": 99
     },
     {
       "company_id": "7a1ae9f8-8328-5112-a5b2-e44389adf93f",
@@ -3479,9 +3663,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 85
+      "research_order": 42,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "5b50ed55-6726-53a5-9dde-839f3e084429",
@@ -3506,7 +3691,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 11
+      "research_order": 15
     },
     {
       "company_id": "3c87bbb2-782c-50c5-b416-fcf672dfa9d9",
@@ -3529,7 +3714,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 40
+      "research_order": 55
     },
     {
       "company_id": "fd1944dc-6a8e-5075-bed9-2ae50cad52c5",
@@ -3554,7 +3739,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 13
+      "research_order": 17
     },
     {
       "company_id": "95ef7076-99ae-555d-915c-3f8c168651c3",
@@ -3579,7 +3764,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 26
+      "research_order": 33
     },
     {
       "company_id": "df141ae3-8162-549f-ba1e-2a4d2c3280b1",
@@ -3604,7 +3789,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 96
+      "research_order": 98
     },
     {
       "company_id": "1d3c6696-d69f-5fdc-b408-2acfe1698038",
@@ -3625,9 +3810,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 93
+      "research_order": 53,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "e53f08f9-86da-54fe-b068-f730bd77e256",
@@ -3652,7 +3838,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 65
+      "research_order": 78
     },
     {
       "company_id": "c148a9b2-d440-566f-adbc-30c253387d53",
@@ -3675,9 +3861,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 95
+      "research_order": 54,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "c6d1f296-daa5-54b6-a71f-f17105670e4a",
@@ -3702,7 +3889,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 14
+      "research_order": 18
     },
     {
       "company_id": "28f1118b-1f41-53c3-bc32-ae8b8ea7ec80",
@@ -3725,7 +3912,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 53
+      "research_order": 68
     },
     {
       "company_id": "f51f6c35-229a-5f15-8ae1-eae30e5f6dbf",
@@ -3750,7 +3937,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 2
+      "research_order": 4
     },
     {
       "company_id": "e57b2dff-84b6-5a94-ada4-c8d0ec2b149d",
@@ -3775,7 +3962,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 70
+      "research_order": 82
     },
     {
       "company_id": "0d7ea78d-6376-5f97-b5d8-e16e3783aee9",
@@ -3800,7 +3987,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 72
+      "research_order": 84
     },
     {
       "company_id": "1667a535-6b79-50b0-8b3b-9dbbeb81e29d",
@@ -3825,7 +4012,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 92
+      "research_order": 96
     },
     {
       "company_id": "34d06ced-211d-595b-80e7-e86ce410903a",
@@ -3850,7 +4037,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 35
+      "research_order": 48
     },
     {
       "company_id": "5ec9bee4-793b-5831-8613-a7fb8ffe4045",
@@ -3875,7 +4062,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 94
+      "research_order": 97
     },
     {
       "company_id": "00e6f2f2-171e-5cd9-9776-93e13ac0a3fb",
@@ -3900,7 +4087,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 30
+      "research_order": 40
     },
     {
       "company_id": "37342b6c-13ee-5365-b43f-675c0ea5db85",
@@ -3925,7 +4112,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 79
+      "research_order": 87
     },
     {
       "company_id": "95ea0a5b-6971-5fcd-af37-072c0bd23134",
@@ -3950,7 +4137,7 @@
         "Mutual connections not visible",
         "No matched target-role LinkedIn contact verified in this pass"
       ],
-      "research_order": 84
+      "research_order": 91
     },
     {
       "company_id": "5aa11642-a518-55cd-bd58-15f13429e058",
@@ -3973,9 +4160,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 78
+      "research_order": 37,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "2edf52e7-25ec-5084-9671-487fcf595917",
@@ -4000,7 +4188,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 19
+      "research_order": 24
     },
     {
       "company_id": "5ebefc64-8e92-5291-9ee9-df3ff6c1a9f8",
@@ -4025,7 +4213,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 3
+      "research_order": 5
     },
     {
       "company_id": "82b3841c-eda7-5305-9304-7a996184259c",
@@ -4050,7 +4238,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 106
+      "research_order": 107
     },
     {
       "company_id": "031cda41-d7cb-5797-b599-5e28bcc363a5",
@@ -4098,7 +4286,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 32
+      "research_order": 43
     },
     {
       "company_id": "15d16044-4b5a-5a79-8fe2-d7a79fe94db0",
@@ -4123,7 +4311,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 105
+      "research_order": 106
     },
     {
       "company_id": "44c3c931-a5ca-5899-ace8-4de96269c36c",
@@ -4146,7 +4334,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 31
+      "research_order": 41
     },
     {
       "company_id": "51bf7d3e-605b-5307-91db-fbcb93561ff3",
@@ -4192,7 +4380,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 29
+      "research_order": 38
     },
     {
       "company_id": "d61013b8-dfbd-5c63-bf4b-53608c4db63a",
@@ -4215,7 +4403,7 @@
         "Mutual connections not visible",
         "Current contact roles require review"
       ],
-      "research_order": 104
+      "research_order": 105
     },
     {
       "company_id": "61cb52d7-9836-502d-aa20-b696cfac4fa3",
@@ -4238,9 +4426,10 @@
         "Current internal Workday job posting not verified",
         "Budget and purchase timing not verified",
         "Mutual connections not visible",
-        "No matched target-role LinkedIn contact verified in this pass"
+        "Company-listed contact checked 2026-10-05; direct buying authority, reachability and remaining target personas not verified"
       ],
-      "research_order": 107
+      "research_order": 104,
+      "contact_reviewed_at": "2026-10-05"
     },
     {
       "company_id": "d4a07a57-e44e-5c1e-89be-103cf7e621e0",
@@ -4808,6 +4997,216 @@
       "role_status": "requires_current_role_review",
       "reason": "Employer case study identifies this person and role; conference biography links the profile. Profile contents could not be opened.",
       "mutual_status": "not_verified"
+    },
+    {
+      "contact_id": "5bced6f1-7e65-5b6c-82da-8e8c5677f397",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.jll.com/en-uk/about-jll/leadership",
+      "identity_source": "https://www.linkedin.com/in/laura-adams-a565658",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "cc1c0cd4-26e5-5a4b-a323-4c27c0f79ab5",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.otis.com/en/us/our-company/our-leadership",
+      "identity_source": "https://www.linkedin.com/in/kim-gosk-9850a83",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "3c976ae5-2d32-592d-9182-467634525b4d",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.airliquide.com/group/executive-committee",
+      "identity_source": "https://www.linkedin.com/in/amelia-irion-450561",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "3037bc94-8f31-585d-9433-57214b45dcad",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://corporate.asda.com/leadership/james-goodman",
+      "identity_source": "https://www.linkedin.com/in/james-goodman-a605794",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "00c498f2-696e-505d-87fd-206eb227cc3e",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://a1.com/management/",
+      "identity_source": "https://www.linkedin.com/in/evazehetner",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "3bae9c49-d409-5596-bffa-ff5e55b1f583",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.landolakesinc.com/who-we-are/leadership/",
+      "identity_source": "https://www.linkedin.com/in/julie-sexton",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "33905bb8-95e3-575f-88b7-48009511c426",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.scandichotelsgroup.com/our-company/organisation-and-management/executive-committee/",
+      "identity_source": "https://www.linkedin.com/in/elin-ekrol-6b803319",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "0b3c7ff9-aebf-5c5d-8708-0ad5db1417d6",
+      "checked_at": "2026-10-05",
+      "persona": "HR / IT leadership",
+      "role_source": "https://corporate.flix.com/flix-management-leadership-team/",
+      "identity_source": "https://www.linkedin.com/in/danielmkrauss",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "46667d83-8e91-57b3-b01e-f5abe506c485",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.johnmuirhealth.com/about-john-muir-health/executive-team",
+      "identity_source": "https://www.linkedin.com/in/rebekah-martinek-williams-242a343",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "a20d191e-7a55-5999-80dd-25e9df431a0a",
+      "checked_at": "2026-10-05",
+      "persona": "IT leadership",
+      "role_source": "https://www.johnmuirhealth.com/about-john-muir-health/executive-team",
+      "identity_source": "https://www.linkedin.com/in/sanjibdutt",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "4ef0f32e-9222-5811-88f9-0d213ea6836a",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.mhs.net/about/leadership/leadership-team",
+      "identity_source": "https://www.linkedin.com/in/margie-vargas-64844227",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "ad6aa95b-bb6f-5bbd-a887-b27025dddf88",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://hrs.wsu.edu/resources/hrs-leadership/",
+      "identity_source": "https://www.linkedin.com/in/jennifer-klein-phr-27619720",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "b734027f-d7a1-5b71-ba00-6ec352a5c300",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://corporate.maisonsdumonde.com/en/about-us/our-governance",
+      "identity_source": "https://www.linkedin.com/in/ingrid-crambes-tisserand-804ba416",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "15831dd1-7bdc-5e3c-a5ad-97ac72a8adb9",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://careers.cinemark.com/why-cinemark/about",
+      "identity_source": "https://www.linkedin.com/in/sidsriv",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "adab3086-f23e-5678-b210-0937f2c7dbb1",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://investor.norconsult.com/corporate-governance/executive-management-team/",
+      "identity_source": "https://www.linkedin.com/in/marisa-ruiz-retamar",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "5a6fdfbe-476e-55f4-a491-ec3eb77aa9f1",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.linkedin.com/posts/shakeshack_news-we-are-thrilled-to-welcome-jamie-activity-7350629486427602945-R0BW",
+      "identity_source": "https://www.linkedin.com/in/jamiejgriffin",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer appointment post and current public profile agree on the role; the appointment is dated July 2025. Public profile shows recent Shake Shack activity. Recheck before outreach.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "7b6efa21-c505-5f6b-abe8-ab0a43b53d65",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.posti.com/en/investors/leadership-team",
+      "identity_source": "https://www.linkedin.com/in/annakuusisto",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "09108f67-6c9a-5581-9aba-416bcf1c3bff",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.aberdeenplc.com/en-gb/about-us/our-leadership-team",
+      "identity_source": "https://www.linkedin.com/in/traceyehahn",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
+    },
+    {
+      "contact_id": "09fc4b11-a370-5851-8db1-ab7efa582a20",
+      "checked_at": "2026-10-05",
+      "persona": "HR leadership",
+      "role_source": "https://www.slhn.org/about/leadership/executive-leadership",
+      "identity_source": "https://www.linkedin.com/in/evanbeererochs",
+      "role_status": "company_listed_role_checked",
+      "reason": "Employer leadership/directory page lists this role; the matching public profile supports identity and employer. Recheck before outreach; this does not establish buying authority or reachability.",
+      "mutual_status": "not_verified",
+      "verification_basis": "employer_source_and_matching_public_profile"
     }
-  ]
+  ],
+  "contact_updated_at": "2026-10-05"
 }

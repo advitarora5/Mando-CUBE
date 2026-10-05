@@ -5,11 +5,12 @@ import priorTracker from "@/data/research/prior-tracker-leads.json";
 
 export function ResearchMethodology() {
   const sizeCount = data.companies.filter(c => c.employee_count !== null && c.employee_count >= 3000).length;
+  const currentCount = data.contact_evidence.filter(e => e.role_status === "company_listed_role_checked").length;
   return <main>
     <header><Link href="/">mando <span>/ prospect intelligence</span></Link><small>Research cutoff {methodology.cutoff}</small></header>
     <nav className="breadcrumb"><Link href="/">Dashboard</Link> / Research methodology</nav>
     <section className="intro"><p className="eyebrow">COMPANY RESEARCH</p><h1>{methodology.title}</h1><p>A sourced starting cohort for the shared qualification engine.</p></section>
-    <aside>Research records are unscored. Exact HCM go-live dates, active jobs, and mutual connections are unverified. Contact titles describe sourced roles and require current-role review before outreach. This page reads the committed research file, independently of the live database.</aside>
+    <aside>Research records are unscored. Exact HCM go-live dates, active jobs, and mutual connections are unverified. {currentCount} contacts have employer-source and matching-profile checks dated {data.contact_updated_at}; older leads remain flagged for current-role review. Recheck roles before outreach. This page reads the committed research file, independently of the live database.</aside>
     <section className="stats" aria-label="Research coverage"><article><span>Confirmed HCM companies</span><strong>{data.companies.length}</strong></article><article><span>Sourced contacts</span><strong>{data.contacts.length}</strong></article><article><span>3,000+ workforce snapshots</span><strong>{sizeCount}</strong></article></section>
     {methodology.sections.map(section => <section className="panel detail-section" key={section.title}><h2>{section.title}</h2>{section.paragraphs.map(p => <p key={p} style={{lineHeight: 1.7}}>{p}</p>)}</section>)}
     <section className="panel detail-section"><h2>Earlier tracker: research these leads first</h2>
@@ -27,7 +28,7 @@ export function ResearchMethodology() {
           <p>{evidence.employee_count_reason}</p><p className="muted">Scope: {evidence.entity_scope}. Checked {evidence.checked_at}.</p>
           <div className="contact-grid">{contacts.map(contact => {
             const note = data.contact_evidence.find(e => e.contact_id === contact.id)!;
-            return <article className="contact-card" key={contact.id}><h3>{contact.name}</h3><p>{contact.title}</p><p className="muted">{note.persona} · {note.reason}</p><div className="contact-links"><a className="source-link" href={contact.linkedin_url} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a className="source-link" href={contact.source} target="_blank" rel="noopener noreferrer">Role source ↗</a><a className="source-link" href={note.identity_source} target="_blank" rel="noopener noreferrer">Identity source ↗</a></div><p className="muted">Mutual connection: not verified.</p></article>;
+            return <article className="contact-card" key={contact.id}><h3>{contact.name}</h3><p>{contact.title}</p><p><strong>{note.role_status === "company_listed_role_checked" ? "Employer source and profile checked" : "Current-role review required"}</strong> · {note.checked_at}</p><p className="muted">{note.persona} · {note.reason}</p><div className="contact-links"><a className="source-link" href={contact.linkedin_url} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a className="source-link" href={contact.source} target="_blank" rel="noopener noreferrer">Role source ↗</a><a className="source-link" href={note.identity_source} target="_blank" rel="noopener noreferrer">Identity source ↗</a></div><p className="muted">Mutual connection: not verified.</p></article>;
           })}</div>
           <p>Open research gaps:</p><ul>{evidence.research_gaps.map(gap => <li key={gap}>{gap}</li>)}</ul>
         </details>;

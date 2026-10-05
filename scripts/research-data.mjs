@@ -45,7 +45,8 @@ export function validateResearch(data) {
     assert(url(c.source) && c.mutual_connection === null, "Contact source missing or unverified mutual asserted");
     const e = data.contact_evidence.find(e => e.contact_id === c.id);
     assert(e?.role_source === c.source && url(e.identity_source) && e.reason?.trim(), "Missing contact evidence");
-    assert(e.role_status === "requires_current_role_review" && e.mutual_status === "not_verified", "Role/mutual review status missing");
+    assert(["requires_current_role_review", "company_listed_role_checked"].includes(e.role_status) && e.mutual_status === "not_verified", "Role/mutual review status missing");
+    if (e.role_status === "company_listed_role_checked") assert(e.verification_basis === "employer_source_and_matching_public_profile" && e.identity_source === c.linkedin_url && /^\d{4}-\d{2}-\d{2}$/.test(e.checked_at), "Company-listed role needs dated employer and matching-profile evidence");
   }
   assert(data.company_evidence.every(e => companyIds.has(e.company_id)) && data.contact_evidence.every(e => contactIds.has(e.contact_id)), "Orphan evidence");
   return {companies: data.companies.length, contacts: data.contacts.length, companiesWithContacts: new Set(data.contacts.map(c => c.company_id)).size, sourcedSizeAtLeast3000: data.companies.filter(c => c.employee_count !== null && c.employee_count >= 3000).length};
@@ -65,6 +66,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const destination = path.resolve(process.argv[3]);
     await mkdir(destination, {recursive: true});
     for (const [filename, rows] of [["companies",data.companies],["contacts",data.contacts],["company-evidence",data.company_evidence],["contact-evidence",data.contact_evidence]]) await writeFile(path.join(destination,filename + ".csv"), csv(rows));
+    const checkedContacts = data.contacts.filter(c => data.contact_evidence.some(e => e.contact_id === c.id && e.role_status === "company_listed_role_checked")).map(c => ({company_name: data.companies.find(company => company.id === c.company_id).name, ...c, checked_at: data.contact_evidence.find(e => e.contact_id === c.id).checked_at}));
+    if (checkedContacts.length) await writeFile(path.join(destination,"current-contact-review.csv"), csv(checkedContacts));
     await writeFile(path.join(destination,"workday-company-research.json"), JSON.stringify(data,null,2) + "\n");
     const methodology = JSON.parse(await readFile(new URL("../src/data/research/methodology.json", import.meta.url), "utf8"));
     const markdown = `# ${methodology.title}\n\nResearch cutoff: ${methodology.cutoff}\n\n` + methodology.sections.map(section => `## ${section.title}\n\n${section.paragraphs.join("\n\n")}`).join("\n\n") + "\n";
