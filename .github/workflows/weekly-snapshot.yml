@@ -1,0 +1,43 @@
+name: Weekly snapshot
+
+on:
+  schedule:
+    # Monday 09:17 CST / 10:17 CDT (America/Chicago).
+    - cron: '17 15 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Shared across branches and trigger types; never interrupt a running save.
+concurrency:
+  group: mando-cube-weekly-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    # Use reviewed default-branch code for both scheduled and manual saves.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Save current weekly snapshot
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/save-weekly-snapshot.mjs --apply
