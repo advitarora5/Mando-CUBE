@@ -13,7 +13,10 @@ function ScoreCells({ score }: { score: Score | null }) {
     const url = safeUrl(split >= 0 ? evidence.slice(0, split) : null);
     const reason = evidence.startsWith("Unmapped spreadsheet research;")
   ? "Category evidence awaiting review. Open company for original research."
-  : split >= 0 ? evidence.slice(split + 3) : evidence;
+  : split >= 0
+    ? evidence.slice(split + 3)
+        .split("\n\nUnmapped spreadsheet research;")[0]
+    : evidence;
     return <td key={category} className="category-score"><strong>{score?.[`${category}_score`] ?? "Unscored"}</strong>{reason && <small>{reason}</small>}{url && <a className="source-link" href={url} target="_blank" rel="noopener noreferrer">Source ↗</a>}</td>;
   });
 }

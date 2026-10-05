@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import Papa from "papaparse";
 import { createClient } from "@supabase/supabase-js";
-import { evaluateTier } from "../src/domain/scoring/tier-rules.ts";
+import { evaluateTier, hasEvidence } from "../src/domain/scoring/tier-rules.ts";
 
 const RUBRIC = "week2-100-csv-unreviewed-v1";
 
@@ -82,7 +82,27 @@ export function readCompanies(filename) {
       release_evidence: "",
       timing_evidence: "",
     };
+const authorityEvidence = get("authority evidence");
+for (const category of [
+  "authority", "reachability", "budget", "release", "timing",
+]) {
+  const value = get(`${category} evidence`);
 
+  if (value && (!value.includes(" | ") || !hasEvidence(value))) {
+    throw new Error(
+      `${name}: ${category} evidence needs https://source | explanation.`
+    );
+  }
+}
+if (authorityEvidence) {
+  score.authority_evidence =
+    authorityEvidence + "\n\n" + score.authority_evidence;
+}
+
+score.reachability_evidence = get("reachability evidence");
+score.budget_evidence = get("budget evidence");
+score.release_evidence = get("release evidence");
+score.timing_evidence = get("timing evidence");
     score.tier = evaluateTier(score).tier;
 
     return [{ company, score, whyNow: get("why now") || null }];

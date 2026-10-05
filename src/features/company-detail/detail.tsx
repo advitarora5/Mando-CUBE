@@ -18,7 +18,71 @@ function contactFields(contact?: Contact): Field[] {
   ];
 }
 const labels = { authority: "Functional Authority", reachability: "Reachability & Conviction", budget: "Customer Budget", release: "Workday Release Alignment", timing: "Timing Trigger" };
+function ImportedResearch({ evidence }: { evidence: string }) {
+  const prefix =
+    "Unmapped spreadsheet research; category evidence needs review.\n";
 
+  const researchStart = evidence.indexOf(prefix);
+if (researchStart < 0) return null;
+
+  let research: Record<string, unknown>;
+
+  try {
+    const parsed: unknown = JSON.parse(evidence.slice(researchStart + prefix.length));
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Invalid research");
+    }
+
+    research = parsed as Record<string, unknown>;
+  } catch {
+    return (
+      <section className="panel detail-section">
+        <h2>Imported spreadsheet research</h2>
+        <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+          {evidence}
+        </p>
+      </section>
+    );
+  }
+
+  const fields = [
+    ["evidence", "Research and sources"],
+    ["contact_targets", "Potential buyer contacts"],
+    ["estimated_employees", "Employee estimate"],
+    ["trigger_event_date", "Original trigger date"],
+    ["spreadsheet_tier", "Original spreadsheet tier"],
+    ["why_now", "Original why now"],
+  ];
+
+  return (
+    <section className="panel detail-section">
+      <h2>Imported spreadsheet research</h2>
+      <p className="muted">
+        Original spreadsheet notes. Category evidence and scores await review.
+      </p>
+      <details>
+        <summary>View original research</summary>
+        <dl>
+          {fields.map(([key, label]) => (
+            <div key={key}>
+              <dt><strong>{label}</strong></dt>
+              <dd style={{
+                margin: "8px 0 20px",
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+              }}>
+                {typeof research[key] === "string" && research[key]
+                  ? research[key] as string
+                  : "Not provided"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+    </section>
+  );
+}
 export function Detail({ company: c }: { company: CompanyDetail }) {
   const insights = c.insights;
   const days = c.days_since_signal;
@@ -48,11 +112,17 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
         <dl className="facts"><div><dt>Buyer persona</dt><dd>{insights?.persona_override ?? insights?.persona_generated ?? "Not generated"}</dd></div><div><dt>Level</dt><dd>{insights?.level_override ?? insights?.level_generated ?? "Not generated"}</dd></div><div className="full-width"><dt>Why now</dt><dd>{insights?.why_now_override ?? insights?.why_now_generated ?? "Not generated"}</dd></div></dl>
       </Editor></section>
     </div>
+    <ImportedResearch evidence={c.score?.authority_evidence ?? ""} />
     <section className="panel detail-section"><div className="section-title"><h2>Qualification evidence</h2><span className="muted">{c.score ? `Assessed ${new Date(c.score.assessed_at).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}` : "No assessment yet"}</span></div>
       <div className="evidence-grid">{categories.map(category => {
         const evidence = c.score?.[`${category}_evidence`] ?? "";
         const split = evidence.indexOf(" | ");
-        const reason = split >= 0 ? evidence.slice(split + 3) : evidence;
+        const reason = evidence.startsWith("Unmapped spreadsheet research;")
+  ? "Imported research awaits category review."
+  : split >= 0
+    ? evidence.slice(split + 3)
+        .split("\n\nUnmapped spreadsheet research;")[0]
+    : evidence;
         return <article className="evidence-card" key={category}><div><h3>{labels[category]}</h3><strong>{c.score?.[`${category}_score`] ?? "—"}</strong></div><p>{reason || "Evidence not provided"}</p><Source value={split >= 0 ? evidence.slice(0, split) : null} /></article>;
       })}</div>
     </section>
