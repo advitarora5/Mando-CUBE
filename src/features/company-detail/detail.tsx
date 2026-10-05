@@ -1,3 +1,4 @@
+import { employeeLabel } from "@/data/employee-label";
 import Link from "next/link";
 import { categories } from "@/domain/contracts/company";
 import { safeUrl, type CompanyDetail, type Contact } from "@/domain/contracts/detail";
@@ -102,7 +103,7 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
     <aside>{c.score?.tier_reason ?? "No qualification assessment is available yet."}</aside>
     <div className="detail-grid">
       <section className="panel detail-section"><Editor title="Company overview" action={saveCompany} hidden={{ company_id: c.id, updated_at: c.updated_at }} fields={companyFields}>
-        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{c.employee_count?.toLocaleString() ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div></dl><Source value={c.source} />
+        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div></dl><Source value={c.source} />
       </Editor></section>
       <section className="panel detail-section"><Editor title="Buyer insights" action={saveInsights} hidden={{ company_id: c.id, updated_at: insights?.updated_at ?? "" }} fields={[
         { name: "persona_override", label: "Buyer persona", value: insights?.persona_override ?? insights?.persona_generated ?? "", help: "Clear to restore the suggested persona." },

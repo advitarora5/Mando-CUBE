@@ -1,5 +1,5 @@
 "use client";
-
+import { employeeLabel } from "@/data/employee-label";
 import { useState } from "react";
 import Link from "next/link";
 import { categories, type CompanyListItem, type Score } from "@/domain/contracts/company";
@@ -60,7 +60,7 @@ export function CompanyList({ companies, mode }: { companies: CompanyListItem[];
     {invalid && <p className="filter-error" role="alert">{invalid}</p>}
     <p className="result-count" role="status">Showing {visible.length} of {companies.length} companies</p>
     <div className="scroll"><table><thead><tr><SortHeader label="Rank" field="rank" sort={sort} setSort={setSort} /><SortHeader label="Company A–Z" field="name" sort={sort} setSort={setSort} /><th>Employees</th><th>Authority /25</th><th>Reachability /25</th><th>Budget /20</th><th>Release /15</th><th>Timing /15</th><SortHeader label="Total /100" field="score" sort={sort} setSort={setSort} /><SortHeader label="Tier" field="tier" sort={sort} setSort={setSort} /><th>Why now</th><th>Contacts</th></tr></thead>
-      <tbody>{visible.map(c => <tr key={c.id}><td className="rank-cell">{ranks.has(c.id) ? `#${ranks.get(c.id)}` : "—"}</td><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{c.employee_count?.toLocaleString() ?? "—"}</td><ScoreCells score={c.score} /><td className="total-score"><strong>{c.score?.total ?? "—"}</strong></td><td><span className={`tier-badge ${c.score?.tier.toLowerCase() ?? "unscored"}`}>{c.score?.tier ?? "Unscored"}</span></td><td>
+      <tbody>{visible.map(c => <tr key={c.id}><td className="rank-cell">{ranks.has(c.id) ? `#${ranks.get(c.id)}` : "—"}</td><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "—"}</td><ScoreCells score={c.score} /><td className="total-score"><strong>{c.score?.total ?? "—"}</strong></td><td><span className={`tier-badge ${c.score?.tier.toLowerCase() ?? "unscored"}`}>{c.score?.tier ?? "Unscored"}</span></td><td>
   <details>
     <summary>Read why now</summary>
     <p style={{ minWidth: "260px", maxWidth: "360px" }}>
