@@ -1,9 +1,11 @@
+import { requirePageSession } from "@/server/auth/session";
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import type { Company, CompanyListItem, Score } from "@/domain/contracts/company";
 import { applyTierRules } from "@/domain/scoring/tier-rules";
 
 export async function getCompanies(): Promise<{ companies: CompanyListItem[]; mode: "sample" | "database"; error?: string }> {
+  await requirePageSession();
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {

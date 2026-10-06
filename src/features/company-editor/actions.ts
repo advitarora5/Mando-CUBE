@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+import { requireSession } from "@/server/auth/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { database } from "@/server/db";
@@ -18,11 +18,6 @@ const companySchema = z.object({
 const insightsSchema = z.object({ company_id: z.uuid(), updated_at: z.string(), persona_override: optionalText, level_override: optionalText, why_now_override: optionalText });
 const contactSchema = z.object({ company_id: z.uuid(), id: z.union([z.uuid(), z.literal("")]), name: z.string().trim().min(1, "Contact name is required.").max(200), title: optionalText, linkedin_url: optionalUrl, source: optionalUrl, mutual_connection: optionalText });
 
-// Access control is explicitly deferred. Reject non-local mutation requests until login exists.
-async function requireLocal() {
-  const host = (await headers()).get("host") ?? "";
-  if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) || process.env.VERCEL) throw new Error("Editing is available only on the local development server until access control is configured.");
-}
 function refresh(id: string) { revalidatePath("/"); revalidatePath(`/companies/${id}`); }
 function failure(error: unknown): SaveState {
   if (error instanceof z.ZodError) return { error: error.issues.map(issue => `${issue.path.join(".")}: ${issue.message}`).join(" ") };
@@ -31,7 +26,7 @@ function failure(error: unknown): SaveState {
 
 export async function saveCompany(_: SaveState, form: FormData): Promise<SaveState> {
   try {
-    await requireLocal();
+    await requireSession();
     const { company_id, updated_at, ...values } = companySchema.parse(Object.fromEntries(form));
     const { data, error } = await database().from("companies").update(values).eq("id", company_id).eq("updated_at", updated_at).select("id");
     if (error) throw new Error(error.code === "23505" ? "That company domain is already in use." : "Could not save company information.");
@@ -42,7 +37,7 @@ export async function saveCompany(_: SaveState, form: FormData): Promise<SaveSta
 
 export async function saveInsights(_: SaveState, form: FormData): Promise<SaveState> {
   try {
-    await requireLocal();
+    await requireSession();
     const { company_id, updated_at, ...values } = insightsSchema.parse(Object.fromEntries(form));
     const db = database();
     if (updated_at) {
@@ -59,7 +54,7 @@ export async function saveInsights(_: SaveState, form: FormData): Promise<SaveSt
 
 export async function saveContact(_: SaveState, form: FormData): Promise<SaveState> {
   try {
-    await requireLocal();
+    await requireSession();
     const { id, company_id, ...values } = contactSchema.parse(Object.fromEntries(form));
     const db = database();
     if (id) {
