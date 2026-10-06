@@ -1,3 +1,4 @@
+import { LogoutButton } from "@/features/login/logout";
 import { getCompanies } from "@/server/repositories/companies";
 import Link from "next/link";
 import { CompanyList } from "@/features/company-list/company-list";
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
  const { companies, mode, error } = await getCompanies();
  return <main>
-  <header><Link href="/">mando <span>/ prospect intelligence</span></Link></header>
+  <header><Link href="/">mando <span>/ prospect intelligence</span></Link><LogoutButton /></header>
   <section className="intro"><p className="eyebrow">ENTERPRISE QUALIFICATION</p><h1>Your next qualified conversation.</h1><p>Research, evidence, and prospect priorities in one shared workspace.</p></section>
   {mode === "sample" && <aside>Sample data: fictional, unscored examples.</aside>}
   {error && <p role="alert" className="error">{error}</p>}
