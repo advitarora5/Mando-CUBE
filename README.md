@@ -43,6 +43,15 @@ npm run build
 
 See [ownership](docs/ownership.md).
 
+## Company input automation
+
+Group 2's collectors discover verified exact Workday HCM go-live dates and
+Workday-related employer postings. Run `npm run inputs:refresh -- --companies
+src/data/research/workday-companies.json --out src/data/input-automation/latest.json`
+for a dry run. See [input automation](scripts/input-automation.md) for search
+configuration, evidence review, database apply, scheduled runs, and scoring
+handoff. No schema changes or weekly rank/history writes are included.
+
 Production builds use the supported Webpack option because Turbopack worker port creation is restricted in this execution environment.
 
 ## Fictional demo fixture
@@ -71,6 +80,29 @@ The shared tier evaluator recomputes totals from the five category scores and de
 
 Evidence checks validate presence and format, not factual accuracy or buying authority. Research verification and evidence-to-score generation remain separate. Existing database assessment rows are not rewritten; displayed tiers are evaluated using current rules. New demo assessments also use the evaluator. Future import/scoring/snapshot writers must call the same evaluator before saving a tier. No SQL migration is needed for this application change.
 
+## Scoring
+
+The rubric lives in `src/domain/scoring/rubric.ts`: the five categories with their weights (Authority 25, Reachability 25, Budget 20, Release 15, Timing 15), the tier thresholds (Qualified 80, Maybe 55), the go-live bands and `RUBRIC_VERSION`. Change numbers there only.
+
+Writers (import, weekly refresh) build a score row with `buildAssessment(companyId, input)` from `src/domain/scoring/assessment.ts`. Each category takes `{ score, source, reason }`. Any category that earns points must have an HTTP(S) source link and a one-line reason, otherwise the result is `{ ok: false, errors }` and nothing should be saved. On success, `row` can be inserted into `scores` as is (it leaves out `total`, which Postgres generates).
+
+`goLiveTiming(workday_signal_date, source)` produces the Timing Trigger input from the go-live date (Chicago calendar days): announced more than 180 days out scores 6, announced within 180 days scores 12, 0-30 days post go-live scores 10, 31-90 days scores 15, 91-180 days scores 13, 181-365 days scores 6, and older scores 0. A missing date scores 0. The bands are `goLiveBands` in `src/domain/scoring/rubric.ts`.
+
+The Timing Trigger does not read the Workday release calendar; that belongs to Release Alignment. `src/domain/scoring/releases.ts` holds the calendar for that purpose: Workday ships R1 in March and R2 in September to every tenant on the same Saturday. Confirmed dates are listed there; later ones are estimated as the second Saturday of March and third Saturday of September.
+
+`releaseAlignment(source)` produces the Release Alignment input from days until the next release (Chicago calendar days): under 2 weeks scores 3, 2-6 weeks scores 9, 6-12 weeks scores 15, 12-18 weeks scores 10, and more than 18 weeks scores 5. The bands are `releaseBands` in `src/domain/scoring/rubric.ts`. The score depends only on the date, so it is the same for every company on a given day; it does not yet use company-specific evidence. Nothing in the app calls it yet.
+
+The company page shows each category as points out of its weight with the reason and source link, flags any score that lacks evidence, and shows the go-live score next to days since signal.
+
+## Saving assessments
+
+`npm run score:save -- "path/to/assessments.csv"` checks a sheet of reviewed scores and prints what would be saved. Add `--apply` to append the rows to the `scores` table. If any row has a problem, nothing is saved.
+
+The CSV has one row per company and these headers: `company_id` or `company` (exact name as stored), then `<category>_score`, `<category>_source` and `<category>_reason` for each of `authority`, `reachability`, `budget`, `release` and `timing`. Rows go through `buildAssessment`, so points without a source link and reason are rejected.
+
+A blank score counts as 0, with two exceptions, and a row with no scores at all is rejected rather than saved as Disqualified. If `timing_score` is blank and `timing_source` is filled, Timing is calculated from the company's `workday_signal_date`. If `release_score` is blank and `release_source` is filled, Release is calculated from the release calendar. Assessments are appended, not overwritten, and running the same sheet twice does not add duplicates.
+
+`scripts/assessments-demo.csv` is a ready-made sheet for the nine fictional demo companies from `npm run seed:demo`. It matches them by name and lets Timing and Release be calculated.
 
 ## Shared password and Vercel
 
@@ -83,3 +115,10 @@ Login attempts are limited to ten per fifteen minutes per IP within each server 
 Import this GitHub repository into Vercel as a Next.js project using the root directory and `npm run build`. Configure `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DASHBOARD_PASSWORD`, and `SESSION_SECRET` in Vercel Settings → Environment Variables for Production and any Preview environment in use. GitHub Actions secrets are not automatically provided to Vercel; `.env.local` is not uploaded through Git. Redeploy after changing environment values. The existing Supabase database stays in place.
 
 Before sharing the production URL, verify logged-out dashboard and direct company links redirect to login, a wrong password fails, login succeeds, editing persists, and logout blocks access again. Preview deployments pointed at the same database can modify the same records.
+
+
+## Generated insights (persona, level, why now)
+
+`npm run insights` asks an LLM to write persona, level and why-now from each company's stored score evidence and prints them for spot-checking (dry run). `npm run insights -- --apply` saves them; `--force` regenerates companies already done; `--only=<text>` limits to company names containing <text>. Only `*_generated` columns are written, so manual overrides on the company page are never overwritten. Companies are skipped until scored, and re-generated only when scored again.
+
+The endpoint is any OpenAI-compatible API, set in `.env.local`. Default is local Ollama (`ollama pull llama3.1`). For OpenAI use `LLM_BASE_URL=https://api.openai.com/v1`, `LLM_API_KEY=<your key>`, `LLM_MODEL=<model>`.

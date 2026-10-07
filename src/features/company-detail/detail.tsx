@@ -1,3 +1,4 @@
+import { employeeLabel } from "@/data/employee-label";
 import { LogoutButton } from "@/features/login/logout";
 import Link from "next/link";
 import { categories } from "@/domain/contracts/company";
@@ -6,6 +7,9 @@ import { Editor, type Field } from "@/features/company-editor/editor";
 import { WeeklyHistory } from "@/features/weekly-history/history";
 import type { Snapshot } from "@/domain/history";
 import { saveCompany, saveContact, saveInsights } from "@/features/company-editor/actions";
+import { parseEvidence } from "@/domain/scoring/evidence";
+import { goLiveScore } from "@/domain/scoring/go-live";
+import { rubric } from "@/domain/scoring/rubric";
 
 function Source({ value }: { value: string | null }) {
   const url = safeUrl(value);
@@ -20,11 +24,75 @@ function contactFields(contact?: Contact): Field[] {
     { name: "mutual_connection", label: "Mutual connection", value: contact?.mutual_connection ?? "" },
   ];
 }
-const labels = { authority: "Functional Authority", reachability: "Reachability & Conviction", budget: "Customer Budget", release: "Workday Release Alignment", timing: "Timing Trigger" };
+function ImportedResearch({ evidence }: { evidence: string }) {
+  const prefix =
+    "Unmapped spreadsheet research; category evidence needs review.\n";
 
+  const researchStart = evidence.indexOf(prefix);
+if (researchStart < 0) return null;
+
+  let research: Record<string, unknown>;
+
+  try {
+    const parsed: unknown = JSON.parse(evidence.slice(researchStart + prefix.length));
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Invalid research");
+    }
+
+    research = parsed as Record<string, unknown>;
+  } catch {
+    return (
+      <section className="panel detail-section">
+        <h2>Imported spreadsheet research</h2>
+        <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+          {evidence}
+        </p>
+      </section>
+    );
+  }
+
+  const fields = [
+    ["evidence", "Research and sources"],
+    ["contact_targets", "Potential buyer contacts"],
+    ["estimated_employees", "Employee estimate"],
+    ["trigger_event_date", "Original trigger date"],
+    ["spreadsheet_tier", "Original spreadsheet tier"],
+    ["why_now", "Original why now"],
+  ];
+
+  return (
+    <section className="panel detail-section">
+      <h2>Imported spreadsheet research</h2>
+      <p className="muted">
+        Original spreadsheet notes. Category evidence and scores await review.
+      </p>
+      <details>
+        <summary>View original research</summary>
+        <dl>
+          {fields.map(([key, label]) => (
+            <div key={key}>
+              <dt><strong>{label}</strong></dt>
+              <dd style={{
+                margin: "8px 0 20px",
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+              }}>
+                {typeof research[key] === "string" && research[key]
+                  ? research[key] as string
+                  : "Not provided"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+    </section>
+  );
+}
 export function Detail({ company: c, snapshots = [] }: { company: CompanyDetail; snapshots?: Snapshot[] }) {
   const insights = c.insights;
   const days = c.days_since_signal;
+  const goLive = goLiveScore(c.workday_signal_date);
   const companyFields: Field[] = [
     { name: "name", label: "Company name", value: c.name, required: true },
     { name: "domain", label: "Domain", value: c.domain, help: "example.com (no https://)" },
@@ -41,7 +109,7 @@ export function Detail({ company: c, snapshots = [] }: { company: CompanyDetail;
     <aside>{c.score?.tier_reason ?? "No qualification assessment is available yet."}</aside>
     <div className="detail-grid">
       <section className="panel detail-section"><Editor title="Company overview" action={saveCompany} hidden={{ company_id: c.id, updated_at: c.updated_at }} fields={companyFields}>
-        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{c.employee_count?.toLocaleString() ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div></dl><Source value={c.source} />
+        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div><div className="full-width"><dt>Go-live score</dt><dd>{goLive.score} / {rubric.timing.weight} · {goLive.reason}</dd></div></dl><Source value={c.source} />
       </Editor></section>
       <section className="panel detail-section"><Editor title="Buyer insights" action={saveInsights} hidden={{ company_id: c.id, updated_at: insights?.updated_at ?? "" }} fields={[
         { name: "persona_override", label: "Buyer persona", value: insights?.persona_override ?? insights?.persona_generated ?? "", help: "Clear to restore the suggested persona." },
@@ -51,12 +119,15 @@ export function Detail({ company: c, snapshots = [] }: { company: CompanyDetail;
         <dl className="facts"><div><dt>Buyer persona</dt><dd>{insights?.persona_override ?? insights?.persona_generated ?? "Not generated"}</dd></div><div><dt>Level</dt><dd>{insights?.level_override ?? insights?.level_generated ?? "Not generated"}</dd></div><div className="full-width"><dt>Why now</dt><dd>{insights?.why_now_override ?? insights?.why_now_generated ?? "Not generated"}</dd></div></dl>
       </Editor></section>
     </div>
+    <ImportedResearch evidence={c.score?.authority_evidence ?? ""} />
     <section className="panel detail-section"><div className="section-title"><h2>Qualification evidence</h2><span className="muted">{c.score ? `Assessed ${new Date(c.score.assessed_at).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}` : "No assessment yet"}</span></div>
       <div className="evidence-grid">{categories.map(category => {
-        const evidence = c.score?.[`${category}_evidence`] ?? "";
-        const split = evidence.indexOf(" | ");
-        const reason = split >= 0 ? evidence.slice(split + 3) : evidence;
-        return <article className="evidence-card" key={category}><div><h3>{labels[category]}</h3><strong>{c.score?.[`${category}_score`] ?? "—"}</strong></div><p>{reason || "Evidence not provided"}</p><Source value={split >= 0 ? evidence.slice(0, split) : null} /></article>;
+        const stored = c.score?.[`${category}_evidence`] ?? "";
+        const evidence = parseEvidence(stored);
+        const points = c.score?.[`${category}_score`];
+        const imported = "Unmapped spreadsheet research;";
+        const reason = stored.startsWith(imported) ? "Imported research awaits category review." : (evidence?.reason ?? stored).split(`\n\n${imported}`)[0];
+        return <article className="evidence-card" key={category}><div><h3>{rubric[category].label}</h3><strong>{points ?? "—"}<span> / {rubric[category].weight}</span></strong></div><p>{reason || "Evidence not provided"}</p>{!evidence && !!points && <p className="evidence-missing">This score needs a source link and a one-line reason.</p>}<Source value={evidence?.source ?? null} /></article>;
       })}</div>
     </section>
     <WeeklyHistory snapshots={snapshots} />

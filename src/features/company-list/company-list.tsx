@@ -1,5 +1,5 @@
 "use client";
-
+import { employeeLabel } from "@/data/employee-label";
 import { useState } from "react";
 import Link from "next/link";
 import { categories, type CompanyListItem, type Score } from "@/domain/contracts/company";
@@ -13,7 +13,12 @@ function ScoreCells({ score }: { score: Score | null }) {
     const evidence = score?.[`${category}_evidence`] ?? "";
     const split = evidence.indexOf(" | ");
     const url = safeUrl(split >= 0 ? evidence.slice(0, split) : null);
-    const reason = split >= 0 ? evidence.slice(split + 3) : evidence;
+    const reason = evidence.startsWith("Unmapped spreadsheet research;")
+  ? "Category evidence awaiting review. Open company for original research."
+  : split >= 0
+    ? evidence.slice(split + 3)
+        .split("\n\nUnmapped spreadsheet research;")[0]
+    : evidence;
     return <td key={category} className="category-score"><strong>{score?.[`${category}_score`] ?? "Unscored"}</strong>{reason && <small>{reason}</small>}{url && <a className="source-link" href={url} target="_blank" rel="noopener noreferrer">Source ↗</a>}</td>;
   });
 }
@@ -57,7 +62,14 @@ export function CompanyList({ companies, mode, previousWeek = null, previousRank
     {invalid && <p className="filter-error" role="alert">{invalid}</p>}
     <p className="result-count" role="status">Showing {visible.length} of {companies.length} companies</p>
     <div className="scroll"><table><thead><tr><SortHeader label="Rank" field="rank" sort={sort} setSort={setSort} /><SortHeader label="Company A–Z" field="name" sort={sort} setSort={setSort} /><th title={previousWeek ? `Compared with the ranks saved for the week of ${previousWeek}` : "No earlier weekly snapshot saved yet"}>Rank delta</th><th>Employees</th><th>Authority /25</th><th>Reachability /25</th><th>Budget /20</th><th>Release /15</th><th>Timing /15</th><SortHeader label="Total /100" field="score" sort={sort} setSort={setSort} /><SortHeader label="Tier" field="tier" sort={sort} setSort={setSort} /><th>Why now</th><th>Contacts</th></tr></thead>
-      <tbody>{visible.map(c => <tr key={c.id}><td className="rank-cell">{ranks.has(c.id) ? `#${ranks.get(c.id)}` : "—"}</td><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{previousWeek ? <MovementBadge movement={rankMovement(ranks.get(c.id), previousRanks[c.id])} current={ranks.get(c.id)} /> : <span className="muted">—</span>}</td><td>{c.employee_count?.toLocaleString() ?? "—"}</td><ScoreCells score={c.score} /><td className="total-score"><strong>{c.score?.total ?? "—"}</strong></td><td><span className={`tier-badge ${c.score?.tier.toLowerCase() ?? "unscored"}`}>{c.score?.tier ?? "Unscored"}</span></td><td>{c.why_now ?? "Research pending"}</td><td>{c.contacts.length ? c.contacts.map(contact => <div key={contact.id}>{safeUrl(contact.linkedin_url) ? <a className="source-link" href={safeUrl(contact.linkedin_url)!} target="_blank" rel="noopener noreferrer">{contact.name} ↗</a> : contact.name}<small>{contact.title}</small></div>) : "Contacts pending"}</td></tr>)}</tbody>
+      <tbody>{visible.map(c => <tr key={c.id}><td className="rank-cell">{ranks.has(c.id) ? `#${ranks.get(c.id)}` : "—"}</td><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{previousWeek ? <MovementBadge movement={rankMovement(ranks.get(c.id), previousRanks[c.id])} current={ranks.get(c.id)} /> : <span className="muted">—</span>}</td><td>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "—"}</td><ScoreCells score={c.score} /><td className="total-score"><strong>{c.score?.total ?? "—"}</strong></td><td><span className={`tier-badge ${c.score?.tier.toLowerCase() ?? "unscored"}`}>{c.score?.tier ?? "Unscored"}</span></td><td>
+  <details>
+    <summary>Read why now</summary>
+    <p style={{ minWidth: "260px", maxWidth: "360px" }}>
+      {c.why_now ?? "Research pending"}
+    </p>
+  </details>
+</td><td>{c.contacts.length ? c.contacts.map(contact => <div key={contact.id}>{safeUrl(contact.linkedin_url) ? <a className="source-link" href={safeUrl(contact.linkedin_url)!} target="_blank" rel="noopener noreferrer">{contact.name} ↗</a> : contact.name}<small>{contact.title}</small></div>) : "Contacts pending"}</td></tr>)}</tbody>
     </table></div>
     {!visible.length && !invalid && <div className="empty">{companies.length ? <><p>No companies match your filters.</p><button className="button secondary" onClick={clear}>Clear filters</button></> : "No companies yet."}</div>}
   </section>;
