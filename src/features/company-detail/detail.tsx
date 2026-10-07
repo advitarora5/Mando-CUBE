@@ -1,3 +1,4 @@
+import { employeeLabel } from "@/data/employee-label";
 import { LogoutButton } from "@/features/login/logout";
 import Link from "next/link";
 import { categories } from "@/domain/contracts/company";
@@ -21,7 +22,71 @@ function contactFields(contact?: Contact): Field[] {
     { name: "mutual_connection", label: "Mutual connection", value: contact?.mutual_connection ?? "" },
   ];
 }
+function ImportedResearch({ evidence }: { evidence: string }) {
+  const prefix =
+    "Unmapped spreadsheet research; category evidence needs review.\n";
 
+  const researchStart = evidence.indexOf(prefix);
+if (researchStart < 0) return null;
+
+  let research: Record<string, unknown>;
+
+  try {
+    const parsed: unknown = JSON.parse(evidence.slice(researchStart + prefix.length));
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Invalid research");
+    }
+
+    research = parsed as Record<string, unknown>;
+  } catch {
+    return (
+      <section className="panel detail-section">
+        <h2>Imported spreadsheet research</h2>
+        <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+          {evidence}
+        </p>
+      </section>
+    );
+  }
+
+  const fields = [
+    ["evidence", "Research and sources"],
+    ["contact_targets", "Potential buyer contacts"],
+    ["estimated_employees", "Employee estimate"],
+    ["trigger_event_date", "Original trigger date"],
+    ["spreadsheet_tier", "Original spreadsheet tier"],
+    ["why_now", "Original why now"],
+  ];
+
+  return (
+    <section className="panel detail-section">
+      <h2>Imported spreadsheet research</h2>
+      <p className="muted">
+        Original spreadsheet notes. Category evidence and scores await review.
+      </p>
+      <details>
+        <summary>View original research</summary>
+        <dl>
+          {fields.map(([key, label]) => (
+            <div key={key}>
+              <dt><strong>{label}</strong></dt>
+              <dd style={{
+                margin: "8px 0 20px",
+                whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+              }}>
+                {typeof research[key] === "string" && research[key]
+                  ? research[key] as string
+                  : "Not provided"}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+    </section>
+  );
+}
 export function Detail({ company: c }: { company: CompanyDetail }) {
   const insights = c.insights;
   const days = c.days_since_signal;
@@ -42,7 +107,7 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
     <aside>{c.score?.tier_reason ?? "No qualification assessment is available yet."}</aside>
     <div className="detail-grid">
       <section className="panel detail-section"><Editor title="Company overview" action={saveCompany} hidden={{ company_id: c.id, updated_at: c.updated_at }} fields={companyFields}>
-        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{c.employee_count?.toLocaleString() ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div><div className="full-width"><dt>Go-live score</dt><dd>{goLive.score} / {rubric.timing.weight} · {goLive.reason}</dd></div></dl><Source value={c.source} />
+        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div><div className="full-width"><dt>Go-live score</dt><dd>{goLive.score} / {rubric.timing.weight} · {goLive.reason}</dd></div></dl><Source value={c.source} />
       </Editor></section>
       <section className="panel detail-section"><Editor title="Buyer insights" action={saveInsights} hidden={{ company_id: c.id, updated_at: insights?.updated_at ?? "" }} fields={[
         { name: "persona_override", label: "Buyer persona", value: insights?.persona_override ?? insights?.persona_generated ?? "", help: "Clear to restore the suggested persona." },
@@ -52,12 +117,15 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
         <dl className="facts"><div><dt>Buyer persona</dt><dd>{insights?.persona_override ?? insights?.persona_generated ?? "Not generated"}</dd></div><div><dt>Level</dt><dd>{insights?.level_override ?? insights?.level_generated ?? "Not generated"}</dd></div><div className="full-width"><dt>Why now</dt><dd>{insights?.why_now_override ?? insights?.why_now_generated ?? "Not generated"}</dd></div></dl>
       </Editor></section>
     </div>
+    <ImportedResearch evidence={c.score?.authority_evidence ?? ""} />
     <section className="panel detail-section"><div className="section-title"><h2>Qualification evidence</h2><span className="muted">{c.score ? `Assessed ${new Date(c.score.assessed_at).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}` : "No assessment yet"}</span></div>
       <div className="evidence-grid">{categories.map(category => {
         const stored = c.score?.[`${category}_evidence`] ?? "";
         const evidence = parseEvidence(stored);
         const points = c.score?.[`${category}_score`];
-        return <article className="evidence-card" key={category}><div><h3>{rubric[category].label}</h3><strong>{points ?? "—"}<span> / {rubric[category].weight}</span></strong></div><p>{evidence?.reason ?? (stored || "Evidence not provided")}</p>{!evidence && !!points && <p className="evidence-missing">This score needs a source link and a one-line reason.</p>}<Source value={evidence?.source ?? null} /></article>;
+        const imported = "Unmapped spreadsheet research;";
+        const reason = stored.startsWith(imported) ? "Imported research awaits category review." : (evidence?.reason ?? stored).split(`\n\n${imported}`)[0];
+        return <article className="evidence-card" key={category}><div><h3>{rubric[category].label}</h3><strong>{points ?? "—"}<span> / {rubric[category].weight}</span></strong></div><p>{reason || "Evidence not provided"}</p>{!evidence && !!points && <p className="evidence-missing">This score needs a source link and a one-line reason.</p>}<Source value={evidence?.source ?? null} /></article>;
       })}</div>
     </section>
     <section className="panel detail-section"><h2>Buyer contacts</h2><div className="contact-grid">{c.contacts.map(contact => <article key={contact.id} className="contact-card"><Editor title={contact.name} action={saveContact} hidden={{ company_id: c.id, id: contact.id }} fields={contactFields(contact)}><p>{contact.title ?? "Title not provided"}</p><p className="muted">{contact.mutual_connection ?? "No mutual connection recorded"}</p><div className="contact-links">{safeUrl(contact.linkedin_url) && <a className="source-link" href={safeUrl(contact.linkedin_url)!} target="_blank" rel="noopener noreferrer">Profile ↗</a>}<Source value={contact.source} /></div></Editor></article>)}</div>
