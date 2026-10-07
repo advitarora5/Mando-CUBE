@@ -7,6 +7,20 @@ category-score generation, contacts collection, persona generation, or weekly
 score/rank history. Existing tables, source strings, and research evidence
 conventions remain in use.
 
+The existing standalone preview commands still work:
+
+```sh
+node scripts/collect-signal-dates.mjs --companies companies.json --out dates.json
+node scripts/collect-job-postings.mjs --boards boards.json --out jobs.json
+```
+
+Company records use the existing UUID `id`. Board records require `company_id`,
+`company`, `board`, and `board_token` (plus observed Workday site fields when
+applicable). The job preview now returns `{ jobs, checks }`, including successful
+empty-board checks and explicit failures, rather than mixing failures into job
+rows. Use the combined refresh command below for employer/board discovery and
+reconciliation. Both standalone commands remain preview-only.
+
 ## Run locally
 
 Use Node LTS (24). From the repository root:
@@ -115,8 +129,16 @@ succeed; inspect the report before retrying. Existing company confirmation
 
 The report is the current file-level research evidence artifact, following
 the existing research dataset convention, not a new database model. Per-company
-`scoring_inputs` exposes the date, `release_evidence` as `URL | reason`, and
-active `job_evidence_candidates` in the same evidence format. The scoring owner
+`scoring_inputs` exposes the date, `timing_evidence` as `URL | reason`, and
+active `job_evidence_candidates` in the same evidence format. Relevant and
+consulting-review roles are handed off; incidental mentions stay in the full
+posting report but are excluded from scoring candidates. Go-live evidence
+belongs to Timing Trigger, not Release Alignment. The existing `score:save`
+command is preserved; its reviewed assessment CSV accepts `timing_source` and
+`timing_reason`, with blank `timing_score` calculated from the saved company date.
+This collector supplies evidence rather than generating category scores.
+
+The scoring owner
 must confirm internal-role relevance and map job evidence to the approved
 category. Do not insert assessments with copied category scores just to attach
 new evidence. Numeric recalculation still belongs to the scoring engine; the
@@ -126,6 +148,10 @@ dashboard's existing days-since-signal display updates from the date field.
 
 `.github/workflows/company-inputs.yml` runs daily and on manual dispatch after
 merge to main. It defaults to dry run and uploads a 30-day evidence artifact.
+On pull requests, a separate job runs repository tests, lint, typecheck, and
+build without secrets or collection/database access. PR validation does not
+prove live source coverage. Production scheduling needs this workflow merged
+into `main`; Vercel deployment alone does not execute the collectors.
 Configure `BRAVE_SEARCH_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY` as GitHub
 Actions secrets, separately from Vercel. Set repository variable
 `INPUT_AUTOMATION_APPLY=true` only after reviewing a pilot; manual dispatch can
@@ -137,6 +163,14 @@ artifact exists, it starts with current observations and makes no claim about
 earlier expiration. This is input provenance, not weekly score/rank storage.
 Artifacts must be downloaded and retained by the scoring owner for longer-term
 provenance; they are not automatically loaded into dashboard score rows.
+
+Evidence is checkpointed after each completed company. `complete: false` means
+the run stopped before all requested companies were processed; unvisited
+companies' previous postings are retained. The report lists requested IDs and
+completed companies, and the CLI summarizes source failures and coverage gaps.
+Source failures exit nonzero; a successful board with zero relevant jobs is
+different from an unsupported source or failed refresh. Source failures never
+clear dates or imply a posting expired.
 
 Timeouts, bounded responses, validated public HTTPS destinations/redirects,
 and bounded retries protect against unbounded collection. Hosts denying access
@@ -154,3 +188,23 @@ Sources: [Greenhouse Job Board API](https://docs.greenhouse.io/job-board.html),
 [Lever Postings API](https://github.com/lever/postings-api),
 [Brave Search API](https://api-dashboard.search.brave.com/documentation),
 [Workday newsroom](https://newsroom.workday.com/press-releases).
+
+## Integration verification (October 7, 2026)
+
+Integrated with `main` after PRs #3, #5, and #6. Local validation passed all
+75 repository tests (22 input-automation tests), lint, typecheck, and the
+production build. The diff from `main` is confined to input collectors, their
+configuration/workflow/tests, and setup documentation; no schema or UI changes.
+
+A preview against the real 3M research record preserved a report, proposed zero
+dates, and exited nonzero for an unavailable source. This execution workspace
+could not resolve `www.workday.com` (`EAI_AGAIN`), so live dates/job coverage and
+the Workday careers adapter are not yet verified here. No database writes were
+performed. The search key was absent during this preview.
+
+Before enabling apply, run a live pilot from a network-enabled environment with
+the reviewed source mappings and, if needed, the optional search key. Inspect
+original source excerpts, employer mappings, posting activity, and coverage
+gaps. Configure GitHub Actions secrets separately from Vercel, merge the PR
+after review, then verify the scheduled/manual dry run and its evidence artifact.
+Leave automatic apply disabled until that pilot is reviewed.

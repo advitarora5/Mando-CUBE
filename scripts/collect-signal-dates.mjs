@@ -1,5 +1,5 @@
 // Extends Krish's preview collector with source discovery and strict event/date binding.
-import { plainText, publicUrl, request, search, sourceTrusted } from './input-automation/public-sources.mjs';
+import { plainText, previewCLI, publicUrl, request, search, sourceTrusted } from './input-automation/public-sources.mjs';
 
 const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 const monthPattern = months.join('|');
@@ -52,6 +52,10 @@ export async function collectSignalDates(companies, { fetchImpl = fetch, now = n
   for (const company of companies) {
     const config = configs[company.id] ?? {};
     const urls = new Set([company.source, ...(config.signal_urls ?? [])].filter(Boolean));
+    if (company.domain) {
+      try { urls.add(publicUrl(company.domain.includes('://') ? company.domain : `https://${company.domain}`)); }
+      catch { /* invalid domains are never fetched */ }
+    }
     try {
       const results = await search(`"${company.name}" Workday HCM "go live" OR "went live" -site:linkedin.com`, { fetchImpl, key });
       for (const result of results) urls.add(result.url);
@@ -85,3 +89,5 @@ export function selectSignal(company, candidates) {
   return { status: company.workday_signal_date ? 'unchanged' : 'ready', date: accepted.candidate_date,
     evidence: `${accepted.source_url} | ${accepted.reason}`, excerpt: accepted.excerpt };
 }
+
+await previewCLI(import.meta.url, 'companies', collectSignalDates);

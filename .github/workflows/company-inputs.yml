@@ -1,5 +1,15 @@
 name: Refresh company inputs
 on:
+  pull_request:
+    paths:
+      - 'scripts/*signal*'
+      - 'scripts/*job*'
+      - 'scripts/*company-inputs*'
+      - 'scripts/input-automation/**'
+      - 'tests/input-automation.test.mjs'
+      - 'src/data/input-automation/**'
+      - '.github/workflows/company-inputs.yml'
+      - 'package*.json'
   workflow_dispatch:
     inputs:
       apply:
@@ -14,11 +24,27 @@ permissions:
   actions: read
 
 concurrency:
-  group: company-inputs
+  group: company-inputs-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
   collect:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:

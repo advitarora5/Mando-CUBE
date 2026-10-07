@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { collectSignalDates, extractSignalCandidates, normalizeDate, selectSignal } from '../scripts/collect-signal-dates.mjs';
 import { boardFromUrl, collectJobPostings, discoverBoards, employerDomainFromStory, mergePostings, relevance, structuredPostings } from '../scripts/collect-job-postings.mjs';
 import { publicUrl, request, search } from '../scripts/input-automation/public-sources.mjs';
-import { applySignal, refresh } from '../scripts/refresh-company-inputs.mjs';
+import { applySignal, refresh, scoringInputs, summarizeReport } from '../scripts/refresh-company-inputs.mjs';
+import { spawnSync } from 'node:child_process';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const company = { id: 'a0000000-0000-4000-8000-000000000001', name: 'Acme', source: 'https://www.workday.com/story', domain: 'acme.example', workday_signal_date: null, updated_at: '2026-10-05T00:00:00Z' };
 const now = new Date('2026-10-06T12:00:00Z');
@@ -56,7 +60,7 @@ test('conflicting source dates and existing manual dates block updates', () => {
 
 test('checks every supplied source instead of stopping at the first readable page', async () => {
   const rows = await collectSignalDates([company], { now, key: '', configs: { [company.id]: { signal_urls: ['https://acme.example/news'] } },
-    fetchImpl: stub({ [company.source]: 'No date here', 'https://acme.example/news': event }) });
+    fetchImpl: stub({ [company.source]: 'No date here', 'https://acme.example/': 'Home', 'https://acme.example/news': event }) });
   assert.equal(selectSignal(company, rows).date, '2024-03-04');
 });
 
@@ -176,6 +180,83 @@ test('full dry run returns scorer-shaped evidence without scores/history mutatio
   const report = await refresh([company], { now, key: '', fetchImpl: stub({ [company.source]: event, 'https://acme.example/': 'Home' }),
     previous: [{ company_id: 'other', board_key: 'other', posting_id: '1', status: 'active' }] });
   assert.equal(report.mode, 'dry_run'); assert.equal(report.companies[0].scoring_inputs.workday_signal_date, '2024-03-04');
-  assert.match(report.companies[0].scoring_inputs.release_evidence, /^https:.* \| /);
+  assert.match(report.companies[0].scoring_inputs.timing_evidence, /^https:.* \| /);
+  assert.equal(report.companies[0].scoring_inputs.release_evidence, undefined);
   assert.equal(report.postings[0].status, 'active'); assert.equal(report.scores, undefined);
+});
+
+test('homepage fallback works without a supplied story or search key', async () => {
+  const rows = await collectSignalDates([{ ...company, source: null }], {
+    now, key: '', fetchImpl: stub({ 'https://acme.example/': event }),
+  });
+  assert.equal(selectSignal(company, rows).date, '2024-03-04');
+});
+
+test('career discovery uses the refresh clock for structured-job activity', async () => {
+  const html = `<script type="application/ld+json">${JSON.stringify({ '@type': 'JobPosting',
+    hiringOrganization: { name: 'Acme' }, title: 'Workday Analyst', description: 'Maintain Workday HCM',
+    url: '/jobs/1', validThrough: '2026-10-06T12:01:00Z' })}</script>`;
+  const discovery = await discoverBoards(company, {}, { now, key: '', fetchImpl: stub({ 'https://acme.example/': html }) });
+  assert.equal(discovery.employerJobs[0].status, 'active');
+  assert.equal(discovery.employerJobs[0].checked_at, now.toISOString());
+});
+
+test('scorer handoff excludes incidental and unverified activity, retaining review flags', () => {
+  const postings = [
+    { status: 'active', relevance: 'incidental_review', evidence: 'incidental' },
+    { status: 'unknown', relevance: 'workday_role_review', evidence: 'unknown' },
+    { status: 'active', relevance: 'workday_role_review', evidence: 'https://acme.example/job | Maintain Workday' },
+  ];
+  const inputs = scoringInputs(company, { date: '2024-03-04', evidence: 'https://acme.example/news | Exact HCM go-live' }, postings);
+  assert.equal(inputs.job_evidence_candidates.length, 1);
+  assert.equal(inputs.job_evidence_candidates[0].requires_internal_role_review, true);
+  assert.match(inputs.timing_evidence, /Exact HCM go-live/);
+});
+
+test('incremental reports preserve unvisited company postings and expose completion', async () => {
+  const other = { ...company, id: 'a0000000-0000-4000-8000-000000000002', name: 'Beta' };
+  const snapshots = [];
+  const report = await refresh([company, other], { key: '', now,
+    previous: [{ company_id: other.id, board_key: 'beta', posting_id: '1', status: 'active', evidence: 'retained' }],
+    fetchImpl: stub({ [company.source]: event, 'https://acme.example/': 'Home' }),
+    onProgress: async partial => snapshots.push(structuredClone(partial)),
+  });
+  assert.equal(snapshots.length, 2);
+  assert.equal(snapshots[0].complete, false);
+  assert.equal(snapshots[0].postings[0].status, 'active');
+  assert.equal(report.complete, true);
+  assert.equal(report.postings[0].status, 'unknown');
+  assert.equal(report.postings[0].evidence, 'retained');
+  assert.equal(summarizeReport(report).companies_without_job_sources, 2);
+});
+
+test('source failures preserve existing dates and appear in the report summary', async () => {
+  const report = await refresh([{ ...company, workday_signal_date: '2023-01-01' }], { key: '', now,
+    fetchImpl: stub({ [company.source]: new Error('offline'), 'https://acme.example/': new Error('offline') }),
+  });
+  assert.equal(report.companies[0].scoring_inputs.workday_signal_date, '2023-01-01');
+  assert.equal(report.companies[0].signal.status, 'review');
+  assert.equal(summarizeReport(report).source_failures, 3);
+});
+
+test('standalone preview commands execute and reject overwriting inputs', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'mando-inputs-'));
+  try {
+    const input = join(dir, 'input.json');
+    const output = join(dir, 'output.json');
+    await writeFile(input, '[]');
+    for (const [script, flag, expected] of [
+      ['collect-signal-dates.mjs', '--companies', []],
+      ['collect-job-postings.mjs', '--boards', { jobs: [], checks: [] }],
+    ]) {
+      const run = spawnSync(process.execPath, [`scripts/${script}`, flag, input, '--out', output], { encoding: 'utf8' });
+      assert.equal(run.status, 0, run.stderr);
+      assert.deepEqual(JSON.parse(run.stdout), expected);
+      assert.deepEqual(JSON.parse(await readFile(output, 'utf8')), expected);
+      const rejected = spawnSync(process.execPath, [`scripts/${script}`, flag, input, '--out', input], { encoding: 'utf8' });
+      assert.equal(rejected.status, 1);
+      assert.match(rejected.stderr, /must not overwrite/);
+      assert.equal(await readFile(input, 'utf8'), '[]');
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

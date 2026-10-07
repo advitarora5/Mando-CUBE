@@ -1,5 +1,5 @@
 // Extends the Greenhouse/Lever collector from krish/input-automation.
-import { links, ownedHost, plainText, publicUrl, request, search } from './input-automation/public-sources.mjs';
+import { links, ownedHost, plainText, previewCLI, publicUrl, request, search } from './input-automation/public-sources.mjs';
 
 export function boardFromUrl(value) {
   const u = new URL(publicUrl(value));
@@ -128,7 +128,7 @@ export async function collectJobPostings(boards, { fetchImpl = fetch, now = new 
   return { jobs, checks };
 }
 
-export async function discoverBoards(company, config = {}, { fetchImpl = fetch, key } = {}) {
+export async function discoverBoards(company, config = {}, { fetchImpl = fetch, key, now = new Date() } = {}) {
   let domainEvidence = null;
   if (!company.domain && config.employer_domain) {
     company = { ...company, domain: new URL(publicUrl(`https://${config.employer_domain}`)).hostname };
@@ -162,7 +162,7 @@ export async function discoverBoards(company, config = {}, { fetchImpl = fetch, 
     try {
       const page = await request(url, { fetchImpl });
       const approved = ownedHost(page.url, company) || (config.career_urls ?? []).includes(page.url);
-      if (approved) employerJobs.push(...structuredPostings(page.text, page.url, company));
+      if (approved) employerJobs.push(...structuredPostings(page.text, page.url, company, now));
       const directBoard = boardFromUrl(page.url);
       if ((approved || ownedHost(url, company)) && directBoard) boards.push({ ...directBoard, company_id: company.id, company: company.name, mapping_evidence: url });
       for (const link of links(page.text, page.url)) {
@@ -236,3 +236,5 @@ export function mergePostings(previous, current, checks) {
   }
   return [...byKey.values()];
 }
+
+await previewCLI(import.meta.url, 'boards', collectJobPostings);

@@ -6,10 +6,25 @@ import { collectJobPostings, discoverBoards, mergePostings } from './collect-job
 
 export function scoringInputs(company, signal, postings) {
   return { company_id: company.id, workday_signal_date: signal.date ?? company.workday_signal_date,
-    release_evidence: signal.evidence, job_evidence_candidates: postings.filter(j => j.status === 'active').map(j => ({
+    timing_evidence: signal.evidence, job_evidence_candidates: postings.filter(j => j.status === 'active' && j.relevance !== 'incidental_review').map(j => ({
       evidence: j.evidence, posting_url: j.posting_url, relevance: j.relevance, checked_at: j.checked_at,
       requires_internal_role_review: true,
     })) };
+}
+
+export function summarizeReport(report) {
+  return {
+    complete: report.complete,
+    companies: report.companies.length,
+    proposed_dates: report.companies.filter(c => c.signal.status === 'ready').length,
+    date_conflicts: report.companies.filter(c => ['conflict', 'existing_date_conflict'].includes(c.signal.status)).length,
+    companies_with_job_sources: report.companies.filter(c => c.coverage === 'supported_source').length,
+    companies_without_job_sources: report.companies.filter(c => c.coverage === 'no_supported_source').length,
+    active_postings: report.postings.filter(j => j.status === 'active').length,
+    source_failures: report.signal_candidates.filter(c => ['unreachable', 'discovery_failed'].includes(c.date_type)).length
+      + report.board_checks.filter(c => c.status !== 'ok').length
+      + report.companies.flatMap(c => c.discovery_leads).filter(c => ['unreachable', 'discovery_failed'].includes(c.status)).length,
+  };
 }
 
 export async function applySignal(db, company, signal) {
@@ -21,29 +36,35 @@ export async function applySignal(db, company, signal) {
   return data?.length === 1 ? 'applied' : 'concurrent_change';
 }
 
-export async function refresh(companies, { configs = {}, previous = [], fetchImpl = fetch, key, now = new Date() } = {}) {
-  const allJobs = [], checks = [], results = [], effectiveCompanies = [];
+export async function refresh(companies, { configs = {}, previous = [], fetchImpl = fetch, key, now = new Date(), onProgress } = {}) {
+  const allJobs = [], checks = [], results = [], candidates = [];
+  const ids = new Set(companies.map(c => c.id));
+  function report() {
+    const processed = new Set(results.map(r => r.company_id));
+    const postings = [...previous.filter(j => !processed.has(j.company_id)),
+      ...mergePostings(previous.filter(j => processed.has(j.company_id)), allJobs, checks)];
+    for (const result of results) {
+      const company = companies.find(c => c.id === result.company_id);
+      result.signal = selectSignal(company, candidates);
+      result.scoring_inputs = scoringInputs(company, result.signal, postings.filter(j => j.company_id === result.company_id));
+    }
+    return { version: 1, checked_at: now.toISOString(), mode: 'dry_run', complete: results.length === companies.length,
+      requested_company_ids: [...ids], companies: results, signal_candidates: candidates, postings, board_checks: checks };
+  }
   for (const company of companies) {
-    const discovery = await discoverBoards(company, configs[company.id], { fetchImpl, key });
-    effectiveCompanies.push({ ...company, domain: discovery.employer_domain ?? company.domain });
+    const discovery = await discoverBoards(company, configs[company.id], { fetchImpl, key, now });
+    const effectiveCompany = { ...company, domain: discovery.employer_domain ?? company.domain };
     const collected = await collectJobPostings(discovery.boards, { fetchImpl, now });
     allJobs.push(...collected.jobs, ...discovery.employerJobs);
     checks.push(...collected.checks);
+    candidates.push(...await collectSignalDates([effectiveCompany], { configs, fetchImpl, key, now }));
     results.push({ company_id: company.id, name: company.name, original_signal_date: company.workday_signal_date,
       original_updated_at: company.updated_at ?? null, discovered_domain: discovery.employer_domain ?? null,
       domain_evidence: discovery.domain_evidence,
       discovery_leads: discovery.leads, coverage: discovery.boards.length || discovery.employerJobs.length ? 'supported_source' : 'no_supported_source' });
+    if (onProgress) await onProgress(report());
   }
-  const candidates = await collectSignalDates(effectiveCompanies, { configs, fetchImpl, key, now });
-  const ids = new Set(companies.map(c => c.id));
-  const postings = [...previous.filter(j => !ids.has(j.company_id)),
-    ...mergePostings(previous.filter(j => ids.has(j.company_id)), allJobs, checks)];
-  for (const result of results) {
-    result.signal = selectSignal(companies.find(c => c.id === result.company_id), candidates);
-    result.scoring_inputs = scoringInputs(companies.find(c => c.id === result.company_id), result.signal,
-      postings.filter(j => j.company_id === result.company_id));
-  }
-  return { version: 1, checked_at: now.toISOString(), mode: 'dry_run', companies: results, signal_candidates: candidates, postings, board_checks: checks };
+  return report();
 }
 
 function args(argv) {
@@ -96,7 +117,7 @@ async function main() {
   let previous = [];
   try { const prior = JSON.parse(await readFile(destination, 'utf8')); if (prior.version !== 1 || !Array.isArray(prior.postings)) throw new Error('Invalid previous report'); previous = prior.postings; }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
-  const report = await refresh(companies, { configs: config, previous });
+  const report = await refresh(companies, { configs: config, previous, onProgress: report => save(destination, report) });
   // Persist all supporting evidence before any database mutation.
   await save(destination, report);
   if (options.apply) {
@@ -107,11 +128,10 @@ async function main() {
     }
     if (report.companies.some(c => ['database_error', 'concurrent_change', 'missing_version'].includes(c.apply_status))) process.exitCode = 1;
   }
-  const ready = report.companies.filter(c => c.signal.status === 'ready').length;
-  console.log(JSON.stringify({ mode: report.mode, companies: companies.length, proposed_dates: ready,
-    active_postings: report.postings.filter(j => j.status === 'active').length, output: destination,
+  const summary = summarizeReport(report);
+  console.log(JSON.stringify({ mode: report.mode, ...summary, output: destination,
     search_enabled: Boolean(process.env.BRAVE_SEARCH_API_KEY) }, null, 2));
-  if (report.signal_candidates.some(c => ['unreachable', 'discovery_failed'].includes(c.date_type)) || report.board_checks.some(c => c.status !== 'ok')) process.exitCode = 1;
+  if (summary.source_failures) process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

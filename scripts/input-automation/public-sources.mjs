@@ -1,5 +1,35 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+// Retain the existing standalone collector commands as preview-only entry points.
+export async function previewCLI(moduleUrl, inputName, collect) {
+  if (!process.argv[1] || moduleUrl !== pathToFileURL(process.argv[1]).href) return;
+  try {
+    const args = {};
+    for (let i = 2; i < process.argv.length; i++) {
+      const flag = process.argv[i];
+      if (![ `--${inputName}`, '--out' ].includes(flag) || !process.argv[i + 1] || process.argv[i + 1].startsWith('--')) {
+        throw new Error(`Usage: node ${process.argv[1]} --${inputName} FILE [--out FILE]`);
+      }
+      args[flag.slice(2)] = process.argv[++i];
+    }
+    if (!args[inputName]) throw new Error(`--${inputName} FILE is required`);
+    if (args.out && resolve(args.out) === resolve(args[inputName])) throw new Error('Output must not overwrite input');
+    const input = JSON.parse(await readFile(args[inputName], 'utf8'));
+    const list = Array.isArray(input) ? input : input[inputName];
+    if (!Array.isArray(list)) throw new Error(`Input must be an array or { ${inputName}: [...] }`);
+    const result = await collect(list);
+    const json = JSON.stringify(result, null, 2) + '\n';
+    if (args.out) await writeFile(args.out, json);
+    console.log(json.trimEnd());
+    console.error('Preview only: no database writes or scores assigned. Review source evidence before use.');
+    const rows = Array.isArray(result) ? result : result.checks;
+    if (rows.some(r => ['unreachable', 'discovery_failed'].includes(r.date_type) || r.status === 'unknown')) process.exitCode = 1;
+  } catch (error) { console.error(error.message); process.exitCode = 1; }
+}
 
 export function publicUrl(value) {
   const u = new URL(value);
