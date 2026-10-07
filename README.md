@@ -43,6 +43,15 @@ npm run build
 
 See [ownership](docs/ownership.md).
 
+## Company input automation
+
+Group 2's collectors discover verified exact Workday HCM go-live dates and
+Workday-related employer postings. Run `npm run inputs:refresh -- --companies
+src/data/research/workday-companies.json --out src/data/input-automation/latest.json`
+for a dry run. See [input automation](scripts/input-automation.md) for search
+configuration, evidence review, database apply, scheduled runs, and scoring
+handoff. No schema changes or weekly rank/history writes are included.
+
 Production builds use the supported Webpack option because Turbopack worker port creation is restricted in this execution environment.
 
 ## Fictional demo fixture
