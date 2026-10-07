@@ -107,3 +107,8 @@ td.rank-cell { min-width: 75px; font-weight: 650; color: var(--accent); }
 
 .login-panel { max-width: 460px; margin: 72px auto; }
 .login-panel h1 { font-size: 34px; }
+
+.movement { display: inline-block; font-weight: 650; font-size: 12px; padding: 2px 8px; border-radius: 12px; background: #f0eeea; color: #77716b; white-space: nowrap; }
+.movement.up { background: #e3f2e6; color: #1f7a35; }
+.movement.down { background: #fbe5e5; color: #a82b2b; }
+.movement.new { background: #f4eee4; color: var(--accent); }

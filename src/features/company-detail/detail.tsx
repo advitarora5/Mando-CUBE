@@ -4,6 +4,8 @@ import Link from "next/link";
 import { categories } from "@/domain/contracts/company";
 import { safeUrl, type CompanyDetail, type Contact } from "@/domain/contracts/detail";
 import { Editor, type Field } from "@/features/company-editor/editor";
+import { WeeklyHistory } from "@/features/weekly-history/history";
+import type { Snapshot } from "@/domain/history";
 import { saveCompany, saveContact, saveInsights } from "@/features/company-editor/actions";
 import { parseEvidence } from "@/domain/scoring/evidence";
 import { goLiveScore } from "@/domain/scoring/go-live";
@@ -87,7 +89,7 @@ if (researchStart < 0) return null;
     </section>
   );
 }
-export function Detail({ company: c }: { company: CompanyDetail }) {
+export function Detail({ company: c, snapshots = [] }: { company: CompanyDetail; snapshots?: Snapshot[] }) {
   const insights = c.insights;
   const days = c.days_since_signal;
   const goLive = goLiveScore(c.workday_signal_date);
@@ -128,6 +130,7 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
         return <article className="evidence-card" key={category}><div><h3>{rubric[category].label}</h3><strong>{points ?? "—"}<span> / {rubric[category].weight}</span></strong></div><p>{reason || "Evidence not provided"}</p>{!evidence && !!points && <p className="evidence-missing">This score needs a source link and a one-line reason.</p>}<Source value={evidence?.source ?? null} /></article>;
       })}</div>
     </section>
+    <WeeklyHistory snapshots={snapshots} />
     <section className="panel detail-section"><h2>Buyer contacts</h2><div className="contact-grid">{c.contacts.map(contact => <article key={contact.id} className="contact-card"><Editor title={contact.name} action={saveContact} hidden={{ company_id: c.id, id: contact.id }} fields={contactFields(contact)}><p>{contact.title ?? "Title not provided"}</p><p className="muted">{contact.mutual_connection ?? "No mutual connection recorded"}</p><div className="contact-links">{safeUrl(contact.linkedin_url) && <a className="source-link" href={safeUrl(contact.linkedin_url)!} target="_blank" rel="noopener noreferrer">Profile ↗</a>}<Source value={contact.source} /></div></Editor></article>)}</div>
       <div className="add-contact"><Editor title="New contact" label="Add contact" action={saveContact} hidden={{ company_id: c.id, id: "" }} fields={contactFields()}><p className="muted">Add a buyer or influencer and their public source links.</p></Editor></div>
     </section>

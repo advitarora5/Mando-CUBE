@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { categories, type CompanyListItem, type Score } from "@/domain/contracts/company";
 import { safeUrl } from "@/domain/contracts/detail";
+import { MovementBadge } from "@/features/weekly-history/history";
+import { rankMovement } from "@/domain/history";
 import { companyRanks, queryCompanies, type Sort } from "./query";
 
 function ScoreCells({ score }: { score: Score | null }) {
@@ -34,7 +36,7 @@ function SortHeader({ label, field, sort, setSort }: {
   </th>;
 }
 
-export function CompanyList({ companies, mode }: { companies: CompanyListItem[]; mode: "sample" | "database" }) {
+export function CompanyList({ companies, mode, previousWeek = null, previousRanks = {} }: { companies: CompanyListItem[]; mode: "sample" | "database"; previousWeek?: string | null; previousRanks?: Record<string, number> }) {
   const [search, setSearch] = useState("");
   const [tier, setTier] = useState("All");
   const [minimum, setMinimum] = useState("");
@@ -59,8 +61,8 @@ export function CompanyList({ companies, mode }: { companies: CompanyListItem[];
     </div>
     {invalid && <p className="filter-error" role="alert">{invalid}</p>}
     <p className="result-count" role="status">Showing {visible.length} of {companies.length} companies</p>
-    <div className="scroll"><table><thead><tr><SortHeader label="Rank" field="rank" sort={sort} setSort={setSort} /><SortHeader label="Company A–Z" field="name" sort={sort} setSort={setSort} /><th>Employees</th><th>Authority /25</th><th>Reachability /25</th><th>Budget /20</th><th>Release /15</th><th>Timing /15</th><SortHeader label="Total /100" field="score" sort={sort} setSort={setSort} /><SortHeader label="Tier" field="tier" sort={sort} setSort={setSort} /><th>Why now</th><th>Contacts</th></tr></thead>
-      <tbody>{visible.map(c => <tr key={c.id}><td className="rank-cell">{ranks.has(c.id) ? `#${ranks.get(c.id)}` : "—"}</td><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "—"}</td><ScoreCells score={c.score} /><td className="total-score"><strong>{c.score?.total ?? "—"}</strong></td><td><span className={`tier-badge ${c.score?.tier.toLowerCase() ?? "unscored"}`}>{c.score?.tier ?? "Unscored"}</span></td><td>
+    <div className="scroll"><table><thead><tr><SortHeader label="Rank" field="rank" sort={sort} setSort={setSort} /><SortHeader label="Company A–Z" field="name" sort={sort} setSort={setSort} /><th title={previousWeek ? `Compared with the ranks saved for the week of ${previousWeek}` : "No earlier weekly snapshot saved yet"}>Rank delta</th><th>Employees</th><th>Authority /25</th><th>Reachability /25</th><th>Budget /20</th><th>Release /15</th><th>Timing /15</th><SortHeader label="Total /100" field="score" sort={sort} setSort={setSort} /><SortHeader label="Tier" field="tier" sort={sort} setSort={setSort} /><th>Why now</th><th>Contacts</th></tr></thead>
+      <tbody>{visible.map(c => <tr key={c.id}><td className="rank-cell">{ranks.has(c.id) ? `#${ranks.get(c.id)}` : "—"}</td><td><strong>{mode === "database" ? <Link className="company-link" href={`/companies/${c.id}`}>{c.name} ↗</Link> : c.name}</strong><small>{c.industry ?? "Industry pending"}</small></td><td>{previousWeek ? <MovementBadge movement={rankMovement(ranks.get(c.id), previousRanks[c.id])} current={ranks.get(c.id)} /> : <span className="muted">—</span>}</td><td>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "—"}</td><ScoreCells score={c.score} /><td className="total-score"><strong>{c.score?.total ?? "—"}</strong></td><td><span className={`tier-badge ${c.score?.tier.toLowerCase() ?? "unscored"}`}>{c.score?.tier ?? "Unscored"}</span></td><td>
   <details>
     <summary>Read why now</summary>
     <p style={{ minWidth: "260px", maxWidth: "360px" }}>
