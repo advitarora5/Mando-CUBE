@@ -43,6 +43,17 @@ export function publicUrl(value) {
   return u.href;
 }
 
+// Report bounded, non-sensitive diagnostics rather than response bodies or keys.
+export function sourceFailure(error) {
+  const code = error?.cause?.code ?? error?.code;
+  if (['ENOTFOUND', 'EAI_AGAIN'].includes(code)) return { failure_kind: 'dns', failure_detail: 'Source hostname could not be resolved.' };
+  if (['TimeoutError', 'AbortError'].includes(error?.name)) return { failure_kind: 'timeout', failure_detail: 'Source timed out.' };
+  const http = /^HTTP (\d{3})$/.exec(error?.message ?? '');
+  if (http) return { failure_kind: 'http', failure_detail: `Source returned HTTP ${http[1]}.` };
+  if (error instanceof SyntaxError) return { failure_kind: 'invalid_response', failure_detail: 'Source returned malformed data.' };
+  return { failure_kind: 'unavailable_or_invalid', failure_detail: 'Source request or validation failed; review the public URL.' };
+}
+
 function privateAddress(address) {
   if (isIP(address) === 6) return !/^2[0-9a-f]{3}:/i.test(address) || /^2001:db8:/i.test(address);
   const [a, b] = address.split('.').map(Number);

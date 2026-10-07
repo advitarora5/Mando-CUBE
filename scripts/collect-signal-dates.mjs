@@ -1,5 +1,5 @@
 // Extends Krish's preview collector with source discovery and strict event/date binding.
-import { plainText, previewCLI, publicUrl, request, search, sourceTrusted } from './input-automation/public-sources.mjs';
+import { plainText, previewCLI, publicUrl, request, search, sourceTrusted, sourceFailure } from './input-automation/public-sources.mjs';
 
 const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 const monthPattern = months.join('|');
@@ -59,16 +59,16 @@ export async function collectSignalDates(companies, { fetchImpl = fetch, now = n
     try {
       const results = await search(`"${company.name}" Workday HCM "go live" OR "went live" -site:linkedin.com`, { fetchImpl, key });
       for (const result of results) urls.add(result.url);
-    } catch { rows.push({ company_id: company.id, company: company.name, storable: false, date_type: 'discovery_failed', reason: 'Search failed; existing sources will still be checked.' }); }
+    } catch (error) { rows.push({ company_id: company.id, company: company.name, storable: false, date_type: 'discovery_failed', reason: 'Search failed; existing sources will still be checked.', ...sourceFailure(error) }); }
     for (const url of [...urls].slice(0, 8)) {
       try {
         const page = await request(publicUrl(url), { fetchImpl });
         for (const row of extractSignalCandidates(page.text, page.url, { company, now, trusted: sourceTrusted(page.url, company, config) })) {
           rows.push({ company_id: company.id, company: company.name, checked_at: now.toISOString(), ...row });
         }
-      } catch {
+      } catch (error) {
         rows.push({ company_id: company.id, company: company.name, source_url: url, checked_at: now.toISOString(),
-          candidate_date: null, date_type: 'unreachable', storable: false, reason: 'Source unavailable; existing date preserved.' });
+          candidate_date: null, date_type: 'unreachable', storable: false, reason: 'Source unavailable; existing date preserved.', ...sourceFailure(error) });
       }
     }
     if (!urls.size) rows.push({ company_id: company.id, company: company.name, storable: false, date_type: 'skipped', reason: 'No source URL discovered or supplied.' });
