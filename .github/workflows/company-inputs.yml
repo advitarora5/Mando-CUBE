@@ -12,6 +12,10 @@ on:
       - 'package*.json'
   workflow_dispatch:
     inputs:
+      company_id:
+        description: Optional existing company UUID for a single-company pilot (blank runs all)
+        type: string
+        default: ''
       apply:
         description: Apply verified dates to empty fields (requires database secrets)
         type: boolean
@@ -52,6 +56,7 @@ jobs:
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
       APPLY_INPUTS: ${{ (github.event_name == 'workflow_dispatch' && inputs.apply) || (github.event_name == 'schedule' && vars.INPUT_AUTOMATION_APPLY == 'true') }}
+      PILOT_COMPANY_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.company_id || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -73,6 +78,9 @@ jobs:
         shell: bash
         run: |
           args=(--out src/data/input-automation/latest.json)
+          if [[ -n "$PILOT_COMPANY_ID" ]]; then
+            args+=(--company-id "$PILOT_COMPANY_ID")
+          fi
           if [[ -n "$SUPABASE_URL" && -n "$SUPABASE_SECRET_KEY" ]]; then
             args+=(--database)
           else
