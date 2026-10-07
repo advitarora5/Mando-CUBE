@@ -5,6 +5,9 @@ import { categories } from "@/domain/contracts/company";
 import { safeUrl, type CompanyDetail, type Contact } from "@/domain/contracts/detail";
 import { Editor, type Field } from "@/features/company-editor/editor";
 import { saveCompany, saveContact, saveInsights } from "@/features/company-editor/actions";
+import { parseEvidence } from "@/domain/scoring/evidence";
+import { goLiveScore } from "@/domain/scoring/go-live";
+import { rubric } from "@/domain/scoring/rubric";
 
 function Source({ value }: { value: string | null }) {
   const url = safeUrl(value);
@@ -19,7 +22,6 @@ function contactFields(contact?: Contact): Field[] {
     { name: "mutual_connection", label: "Mutual connection", value: contact?.mutual_connection ?? "" },
   ];
 }
-const labels = { authority: "Functional Authority", reachability: "Reachability & Conviction", budget: "Customer Budget", release: "Workday Release Alignment", timing: "Timing Trigger" };
 function ImportedResearch({ evidence }: { evidence: string }) {
   const prefix =
     "Unmapped spreadsheet research; category evidence needs review.\n";
@@ -88,6 +90,7 @@ if (researchStart < 0) return null;
 export function Detail({ company: c }: { company: CompanyDetail }) {
   const insights = c.insights;
   const days = c.days_since_signal;
+  const goLive = goLiveScore(c.workday_signal_date);
   const companyFields: Field[] = [
     { name: "name", label: "Company name", value: c.name, required: true },
     { name: "domain", label: "Domain", value: c.domain, help: "example.com (no https://)" },
@@ -104,7 +107,7 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
     <aside>{c.score?.tier_reason ?? "No qualification assessment is available yet."}</aside>
     <div className="detail-grid">
       <section className="panel detail-section"><Editor title="Company overview" action={saveCompany} hidden={{ company_id: c.id, updated_at: c.updated_at }} fields={companyFields}>
-        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div></dl><Source value={c.source} />
+        <dl className="facts"><div><dt>Domain</dt><dd>{c.domain ?? "Not provided"}</dd></div><div><dt>Employees</dt><dd>{employeeLabel(c.employee_count, c.score?.authority_evidence) ?? "Not provided"}</dd></div><div><dt>Workday signal date</dt><dd>{c.workday_signal_date ?? "Not provided"}</dd></div><div><dt>Days since signal</dt><dd>{days === null ? "Not provided" : days < 0 ? "Signal date is in the future" : `${days} days`}</dd></div><div className="full-width"><dt>Go-live score</dt><dd>{goLive.score} / {rubric.timing.weight} · {goLive.reason}</dd></div></dl><Source value={c.source} />
       </Editor></section>
       <section className="panel detail-section"><Editor title="Buyer insights" action={saveInsights} hidden={{ company_id: c.id, updated_at: insights?.updated_at ?? "" }} fields={[
         { name: "persona_override", label: "Buyer persona", value: insights?.persona_override ?? insights?.persona_generated ?? "", help: "Clear to restore the suggested persona." },
@@ -117,15 +120,12 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
     <ImportedResearch evidence={c.score?.authority_evidence ?? ""} />
     <section className="panel detail-section"><div className="section-title"><h2>Qualification evidence</h2><span className="muted">{c.score ? `Assessed ${new Date(c.score.assessed_at).toLocaleDateString("en-US", { timeZone: "America/Chicago" })}` : "No assessment yet"}</span></div>
       <div className="evidence-grid">{categories.map(category => {
-        const evidence = c.score?.[`${category}_evidence`] ?? "";
-        const split = evidence.indexOf(" | ");
-        const reason = evidence.startsWith("Unmapped spreadsheet research;")
-  ? "Imported research awaits category review."
-  : split >= 0
-    ? evidence.slice(split + 3)
-        .split("\n\nUnmapped spreadsheet research;")[0]
-    : evidence;
-        return <article className="evidence-card" key={category}><div><h3>{labels[category]}</h3><strong>{c.score?.[`${category}_score`] ?? "—"}</strong></div><p>{reason || "Evidence not provided"}</p><Source value={split >= 0 ? evidence.slice(0, split) : null} /></article>;
+        const stored = c.score?.[`${category}_evidence`] ?? "";
+        const evidence = parseEvidence(stored);
+        const points = c.score?.[`${category}_score`];
+        const imported = "Unmapped spreadsheet research;";
+        const reason = stored.startsWith(imported) ? "Imported research awaits category review." : (evidence?.reason ?? stored).split(`\n\n${imported}`)[0];
+        return <article className="evidence-card" key={category}><div><h3>{rubric[category].label}</h3><strong>{points ?? "—"}<span> / {rubric[category].weight}</span></strong></div><p>{reason || "Evidence not provided"}</p>{!evidence && !!points && <p className="evidence-missing">This score needs a source link and a one-line reason.</p>}<Source value={evidence?.source ?? null} /></article>;
       })}</div>
     </section>
     <section className="panel detail-section"><h2>Buyer contacts</h2><div className="contact-grid">{c.contacts.map(contact => <article key={contact.id} className="contact-card"><Editor title={contact.name} action={saveContact} hidden={{ company_id: c.id, id: contact.id }} fields={contactFields(contact)}><p>{contact.title ?? "Title not provided"}</p><p className="muted">{contact.mutual_connection ?? "No mutual connection recorded"}</p><div className="contact-links">{safeUrl(contact.linkedin_url) && <a className="source-link" href={safeUrl(contact.linkedin_url)!} target="_blank" rel="noopener noreferrer">Profile ↗</a>}<Source value={contact.source} /></div></Editor></article>)}</div>

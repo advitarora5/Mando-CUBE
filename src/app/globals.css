@@ -72,7 +72,9 @@ footer { padding-top: 24px; font-size: 12px; color: #868078; }
 .evidence-card > div { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .evidence-card h3 { font-size: 14px; font-weight: 550; margin: 0; }
 .evidence-card strong { font-size: 24px; color: var(--accent); }
+.evidence-card strong span { font-size: 13px; font-weight: 400; color: #77716b; white-space: nowrap; }
 .evidence-card p { color: #77716b; font-size: 13px; line-height: 1.7; }
+.evidence-card p.evidence-missing { color: #a82b2b; }
 .evidence-card .source-link, .contact-links { font-size: 12px; }
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 20px; }
 .contact-card h2 { font-size: 16px; }
