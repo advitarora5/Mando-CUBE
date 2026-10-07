@@ -71,7 +71,6 @@ The shared tier evaluator recomputes totals from the five category scores and de
 
 Evidence checks validate presence and format, not factual accuracy or buying authority. Research verification and evidence-to-score generation remain separate. Existing database assessment rows are not rewritten; displayed tiers are evaluated using current rules. New demo assessments also use the evaluator. Future import/scoring/snapshot writers must call the same evaluator before saving a tier. No SQL migration is needed for this application change.
 
-<<<<<<< HEAD
 ## Scoring
 
 The rubric lives in `src/domain/scoring/rubric.ts`: the five categories with their weights (Authority 25, Reachability 25, Budget 20, Release 15, Timing 15), the tier thresholds (Qualified 80, Maybe 55), the go-live bands and `RUBRIC_VERSION`. Change numbers there only.
@@ -95,7 +94,6 @@ The CSV has one row per company and these headers: `company_id` or `company` (ex
 A blank score counts as 0, with two exceptions, and a row with no scores at all is rejected rather than saved as Disqualified. If `timing_score` is blank and `timing_source` is filled, Timing is calculated from the company's `workday_signal_date`. If `release_score` is blank and `release_source` is filled, Release is calculated from the release calendar. Assessments are appended, not overwritten, and running the same sheet twice does not add duplicates.
 
 `scripts/assessments-demo.csv` is a ready-made sheet for the nine fictional demo companies from `npm run seed:demo`. It matches them by name and lets Timing and Release be calculated.
-=======
 
 ## Shared password and Vercel
 
@@ -108,4 +106,4 @@ Login attempts are limited to ten per fifteen minutes per IP within each server 
 Import this GitHub repository into Vercel as a Next.js project using the root directory and `npm run build`. Configure `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DASHBOARD_PASSWORD`, and `SESSION_SECRET` in Vercel Settings → Environment Variables for Production and any Preview environment in use. GitHub Actions secrets are not automatically provided to Vercel; `.env.local` is not uploaded through Git. Redeploy after changing environment values. The existing Supabase database stays in place.
 
 Before sharing the production URL, verify logged-out dashboard and direct company links redirect to login, a wrong password fails, login succeeds, editing persists, and logout blocks access again. Preview deployments pointed at the same database can modify the same records.
->>>>>>> origin/main
+
