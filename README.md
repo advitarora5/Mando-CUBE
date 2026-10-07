@@ -116,3 +116,9 @@ Import this GitHub repository into Vercel as a Next.js project using the root di
 
 Before sharing the production URL, verify logged-out dashboard and direct company links redirect to login, a wrong password fails, login succeeds, editing persists, and logout blocks access again. Preview deployments pointed at the same database can modify the same records.
 
+
+## Generated insights (persona, level, why now)
+
+`npm run insights` asks an LLM to write persona, level and why-now from each company's stored score evidence and prints them for spot-checking (dry run). `npm run insights -- --apply` saves them; `--force` regenerates companies already done; `--only=<text>` limits to company names containing <text>. Only `*_generated` columns are written, so manual overrides on the company page are never overwritten. Companies are skipped until scored, and re-generated only when scored again.
+
+The endpoint is any OpenAI-compatible API, set in `.env.local`. Default is local Ollama (`ollama pull llama3.1`). For OpenAI use `LLM_BASE_URL=https://api.openai.com/v1`, `LLM_API_KEY=<your key>`, `LLM_MODEL=<model>`.
