@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. Development binds to 127.0.0.1 because access control is deferred. Missing credentials display fictional, unscored sample companies.
+Open http://localhost:3000. Development binds to 127.0.0.1. Set `DASHBOARD_PASSWORD` and `SESSION_SECRET` before signing in. Missing credentials display fictional, unscored sample companies.
 
 ## Database
 
@@ -22,7 +22,7 @@ The initial SQL migration has been applied to the connected Supabase project. Ne
 
 Set `SUPABASE_SECRET_KEY` in `.env.local` to a Supabase server-only secret key (legacy service-role keys also work). Never use a publishable/anon key for this adapter or put secrets in chat or NEXT_PUBLIC variables. Restart after environment changes.
 
-RLS denies public database access. The server adapter uses a privileged key; there is no app login yet. Keep local until authorization is implemented. Database errors display an error instead of sample data.
+RLS denies public database access. The server adapter uses a privileged key; the shared-password login protects dashboard reads and editing. Database errors display an error instead of sample data.
 
 ## Verification
 
@@ -38,7 +38,7 @@ npm run build
 - Dashboard preview and server-side company reads.
 - SQL schema and company/score contracts.
 - Supabase, validation and CSV libraries installed for subsequent work.
-- Company detail pages support editing company fields, buyer insight overrides, and contacts, plus adding contacts. Imports, scoring automation, authentication, weekly refresh, and deployment are not implemented.
+- Company detail pages support editing company fields, buyer insight overrides, and contacts, plus adding contacts. Imports, scoring automation, weekly refresh, and deployment are not implemented.
 - Preliminary PDF-derived colors; Arial fallback until Figtree assets are configured.
 
 See [ownership](docs/ownership.md).
@@ -55,7 +55,7 @@ Click a company name on the dashboard to open `/companies/[id]`. The detail page
 
 Each editable section has Save/Cancel controls. Company and insight updates detect stale versions and ask the user to refresh rather than overwriting a concurrent edit. Contact updates are currently last-write-wins. Saving blank insight overrides restores the generated value. Scores remain the latest saved assessment; automatic recalculation awaits the approved scoring engine. Source links accept HTTP/HTTPS only.
 
-No SQL migration is required for detail editing. Mutations are limited to localhost/127.0.0.1 requests and disabled on Vercel while access control is deferred. This is a development guard, not a substitute for authentication before deployment. Weekly history is deferred.
+No SQL migration is required for detail editing. Reads and mutations require a valid shared-password session, including on Vercel. Weekly history is deferred.
 
 ## Dashboard controls
 
@@ -71,6 +71,7 @@ The shared tier evaluator recomputes totals from the five category scores and de
 
 Evidence checks validate presence and format, not factual accuracy or buying authority. Research verification and evidence-to-score generation remain separate. Existing database assessment rows are not rewritten; displayed tiers are evaluated using current rules. New demo assessments also use the evaluator. Future import/scoring/snapshot writers must call the same evaluator before saving a tier. No SQL migration is needed for this application change.
 
+<<<<<<< HEAD
 ## Scoring
 
 The rubric lives in `src/domain/scoring/rubric.ts`: the five categories with their weights (Authority 25, Reachability 25, Budget 20, Release 15, Timing 15), the tier thresholds (Qualified 80, Maybe 55), the go-live bands and `RUBRIC_VERSION`. Change numbers there only.
@@ -94,3 +95,17 @@ The CSV has one row per company and these headers: `company_id` or `company` (ex
 A blank score counts as 0, with two exceptions, and a row with no scores at all is rejected rather than saved as Disqualified. If `timing_score` is blank and `timing_source` is filled, Timing is calculated from the company's `workday_signal_date`. If `release_score` is blank and `release_source` is filled, Release is calculated from the release calendar. Assessments are appended, not overwritten, and running the same sheet twice does not add duplicates.
 
 `scripts/assessments-demo.csv` is a ready-made sheet for the nine fictional demo companies from `npm run seed:demo`. It matches them by name and lets Timing and Release be calculated.
+=======
+
+## Shared password and Vercel
+
+Set `DASHBOARD_PASSWORD` to the team's chosen password in ignored `.env.local`. Set `SESSION_SECRET` to a random value of at least 32 characters (generate with `openssl rand -hex 32`). Quote environment values containing `#` or spaces. Restart the development server after changes. Never prefix these variables with `NEXT_PUBLIC_` or commit the password.
+
+Visitors sign in at `/login`. All visitors have the same editing access, without accounts or user tracking. A signed HttpOnly, SameSite=Lax cookie lasts seven days and uses Secure in production. Log out removes the browser cookie; changing the password or session secret invalidates all existing cookies. Missing auth configuration blocks access. Data repositories and each save action enforce authentication independently.
+
+Login attempts are limited to ten per fifteen minutes per IP within each server instance (one bucket locally). This temporary in-memory counter resets on restart and is not shared across Vercel instances. For a consistent production limit, configure a Vercel Firewall rate-limit rule for POST requests to `/login`. These counters do not identify users or persist activity history.
+
+Import this GitHub repository into Vercel as a Next.js project using the root directory and `npm run build`. Configure `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DASHBOARD_PASSWORD`, and `SESSION_SECRET` in Vercel Settings → Environment Variables for Production and any Preview environment in use. GitHub Actions secrets are not automatically provided to Vercel; `.env.local` is not uploaded through Git. Redeploy after changing environment values. The existing Supabase database stays in place.
+
+Before sharing the production URL, verify logged-out dashboard and direct company links redirect to login, a wrong password fails, login succeeds, editing persists, and logout blocks access again. Preview deployments pointed at the same database can modify the same records.
+>>>>>>> origin/main

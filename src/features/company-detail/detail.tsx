@@ -1,3 +1,4 @@
+import { LogoutButton } from "@/features/login/logout";
 import Link from "next/link";
 import { categories } from "@/domain/contracts/company";
 import { safeUrl, type CompanyDetail, type Contact } from "@/domain/contracts/detail";
@@ -35,7 +36,7 @@ export function Detail({ company: c }: { company: CompanyDetail }) {
     { name: "source", label: "Company source link", value: c.source, type: "url" },
   ];
   return <main className="detail-page">
-    <header><Link href="/">mando <span>/ prospect intelligence</span></Link></header>
+    <header><Link href="/">mando <span>/ prospect intelligence</span></Link><LogoutButton /></header>
     <nav className="breadcrumb"><Link href="/">← Company priorities</Link></nav>
     <section className="detail-heading"><div><p className="eyebrow">COMPANY PROFILE</p><h1>{c.name}</h1><p>{c.industry ?? "Industry pending"} · {c.headquarters ?? "Headquarters pending"}</p></div><div className="score-summary"><strong>{c.score?.total ?? "—"}</strong><span>{c.score?.tier ?? "Unscored"}</span></div></section>
     <aside>{c.score?.tier_reason ?? "No qualification assessment is available yet."}</aside>
