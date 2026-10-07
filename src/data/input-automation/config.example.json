@@ -1,0 +1,15 @@
+{
+  "00000000-0000-4000-8000-000000000001": {
+    "employer_domain": "example.com",
+    "signal_urls": ["https://example.com/news/workday-hcm-launch"],
+    "trusted_hosts": ["implementation-partner.example.com"],
+    "career_urls": ["https://example.com/careers"],
+    "boards": [
+      {
+        "board": "greenhouse",
+        "board_token": "replace-with-verified-employer-token",
+        "mapping_evidence": "https://example.com/careers"
+      }
+    ]
+  }
+}

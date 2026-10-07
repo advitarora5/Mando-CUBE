@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "seed:demo": "node --env-file=.env.local scripts/seed-demo.mjs",
     "score:save": "node --env-file=.env.local scripts/save-assessments.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "inputs:refresh": "node scripts/refresh-company-inputs.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

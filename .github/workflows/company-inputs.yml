@@ -1,0 +1,95 @@
+name: Refresh company inputs
+on:
+  pull_request:
+    paths:
+      - 'scripts/*signal*'
+      - 'scripts/*job*'
+      - 'scripts/*company-inputs*'
+      - 'scripts/input-automation/**'
+      - 'tests/input-automation.test.mjs'
+      - 'src/data/input-automation/**'
+      - '.github/workflows/company-inputs.yml'
+      - 'package*.json'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply verified dates to empty fields (requires database secrets)
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 10 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: company-inputs-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+  collect:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+      APPLY_INPUTS: ${{ (github.event_name == 'workflow_dispatch' && inputs.apply) || (github.event_name == 'schedule' && vars.INPUT_AUTOMATION_APPLY == 'true') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/input-automation.test.mjs
+      - name: Restore previous input evidence for job reconciliation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=company-input-evidence&per_page=50" --jq ".artifacts | map(select(.expired == false and .workflow_run.head_branch == \"$GITHUB_REF_NAME\")) | first | .workflow_run.id // empty")
+          if [[ -n "$run_id" ]]; then
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name company-input-evidence --dir src/data/input-automation
+          fi
+      - name: Collect inputs
+        shell: bash
+        run: |
+          args=(--out src/data/input-automation/latest.json)
+          if [[ -n "$SUPABASE_URL" && -n "$SUPABASE_SECRET_KEY" ]]; then
+            args+=(--database)
+          else
+            args+=(--companies src/data/research/workday-companies.json)
+          fi
+          if [[ "$APPLY_INPUTS" == "true" ]]; then
+            args+=(--apply)
+          fi
+          if [[ -f src/data/input-automation/config.json ]]; then
+            args+=(--config src/data/input-automation/config.json)
+          fi
+          npm run inputs:refresh -- "${args[@]}"
+      - name: Preserve evidence even when a source refresh fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: company-input-evidence
+          path: src/data/input-automation/latest.json
+          if-no-files-found: warn
+          retention-days: 30

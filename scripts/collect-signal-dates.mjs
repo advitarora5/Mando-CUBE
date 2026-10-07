@@ -1,229 +1,93 @@
-// Collect Workday go-live signal-date candidates for reviewer approval.
-//
-// Preview-only: this script never writes to the database. It fetches each
-// company's Workday story (or homepage fallback), scans for go-live-date
-// statements, and prints reviewer-ready rows. Only rows marked storable may
-// become a workday_signal_date; everything else is research context.
-//
-// Usage:
-//   node scripts/collect-signal-dates.mjs --companies <file.json> [--out <file.json>]
-//
-// Input JSON: [{ "name": "Acme", "domain": "acme.example", "source": "https://www.workday.com/..." }]
-// At least one of domain/source is required per company; the script never
-// guesses URLs.
-//
-// Research rule: an exact HCM go-live date is storable only when a source
-// states it. Announcement dates, selection dates, finance-only launches,
-// year-only phrases ("went live in 2025"), and date ranges are not storable.
+// Extends Krish's preview collector with source discovery and strict event/date binding.
+import { plainText, previewCLI, publicUrl, request, search, sourceTrusted } from './input-automation/public-sources.mjs';
 
-const FETCH_TIMEOUT_MS = 15000;
-const MAX_HTML_CHARS = 500000;
-const MONTHS = "(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)";
+const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+const monthPattern = months.join('|');
+const datePattern = `(?:\\d{4}-\\d{2}-\\d{2}|(?:${monthPattern}) \\d{1,2}(?:st|nd|rd|th)?,? \\d{4}|\\d{1,2}(?:st|nd|rd|th)? (?:${monthPattern}) \\d{4})(?![\\d-])`;
+const eventPattern = `(?:went live|has gone live) (?:with )?Workday (?:HCM|Human Capital Management) on (${datePattern})`;
 
-function fail(message) {
-  console.error(message);
-  process.exitCode = 1;
-}
-
-// Exported for tests: fetch is injectable so checks stay offline.
-export async function fetchText(url, fetchImpl = fetch) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetchImpl(url, {
-      signal: controller.signal,
-      headers: { "user-agent": "mando-cube-signal-date-collector/1.0 (review use)" },
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const text = await response.text();
-    return text.slice(0, MAX_HTML_CHARS);
-  } finally {
-    clearTimeout(timer);
+export function normalizeDate(raw) {
+  let y, m, d;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (iso) [, y, m, d] = iso.map(Number);
+  else {
+    const clean = raw.toLowerCase().replace(/(\d)(st|nd|rd|th)/g, '$1').replace(',', '');
+    const parts = clean.split(' ');
+    const monthFirst = months.includes(parts[0]);
+    y = Number(parts[2]); m = months.indexOf(parts[monthFirst ? 0 : 1]) + 1; d = Number(parts[monthFirst ? 1 : 0]);
   }
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (y < 2005 || date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
+  return date.toISOString().slice(0, 10);
 }
 
-function stripHtml(html) {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;|&#160;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ");
-}
-// A date counts as EXACT only when it has a day-level calendar date:
-// "March 4, 2024", "4 March 2024", "03/04/2024", or ISO "2024-03-04".
-// Month-year ("March 2024"), year-only ("2025"), quarters, seasons, and
-// ranges are approximate by construction.
-const EXACT_PATTERNS = [
-  new RegExp(`${MONTHS}\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+\\d{4}`, "i"),
-  new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+${MONTHS}\\s+\\d{4}`, "i"),
-  /\b\d{1,2}\/\d{1,2}\/\d{4}\b/,
-  /\b\d{4}-\d{2}-\d{2}\b/,
-];
-const APPROXIMATE_PATTERNS = [
-  new RegExp(`${MONTHS}\\s+\\d{4}`, "i"),
-  /\bQ[1-4]\s+\d{4}\b/i,
-  /\b(19|20)\d{2}\b/,
-];
-const GO_LIVE_KEYWORDS = /\b(went live|go-live|go live|live on workday|live with workday|deployed workday|launched workday|workday (is|went) live)\b/i;
-const ANNOUNCEMENT_KEYWORDS = /\b(announced|announcement|selected|selection|chose|chooses|partnership|partnered|plans to|will deploy|implementation (begins|starts|underway)|contract|signed)\b/i;
-const FINANCE_ONLY_KEYWORDS = /\b(financial management|financials|accounting|adaptive planning|payroll only)\b/i;
-
-function findDates(text) {
-  const found = [];
-  for (const pattern of EXACT_PATTERNS) {
-    const re = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g");
-    let match;
-    while ((match = re.exec(text)) !== null) found.push({ raw: match[0], exact: true });
-  }
-  if (!found.length) {
-    for (const pattern of APPROXIMATE_PATTERNS) {
-      const re = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g");
-      let match;
-      while ((match = re.exec(text)) !== null) found.push({ raw: match[0], exact: false });
-    }
-  }
-  return found;
-}
-
-function contextAround(text, raw, window = 160) {
-  const index = text.indexOf(raw);
-  if (index < 0) return raw;
-  const start = Math.max(0, index - window);
-  const end = Math.min(text.length, index + raw.length + window);
-  return (start > 0 ? "…" : "") + text.slice(start, end).trim() + (end < text.length ? "…" : "");
-}
-
-function normalizeIso(raw) {
-  const iso = raw.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const slashed = raw.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-  if (slashed) {
-    return `${slashed[3]}-${slashed[1].padStart(2, "0")}-${slashed[2].padStart(2, "0")}`;
-  }
-  return null;
-}
-
-
-export function extractSignalCandidates(html, sourceUrl) {
-  const text = stripHtml(html);
+export function extractSignalCandidates(html, sourceUrl, { company, trusted = false, now = new Date() } = {}) {
+  const text = plainText(html);
   const rows = [];
-  if (!GO_LIVE_KEYWORDS.test(text)) {
-    return [{
-      candidate_date: null,
-      date_type: "none",
-      source_url: sourceUrl,
-      reason: "No go-live statement found on this page.",
-      storable: false,
-    }];
-  }
-  for (const { raw, exact } of findDates(text)) {
-    const context = contextAround(text, raw);
-    const announced = ANNOUNCEMENT_KEYWORDS.test(context);
-    const financeOnly = FINANCE_ONLY_KEYWORDS.test(context);
-    let dateType = exact ? "exact" : "approximate";
-    let reason;
-    let storable = false;
-    if (!exact) {
-      reason = `Approximate date "${raw}" near a go-live statement; not an exact HCM go-live date. Context: ${context}`;
-    } else if (financeOnly) {
-      dateType = "announcement";
-      reason = `Date "${raw}" appears tied to a non-HCM product; HCM go-live not confirmed. Context: ${context}`;
-    } else if (announced) {
-      dateType = "announcement";
-      reason = `Date "${raw}" reads as an announcement/selection date, not a go-live date. Context: ${context}`;
-    } else {
-      const iso = normalizeIso(raw);
-      reason = `Exact date "${raw}"${iso ? ` (${iso})` : ""} beside a Workday go-live statement; reviewer must confirm HCM scope before storing. Context: ${context}`;
-      storable = true;
-    }
-    rows.push({
-      candidate_date: normalizeIso(raw) ?? raw,
-      date_type: dateType,
-      source_url: sourceUrl,
-      reason,
-      storable,
+  const names = company ? [company.name] : [];
+  for (const sentence of text.split(/\n|(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)) {
+    if (!/workday/i.test(sentence) || !/live|launched|deployed/i.test(sentence)) continue;
+    const matches = [...sentence.matchAll(new RegExp(eventPattern, 'gi'))];
+    // Require the named company immediately before the completed-event phrase.
+    const named = names.some(name => {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?:^|[^\\w])${escaped}\\s+${eventPattern}`, 'i').test(sentence);
     });
+    const dates = [...sentence.matchAll(new RegExp(datePattern, 'gi'))];
+    const date = matches.length === 1 ? normalizeDate(matches[0][1]) : null;
+    const uncertain = /\b(will|would|plans?|expected|scheduled|target|not|never|may|might|subsidiary|division|region|pilot|phase|financial|payroll.only|between|through|until|or|approximately|around)\b|\s[-–]\s/i.test(sentence);
+    const storable = Boolean(trusted && named && date && matches.length === 1 && dates.length === 1 &&
+      !uncertain && date <= now.toISOString().slice(0, 10) && sentence.length < 700);
+    rows.push({ candidate_date: date, source_url: sourceUrl, excerpt: sentence.slice(0, 1000),
+      date_type: storable ? 'exact_hcm_go_live' : 'review', storable,
+      reason: storable ? `${company.name} explicitly went live with Workday HCM on ${date}.` :
+        'Review required: exact event/date binding, company/entity, trusted source, or completed HCM scope not confirmed.' });
   }
-  if (!rows.length) {
-    rows.push({
-      candidate_date: null,
-      date_type: "none",
-      source_url: sourceUrl,
-      reason: "Go-live language found but no calendar date nearby; manual review needed.",
-      storable: false,
-    });
-  }
-  return rows;
+  return rows.length ? rows : [{ candidate_date: null, source_url: sourceUrl, excerpt: null,
+    date_type: 'none', storable: false, reason: 'No explicit Workday go-live statement found.' }];
 }
 
-export async function collectSignalDates(companies, { fetchImpl = fetch } = {}) {
+export async function collectSignalDates(companies, { fetchImpl = fetch, now = new Date(), configs = {}, key } = {}) {
   const rows = [];
   for (const company of companies) {
-    if (!company?.name || (!company.source && !company.domain)) {
-      rows.push({
-        company: company?.name ?? "(unnamed)",
-        candidate_date: null,
-        date_type: "skipped",
-        source_url: null,
-        reason: "Needs a Workday story URL or company domain; URLs are never guessed.",
-        storable: false,
-      });
-      continue;
+    const config = configs[company.id] ?? {};
+    const urls = new Set([company.source, ...(config.signal_urls ?? [])].filter(Boolean));
+    if (company.domain) {
+      try { urls.add(publicUrl(company.domain.includes('://') ? company.domain : `https://${company.domain}`)); }
+      catch { /* invalid domains are never fetched */ }
     }
-    const urls = [company.source, company.domain ? `https://${String(company.domain).replace(/^https?:\/\//, "")}` : null].filter(Boolean);
-    for (const url of urls) {
-      let html;
+    try {
+      const results = await search(`"${company.name}" Workday HCM "go live" OR "went live" -site:linkedin.com`, { fetchImpl, key });
+      for (const result of results) urls.add(result.url);
+    } catch { rows.push({ company_id: company.id, company: company.name, storable: false, date_type: 'discovery_failed', reason: 'Search failed; existing sources will still be checked.' }); }
+    for (const url of [...urls].slice(0, 8)) {
       try {
-        html = await fetchText(url, fetchImpl);
-      } catch (error) {
-        rows.push({
-          company: company.name,
-          candidate_date: null,
-          date_type: "unreachable",
-          source_url: url,
-          reason: `Could not read page (${error instanceof Error ? error.message : "fetch failed"}).`,
-          storable: false,
-        });
-        continue;
+        const page = await request(publicUrl(url), { fetchImpl });
+        for (const row of extractSignalCandidates(page.text, page.url, { company, now, trusted: sourceTrusted(page.url, company, config) })) {
+          rows.push({ company_id: company.id, company: company.name, checked_at: now.toISOString(), ...row });
+        }
+      } catch {
+        rows.push({ company_id: company.id, company: company.name, source_url: url, checked_at: now.toISOString(),
+          candidate_date: null, date_type: 'unreachable', storable: false, reason: 'Source unavailable; existing date preserved.' });
       }
-      for (const candidate of extractSignalCandidates(html, url)) {
-        rows.push({ company: company.name, ...candidate });
-      }
-      break;
     }
+    if (!urls.size) rows.push({ company_id: company.id, company: company.name, storable: false, date_type: 'skipped', reason: 'No source URL discovered or supplied.' });
   }
   return rows;
 }
 
-function parseArgs(argv) {
-  const args = {};
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--companies") args.companies = argv[++i];
-    else if (argv[i] === "--out") args.out = argv[++i];
-    else throw new Error(`Unknown argument: ${argv[i]}`);
+export function selectSignal(company, candidates) {
+  const rows = candidates.filter(r => r.company_id === company.id);
+  // Conflicting exact event candidates block writes even when one source needs review.
+  const dates = new Set(rows.filter(r => r.candidate_date).map(r => r.candidate_date));
+  if (dates.size > 1) return { status: 'conflict', date: null, evidence: null };
+  const accepted = rows.find(r => r.storable);
+  if (!accepted) return { status: 'review', date: null, evidence: null };
+  if (company.workday_signal_date && company.workday_signal_date !== accepted.candidate_date) {
+    return { status: 'existing_date_conflict', date: null, evidence: null };
   }
-  if (!args.companies) throw new Error("Usage: node scripts/collect-signal-dates.mjs --companies <file.json> [--out <file.json>]");
-  return args;
+  return { status: company.workday_signal_date ? 'unchanged' : 'ready', date: accepted.candidate_date,
+    evidence: `${accepted.source_url} | ${accepted.reason}`, excerpt: accepted.excerpt };
 }
 
-if (process.argv[1] && import.meta.url.endsWith(String(process.argv[1]).split("/").pop())) {
-  const { readFile, writeFile } = await import("node:fs/promises");
-  try {
-    const { companies, out } = parseArgs(process.argv.slice(2));
-    const input = JSON.parse(await readFile(companies, "utf8"));
-    const list = Array.isArray(input) ? input : input.companies;
-    if (!Array.isArray(list)) throw new Error("Input must be an array or { companies: [...] }.");
-    const rows = await collectSignalDates(list);
-    const storable = rows.filter((row) => row.storable).length;
-    console.log(JSON.stringify(rows, null, 2));
-    console.log(`\n${rows.length} candidate rows (${storable} storable exact dates). No database writes performed; a reviewer must approve storable rows.`);
-    if (out) {
-      await writeFile(out, JSON.stringify(rows, null, 2) + "\n");
-      console.log(`Wrote candidates to ${out}.`);
-    }
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error));
-  }
-}
+await previewCLI(import.meta.url, 'companies', collectSignalDates);
