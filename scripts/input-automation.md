@@ -208,27 +208,3 @@ original source excerpts, employer mappings, posting activity, and coverage
 gaps. Configure GitHub Actions secrets separately from Vercel, merge the PR
 after review, then verify the scheduled/manual dry run and its evidence artifact.
 Leave automatic apply disabled until that pilot is reviewed.
-
-## First GitHub live run and follow-up
-
-Manual dry run 37581082586 on October 7 read 136 database companies, preserved
-its evidence artifact, and made no database writes. It found six active 3M
-postings, of which two were relevant Workday roles; incidental mentions are
-excluded from the scorer handoff. No exact go-live dates were proposed. Only
-three companies had supported job sources, so discovery coverage remains limited.
-The optional Brave search key was absent.
-
-The run exited nonzero for 24 source failures: 18 involved the nine fictional
-records from `seed-demo.mjs`, and six involved unavailable real sources. The
-follow-up skips only those nine known seed UUIDs, adds bounded failure diagnostics,
-and separates relevant-role counts from incidental mentions. Real source failures
-still exit nonzero; skipping demos does not resolve the remaining discovery gaps.
-No schema, dashboard, or weekly-history changes are needed.
-
-For a smaller manual pilot, set the workflow's optional `company_id` to an
-existing company UUID. For the verified 3M record use
-`36890587-f5bf-59af-ad10-f62c4b822862`, and leave `apply` false. Blank runs all
-companies. Retained evidence for companies outside a pilot is preserved but
-excluded from that pilot's summary counts. Review the evidence artifact before
-enabling writes. Improve coverage using reviewed employer/career mappings in
-`config.json` and, optionally, the GitHub secret `BRAVE_SEARCH_API_KEY`.
