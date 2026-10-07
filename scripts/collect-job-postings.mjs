@@ -1,5 +1,5 @@
 // Extends the Greenhouse/Lever collector from krish/input-automation.
-import { links, ownedHost, plainText, previewCLI, publicUrl, request, search, sourceFailure } from './input-automation/public-sources.mjs';
+import { links, ownedHost, plainText, previewCLI, publicUrl, request, search } from './input-automation/public-sources.mjs';
 
 export function boardFromUrl(value) {
   const u = new URL(publicUrl(value));
@@ -121,8 +121,8 @@ export async function collectJobPostings(boards, { fetchImpl = fetch, now = new 
       jobs.push(...normalized);
       checks.push({ company_id: entry.company_id, board_key: boardKey, status: 'ok', checked_at: now.toISOString(),
         posting_ids: result.jobs.map(j => String(j.id)), complete_inventory: true, source_url: result.api });
-    } catch (error) {
-      checks.push({ company_id: entry.company_id, board_key: boardKey, status: 'unknown', checked_at: now.toISOString(), reason: 'Board refresh failed or incomplete; do not infer expiration.', ...sourceFailure(error) });
+    } catch {
+      checks.push({ company_id: entry.company_id, board_key: boardKey, status: 'unknown', checked_at: now.toISOString(), reason: 'Board refresh failed or incomplete; do not infer expiration.' });
     }
   }
   return { jobs, checks };
@@ -154,7 +154,7 @@ export async function discoverBoards(company, config = {}, { fetchImpl = fetch, 
       if (ownedHost(r.url, company)) pages.add(r.url);
       else leads.push({ ...r, status: 'employer_mapping_review' });
     }
-  } catch (error) { leads.push({ status: 'discovery_failed', reason: 'Career search failed', ...sourceFailure(error) }); }
+  } catch { leads.push({ status: 'discovery_failed', reason: 'Career search failed' }); }
   const visited = new Set();
   for (const url of pages) {
     if (visited.size >= 6) break;
@@ -171,7 +171,7 @@ export async function discoverBoards(company, config = {}, { fetchImpl = fetch, 
         else if (approved && ownedHost(link.url, company) && /career|jobs|vacanc/i.test(`${link.url} ${link.label}`)) pages.add(link.url);
         else if (/myworkdayjobs\.com$/.test(new URL(link.url).hostname)) leads.push({ url: link.url, status: 'unsupported_board_review' });
       }
-    } catch (error) { leads.push({ url, status: 'unreachable', ...sourceFailure(error) }); }
+    } catch { leads.push({ url, status: 'unreachable' }); }
   }
   return { boards: [...new Map(boards.map(b => [`${b.board}:${b.region ?? 'global'}:${b.board_token}:${b.site ?? ''}`, b])).values()],
     leads: [...new Map(leads.map(l => [`${l.url}:${l.status}`, l])).values()], employerJobs,

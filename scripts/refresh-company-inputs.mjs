@@ -4,12 +4,6 @@ import { pathToFileURL } from 'node:url';
 import { collectSignalDates, selectSignal } from './collect-signal-dates.mjs';
 import { collectJobPostings, discoverBoards, mergePostings } from './collect-job-postings.mjs';
 
-// Match the nine stable company IDs created by scripts/seed-demo.mjs.
-// Names or employee counts alone never determine whether a company is fictional.
-const demoCompanyIds = new Set([1, 20, 30, 40, 50, 60, 70, 80, 90]
-  .map(n => `d0000000-0000-4000-8000-${String(n).padStart(12, '0')}`));
-export function isDemoCompany(company) { return demoCompanyIds.has(company.id); }
-
 export function scoringInputs(company, signal, postings) {
   return { company_id: company.id, workday_signal_date: signal.date ?? company.workday_signal_date,
     timing_evidence: signal.evidence, job_evidence_candidates: postings.filter(j => j.status === 'active' && j.relevance !== 'incidental_review').map(j => ({
@@ -19,20 +13,14 @@ export function scoringInputs(company, signal, postings) {
 }
 
 export function summarizeReport(report) {
-  const liveIds = new Set(report.companies.filter(c => c.coverage !== 'skipped_demo').map(c => c.company_id));
-  const activeJobs = report.postings.filter(j => liveIds.has(j.company_id) && j.status === 'active');
   return {
     complete: report.complete,
     companies: report.companies.length,
-    skipped_demo_companies: report.companies.filter(c => c.coverage === 'skipped_demo').length,
-    live_companies_checked: liveIds.size,
     proposed_dates: report.companies.filter(c => c.signal.status === 'ready').length,
     date_conflicts: report.companies.filter(c => ['conflict', 'existing_date_conflict'].includes(c.signal.status)).length,
     companies_with_job_sources: report.companies.filter(c => c.coverage === 'supported_source').length,
     companies_without_job_sources: report.companies.filter(c => c.coverage === 'no_supported_source').length,
-    active_postings: activeJobs.length,
-    relevant_active_postings: activeJobs.filter(j => j.relevance === 'workday_role_review').length,
-    consulting_review_postings: activeJobs.filter(j => j.relevance === 'consulting_review').length,
+    active_postings: report.postings.filter(j => j.status === 'active').length,
     source_failures: report.signal_candidates.filter(c => ['unreachable', 'discovery_failed'].includes(c.date_type)).length
       + report.board_checks.filter(c => c.status !== 'ok').length
       + report.companies.flatMap(c => c.discovery_leads).filter(c => ['unreachable', 'discovery_failed'].includes(c.status)).length,
@@ -57,11 +45,6 @@ export async function refresh(companies, { configs = {}, previous = [], fetchImp
       ...mergePostings(previous.filter(j => processed.has(j.company_id)), allJobs, checks)];
     for (const result of results) {
       const company = companies.find(c => c.id === result.company_id);
-      if (result.coverage === 'skipped_demo') {
-        result.signal = { status: 'skipped_demo', date: null, evidence: null };
-        result.scoring_inputs = null;
-        continue;
-      }
       result.signal = selectSignal(company, candidates);
       result.scoring_inputs = scoringInputs(company, result.signal, postings.filter(j => j.company_id === result.company_id));
     }
@@ -69,12 +52,6 @@ export async function refresh(companies, { configs = {}, previous = [], fetchImp
       requested_company_ids: [...ids], companies: results, signal_candidates: candidates, postings, board_checks: checks };
   }
   for (const company of companies) {
-    if (isDemoCompany(company)) {
-      results.push({ company_id: company.id, name: company.name, coverage: 'skipped_demo',
-        discovery_leads: [], reason: 'Known fictional seed record; not fetched or updated.' });
-      if (onProgress) await onProgress(report());
-      continue;
-    }
     const discovery = await discoverBoards(company, configs[company.id], { fetchImpl, key, now });
     const effectiveCompany = { ...company, domain: discovery.employer_domain ?? company.domain };
     const collected = await collectJobPostings(discovery.boards, { fetchImpl, now });

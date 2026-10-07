@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { collectSignalDates, extractSignalCandidates, normalizeDate, selectSignal } from '../scripts/collect-signal-dates.mjs';
 import { boardFromUrl, collectJobPostings, discoverBoards, employerDomainFromStory, mergePostings, relevance, structuredPostings } from '../scripts/collect-job-postings.mjs';
-import { publicUrl, request, search, sourceFailure } from '../scripts/input-automation/public-sources.mjs';
-import { applySignal, isDemoCompany, refresh, scoringInputs, summarizeReport } from '../scripts/refresh-company-inputs.mjs';
+import { publicUrl, request, search } from '../scripts/input-automation/public-sources.mjs';
+import { applySignal, refresh, scoringInputs, summarizeReport } from '../scripts/refresh-company-inputs.mjs';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -237,41 +237,6 @@ test('source failures preserve existing dates and appear in the report summary',
   assert.equal(report.companies[0].scoring_inputs.workday_signal_date, '2023-01-01');
   assert.equal(report.companies[0].signal.status, 'review');
   assert.equal(summarizeReport(report).source_failures, 3);
-});
-
-test('known seed companies are skipped without network requests or database updates', async () => {
-  const demos = [1, 20, 30, 40, 50, 60, 70, 80, 90].map(n => ({ ...company,
-    id: `d0000000-0000-4000-8000-${String(n).padStart(12, '0')}` }));
-  assert.equal(isDemoCompany({ ...company, name: 'Demo' }), false);
-  const report = await refresh(demos, { now, fetchImpl: async () => assert.fail('Demo must not be fetched') });
-  assert.equal(report.complete, true);
-  assert.equal(summarizeReport(report).skipped_demo_companies, 9);
-  assert.equal(summarizeReport(report).live_companies_checked, 0);
-  assert.equal(summarizeReport(report).source_failures, 0);
-  for (const row of report.companies) {
-    assert.equal(row.scoring_inputs, null);
-    assert.equal(await applySignal({ from: () => assert.fail('Demo must not be updated') }, demos[0], row.signal), 'not_changed');
-  }
-});
-
-test('pilot summary distinguishes relevant jobs and excludes retained companies', () => {
-  const report = { complete: true, companies: [{ company_id: company.id, coverage: 'supported_source', signal: {}, discovery_leads: [] }],
-    signal_candidates: [], board_checks: [], postings: [
-      { company_id: company.id, status: 'active', relevance: 'workday_role_review' },
-      { company_id: company.id, status: 'active', relevance: 'incidental_review' },
-      { company_id: company.id, status: 'unknown', relevance: 'workday_role_review' },
-      { company_id: 'retained', status: 'active', relevance: 'workday_role_review' },
-    ] };
-  assert.equal(summarizeReport(report).active_postings, 2);
-  assert.equal(summarizeReport(report).relevant_active_postings, 1);
-});
-
-test('source diagnostics identify actionable failures without exposing raw errors', () => {
-  assert.equal(sourceFailure({ cause: { code: 'EAI_AGAIN' } }).failure_kind, 'dns');
-  assert.equal(sourceFailure({ name: 'TimeoutError' }).failure_kind, 'timeout');
-  assert.equal(sourceFailure(new Error('HTTP 403')).failure_detail, 'Source returned HTTP 403.');
-  assert.equal(sourceFailure(new SyntaxError('sensitive body')).failure_kind, 'invalid_response');
-  assert.doesNotMatch(JSON.stringify(sourceFailure(new Error('secret-key-in-response'))), /secret-key/);
 });
 
 test('standalone preview commands execute and reject overwriting inputs', async () => {
