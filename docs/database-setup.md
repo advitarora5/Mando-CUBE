@@ -33,4 +33,4 @@ The Week 1 CSV uses Gone Live, Buyer Persona, Job Posting, Budget and Warm Chann
 
 ## Access
 
-RLS is enabled without public policies. All reads use server-only credentials. No remote SQL was executed by this setup. Implement authorization before sharing the app.
+RLS is enabled without public policies. All reads use server-only credentials. No remote SQL was executed by this setup. Dashboard reads and edits now require a shared-password session. Configure the password and session secret in each deployed environment before sharing the app.

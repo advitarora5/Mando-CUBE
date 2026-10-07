@@ -1,3 +1,4 @@
+import { requirePageSession } from "@/server/auth/session";
 import "server-only";
 import { database } from "@/server/db";
 import type { CompanyDetail } from "@/domain/contracts/detail";
@@ -5,6 +6,7 @@ import type { Score } from "@/domain/contracts/company";
 import { applyTierRules } from "@/domain/scoring/tier-rules";
 
 export async function getCompanyDetail(id: string): Promise<CompanyDetail | null> {
+  await requirePageSession();
   const { data, error } = await database().from("companies")
     .select("*, contacts(*), scores(*), company_insights(*)").eq("id", id).maybeSingle();
   if (error) throw new Error("Could not load this company. Check the database connection and try again.");
