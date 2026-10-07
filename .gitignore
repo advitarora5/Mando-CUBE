@@ -42,7 +42,3 @@ next-env.d.ts
 
 !.env.example
 /supabase/.temp/
-
-# Input collector reports contain live research; retain as artifacts, not commits.
-/src/data/input-automation/latest.json
-/src/data/input-automation/latest.json.tmp
