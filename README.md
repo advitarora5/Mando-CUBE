@@ -113,3 +113,11 @@ Before sharing the production URL, verify logged-out dashboard and direct compan
 `npm run insights` asks an LLM to write persona, level and why-now from each company's stored score evidence and prints them for spot-checking (dry run). `npm run insights -- --apply` saves them; `--force` regenerates companies already done; `--only=<text>` limits to company names containing <text>. Only `*_generated` columns are written, so manual overrides on the company page are never overwritten. Companies are skipped until scored, and re-generated only when scored again.
 
 The endpoint is any OpenAI-compatible API, set in `.env.local`. Default is local Ollama (`ollama pull llama3.1`). For OpenAI use `LLM_BASE_URL=https://api.openai.com/v1`, `LLM_API_KEY=<your key>`, `LLM_MODEL=<model>`.
+
+## Browser ingestion inputs
+
+The collection pilot defines source priorities, browser-agent instructions, portable
+source captures and an offline validator. Start with
+`node scripts/ingestion/prepare-run.mjs reddit-workday` and follow
+[the ingestion guide](docs/ingestion/README.md). Only Reddit is enabled initially.
+This milestone does not launch collection, call Ollama, schedule runs or write to Supabase.

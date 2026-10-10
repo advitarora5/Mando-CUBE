@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "brief": {
+    "schema_version": 1,
+    "run_id": "synthetic-mixed-001",
+    "source_id": "synthetic",
+    "started_at": "2026-10-09T15:00:00Z",
+    "lookback_start": "2026-07-11",
+    "start_urls": [
+      "https://example.com/"
+    ],
+    "search_terms": [
+      "Workday testing"
+    ],
+    "max_pages": 10,
+    "max_minutes": 20
+  },
+  "finished_at": "2026-10-09T15:10:00Z",
+  "outcome": "completed",
+  "pages_visited": 5,
+  "captures": [
+    {
+      "source_id": "capture-1",
+      "url": "https://example.com/source-1",
+      "title": "Fictional release discussion",
+      "source_type": "discussion",
+      "collected_at": "2026-10-09T15:01:00Z",
+      "published_date": null,
+      "content_scope": "selected_passages",
+      "segments": [
+        {
+          "id": "page-1",
+          "parent_id": null,
+          "kind": "post",
+          "author": null,
+          "url": "https://example.com/source-1",
+          "published_date": null,
+          "text": "At Fictional Acme, we are preparing our Workday Finance team for a release and struggling with regression testing."
+        },
+        {
+          "id": "comment-1",
+          "parent_id": "page-1",
+          "kind": "comment",
+          "author": "fictional-user",
+          "url": "https://example.com/source-1#comment-1",
+          "published_date": null,
+          "text": "I am a consultant; this is about my client, not my own employer."
+        }
+      ],
+      "links_followed": [],
+      "agent_observations": [
+        "Synthetic fixture; never ingest as a real prospect."
+      ]
+    },
+    {
+      "source_id": "capture-2",
+      "url": "https://example.com/source-2",
+      "title": "Fictional Workday analyst vacancy",
+      "source_type": "job_listing",
+      "collected_at": "2026-10-09T15:02:00Z",
+      "published_date": null,
+      "content_scope": "selected_passages",
+      "segments": [
+        {
+          "id": "page-2",
+          "parent_id": null,
+          "kind": "page",
+          "author": null,
+          "url": "https://example.com/source-2",
+          "published_date": null,
+          "text": "Fictional Acme seeks a Workday Payroll analyst. The role supports testing. This vacancy does not state an implementation date."
+        }
+      ],
+      "links_followed": [],
+      "agent_observations": [
+        "Synthetic fixture; never ingest as a real prospect."
+      ]
+    },
+    {
+      "source_id": "capture-3",
+      "url": "https://example.com/source-3",
+      "title": "Fictional implementation article",
+      "source_type": "article",
+      "collected_at": "2026-10-09T15:03:00Z",
+      "published_date": null,
+      "content_scope": "selected_passages",
+      "segments": [
+        {
+          "id": "page-3",
+          "parent_id": null,
+          "kind": "page",
+          "author": null,
+          "url": "https://example.com/source-3",
+          "published_date": null,
+          "text": "Fictional Acme selected Workday in 2024. This article does not establish when the company went live."
+        }
+      ],
+      "links_followed": [],
+      "agent_observations": [
+        "Synthetic fixture; never ingest as a real prospect."
+      ]
+    },
+    {
+      "source_id": "capture-4",
+      "url": "https://example.com/source-4",
+      "title": "Fictional partner case study",
+      "source_type": "case_study",
+      "collected_at": "2026-10-09T15:04:00Z",
+      "published_date": null,
+      "content_scope": "selected_passages",
+      "segments": [
+        {
+          "id": "page-4",
+          "parent_id": null,
+          "kind": "page",
+          "author": null,
+          "url": "https://example.com/source-4",
+          "published_date": null,
+          "text": "A partner describes a historical Workday Finance implementation for Fictional Acme. The project date is not provided."
+        }
+      ],
+      "links_followed": [],
+      "agent_observations": [
+        "Synthetic fixture; never ingest as a real prospect."
+      ]
+    },
+    {
+      "source_id": "capture-5",
+      "url": "https://example.com/source-5",
+      "title": "Fictional client logos",
+      "source_type": "client_list",
+      "collected_at": "2026-10-09T15:05:00Z",
+      "published_date": null,
+      "content_scope": "selected_passages",
+      "segments": [
+        {
+          "id": "page-5",
+          "parent_id": null,
+          "kind": "page",
+          "author": null,
+          "url": "https://example.com/source-5",
+          "published_date": null,
+          "text": "Fictional Acme appears on a partner client list. The page does not name the product used."
+        }
+      ],
+      "links_followed": [],
+      "agent_observations": [
+        "Synthetic fixture; never ingest as a real prospect."
+      ]
+    }
+  ],
+  "failures": []
+}
