@@ -119,5 +119,5 @@ The endpoint is any OpenAI-compatible API, set in `.env.local`. Default is local
 The collection pilot defines source priorities, browser-agent instructions, portable
 source captures and an offline validator. Start with
 `node scripts/ingestion/prepare-run.mjs reddit-workday` and follow
-[the ingestion guide](docs/ingestion/README.md). Only Reddit is enabled initially.
+[the ingestion guide](docs/ingestion/README.md). All three source families are enabled for separate 15-minute pilots.
 This milestone does not launch collection, call Ollama, schedule runs or write to Supabase.

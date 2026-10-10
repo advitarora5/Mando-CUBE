@@ -8,7 +8,7 @@ Commands below run from the repository root.
 ## Files
 
 - config/ingestion/sources.json: editable source priorities and bounded collection settings.
-  Only Reddit is enabled. Job/partner URLs are starting points to verify in later pilots,
+  All three source families are enabled. Job/partner URLs are starting points to verify,
   not tested adapters. Priority defines rollout order, not a schedule.
 - src/data/ingestion/contracts.ts: strict Zod schemas for source configuration,
   collection briefs and source batches. These are collection contracts, not changes
@@ -21,11 +21,17 @@ Commands below run from the repository root.
 
 ## Prepare a local pilot
 
-    node scripts/ingestion/prepare-run.mjs reddit-workday
+    node scripts/ingestion/prepare-run.mjs job-boards
+
+Run the jobs pilot first, then prepare a fresh brief immediately before the partner
+pilot with `node scripts/ingestion/prepare-run.mjs partner-websites`. Reddit remains
+available with `node scripts/ingestion/prepare-run.mjs reddit-workday`. Use one
+brief per source family so yield can be compared. Do not generate both briefs
+in advance: the second budget would expire while the first runs.
 
 This creates a unique run directory and brief.json. It does not start an agent.
 Prepare it when ready to collect, because started_at starts the time budget.
-The Reddit pilot currently allows 15 minutes and up to 10,000 page visits, so
+Each source pilot currently allows 15 minutes and up to 10,000 page visits, so
 time should be the practical limit. Continue exploring useful material throughout
 the window; blocked access or exhausted relevant results can still end it early.
 These are agent instructions, not a programmatic execution timeout. Existing
@@ -34,14 +40,19 @@ In a separate chat using this repository/branch, provide this prompt with the
 printed absolute paths substituted:
 
 > Read docs/ingestion/browser-agent.md, the ingestion contracts and the synthetic
-> fixture. Execute the collection brief at <absolute brief.json path> using the
+> fixture. Collect relevant Workday usage, projects and potential buying signals.
+> Record company attribution when explicitly present, otherwise mark it unknown.
+> Do not perform extra identity searches or discard relevant anonymous material.
+> Execute the collection brief at <absolute brief.json path> using the
 > browser tools available in this chat. Save the source batch to <absolute
 > captures.json path>, run the validator, and report results. Do not modify
 > application code or write to Supabase. If browser access is unavailable, report
 > that limitation rather than substituting uncited or invented content.
 > Use the available time budget to explore additional relevant queries and
 > result pages; do not stop after a small number of captures. Check elapsed time
-> and save progress periodically. Explain any early stop.
+> and save progress periodically. Explain any early stop. Summarize distinct named
+> company candidates with supporting capture IDs, unresolved identities, and which
+> candidates have current buying signals. Separate customers from vendors/partners.
 >
 > If a CAPTCHA appears, pause and tell me which browser tab and URL need
 > attention. Do not solve or bypass it. Wait for me to complete it manually

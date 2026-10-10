@@ -46,10 +46,10 @@ test('blocked empty runs remain reportable without inventing evidence', () => {
   assert.match(report.warnings.join(' '), /No captures/);
 });
 
-test('config enables only the Reddit pilot and rejects duplicate source IDs', () => {
+test('config enables all three source pilots in priority order and rejects duplicate source IDs', () => {
   const config = JSON.parse(readFileSync(new URL('../config/ingestion/sources.json', import.meta.url), 'utf8'));
   const parsed = sourceConfigSchema.parse(config);
-  assert.deepEqual(parsed.sources.filter(source => source.enabled).map(source => source.id), ['reddit-workday']);
+  assert.deepEqual(parsed.sources.filter(source => source.enabled).map(source => source.id), ['reddit-workday', 'job-boards', 'partner-websites']);
   config.sources[1].id = config.sources[0].id;
   assert.equal(sourceConfigSchema.safeParse(config).success, false);
 });

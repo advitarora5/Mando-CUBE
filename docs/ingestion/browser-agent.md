@@ -7,7 +7,7 @@ The human's current instructions and repository AGENTS.md still apply.
 ## Inputs and scope
 
 Use only the source specified in the brief. Source priority is Reddit r/workday,
-job boards, then partner websites; currently only Reddit is enabled. Search terms
+job boards, then partner websites; all three are enabled for separate pilots. Search terms
 are starting points, not a requirement to find a company for every term.
 Explore relevant links and corroborating public pages within the brief's page
 and time budgets. Count each navigation/search-results page and newly opened
@@ -21,7 +21,7 @@ When one search is exhausted, try the remaining search terms, relevant related
 queries, and additional result pages. Check elapsed time regularly and save
 progress periodically. Stop early only for an unresolved access block, exhausted
 relevant accessible material, or a human instruction; explain the reason. Do not
-idle or revisit pages solely to fill the time. The Reddit pilot currently has a
+idle or revisit pages solely to fill the time. Each source pilot currently has a
 15-minute budget and a 10,000-page ceiling, intended to make time the practical
 limit. The brief is authoritative if these settings change.
 
@@ -29,6 +29,47 @@ Look for explicit Workday usage across HCM, Finance, Payroll, Recruiting and oth
 modules, plus implementation, hiring, testing and active release-preparation signals.
 Prefer material since lookback_start, but keep clearly labeled older corroboration
 when relevant. A missing date does not justify assuming the content is recent.
+
+## Company attribution and source-specific exploration
+
+Use the same relevance criteria across pilots: Workday usage, projects and potential
+buying signals. Do not rank search results or extend exploration solely to find a
+company name. When a company is explicitly identified, capture the attribution
+passage; when it is not, retain relevant material and mark identity unknown. Do
+not perform additional identity searches for these baseline runs. Explain
+in agent_observations whether the name is an end customer, staffing agency,
+implementation partner, software provider or unresolved reference. Do not add
+structured company fields to captures; those belong to later extraction.
+
+For job-boards, start with the configured job board and search terms, then follow
+employer career pages and public job listings (including Greenhouse, Lever and
+company Workday career sites). Public search engines may be used to discover these
+pages. Verify against the listing itself, not search snippets. Distinguish internal
+Workday operation from consulting/client assignments, and active listings from
+expired ones. Capture employer, role, location, requisition, posting date and
+Workday responsibilities when actually visible. A Workday-hosted application
+portal alone does not prove the employer operates Workday HCM or Finance internally.
+If one board is blocked, record it and try other accessible job sources; don't
+bypass the block or spend the entire run on that board.
+
+For partner-websites, use the partner directory as discovery, then explore partner
+customer case studies and client pages. Public search engines may help locate
+partner-owned pages. Read relevant case studies and client pages without requiring
+a named customer before capture. Capture supporting product/module descriptions, dates,
+customer quotations and any stated results or scale. A logo list can supply an
+identity research lead, but not proof of Workday use or current buying intent.
+Historical success stories are not automatically active opportunities.
+
+Treat source_id in the brief as the source family, not a single allowed domain.
+Following employer or partner links and using search for discovery is within that
+family. Do not switch to another source family or Workday's own customer-story
+cohort to inflate yield. Relevant anonymous material is acceptable in every source
+family; lack of attribution is a result to measure, not a collection failure.
+
+At the end, summarize distinct named end-customer candidates with supporting
+capture IDs, separate unresolved identities and provider names, and report how
+many candidates have a current buying signal. These are preliminary research
+judgments, not independently verified leads, scores or database records.
 
 ## Capture source material
 

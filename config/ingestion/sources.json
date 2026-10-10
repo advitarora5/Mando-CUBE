@@ -2,22 +2,57 @@
   "schema_version": 1,
   "sources": [
     {
-      "id": "reddit-workday", "priority": 1, "enabled": true,
-      "start_urls": ["https://www.reddit.com/r/workday/"],
-      "search_terms": ["release testing", "regression testing", "go live", "implementation", "Workday Finance", "Workday Payroll", "Workday Recruiting"],
-      "lookback_days": 90, "max_pages": 10000, "max_minutes": 15
+      "id": "reddit-workday",
+      "priority": 1,
+      "enabled": true,
+      "start_urls": [
+        "https://www.reddit.com/r/workday/"
+      ],
+      "search_terms": [
+        "release testing",
+        "regression testing",
+        "go live",
+        "implementation",
+        "Workday Finance",
+        "Workday Payroll",
+        "Workday Recruiting"
+      ],
+      "lookback_days": 90,
+      "max_pages": 10000,
+      "max_minutes": 15
     },
     {
-      "id": "job-boards", "priority": 2, "enabled": false,
-      "start_urls": ["https://www.linkedin.com/jobs/"],
-      "search_terms": ["Workday systems lead", "Workday release testing", "Workday Financial Management"],
-      "lookback_days": 30, "max_pages": 15, "max_minutes": 20
+      "id": "job-boards",
+      "priority": 2,
+      "enabled": true,
+      "start_urls": [
+        "https://www.linkedin.com/jobs/"
+      ],
+      "search_terms": [
+        "Workday HRIS analyst employer careers",
+        "Workday release testing job",
+        "Workday Financial Management careers",
+        "Workday Payroll systems lead job",
+        "Workday Recruiting administrator job"
+      ],
+      "lookback_days": 30,
+      "max_pages": 10000,
+      "max_minutes": 15
     },
     {
-      "id": "partner-websites", "priority": 3, "enabled": false,
-      "start_urls": ["https://www.workday.com/en-us/company/partners.html"],
-      "search_terms": ["Workday partner customer case study", "Workday Finance implementation customer"],
-      "lookback_days": 365, "max_pages": 15, "max_minutes": 20
+      "id": "partner-websites",
+      "priority": 3,
+      "enabled": true,
+      "start_urls": [
+        "https://www.workday.com/en-us/company/partners.html"
+      ],
+      "search_terms": [
+        "Workday partner customer case study",
+        "Workday Finance implementation customer"
+      ],
+      "lookback_days": 365,
+      "max_pages": 10000,
+      "max_minutes": 15
     }
   ]
 }
