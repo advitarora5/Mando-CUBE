@@ -41,6 +41,7 @@ test('pages without go-live language, unreachable pages, and missing URLs stay r
   assert.equal(rows[0].date_type, 'unreachable');
   assert.equal(rows[1].date_type, 'skipped');
   assert.ok(rows.every((row) => row.storable === false));
+});
 const NOW = new Date('2026-10-06T12:00:00Z');
 const jsonFetch = (payloads) => async (url) => {
   if (!Object.hasOwn(payloads, url)) throw new Error(`unexpected fetch: ${url}`);
@@ -93,4 +94,3 @@ test('empty boards, bad tokens, and missing mappings stay reviewable without sco
   assert.match(rows[2].note, /never guessed/);
 });
 
-});
