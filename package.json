@@ -18,6 +18,7 @@
     "pipeline": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline.mjs",
     "pipeline:benchmark": "node --env-file=.env.pipeline.local scripts/pipeline-local-benchmark.mjs",
     "pipeline:identity": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline-identity.mjs",
+    "pipeline:admission:local": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline-admission-local.mjs",
     "pipeline:full": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline-full.mjs",
     "pipeline:eval": "node --env-file-if-exists=.env.pipeline.local scripts/eval-extraction.mjs",
     "extract": "node scripts/ingestion/extract.mjs",

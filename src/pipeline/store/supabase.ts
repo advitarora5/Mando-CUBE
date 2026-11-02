@@ -24,8 +24,10 @@ const SCORE_FIELDS = "id, company_id, assessed_at, rubric_version, tier, authori
 export class SupabaseStore implements PipelineStore {
   readonly kind = "supabase" as const;
   readonly db: SupabaseClient;
+  readonly databaseUrl: string;
   constructor(url: string, key: string, allowRemote?: string) {
     assertAllowedTarget(url, allowRemote);
+    this.databaseUrl = new URL(url).origin;
     this.db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   }
 

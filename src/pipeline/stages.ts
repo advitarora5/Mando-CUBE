@@ -9,6 +9,7 @@ import { categories } from "../domain/contracts/company.ts";
 import { resolveWebsite, WebsiteHttp, WEBSITE_LIMIT, websiteSignature, loadEmployerLinks, confirmedName } from "./website.ts";
 import { collectors } from "./collectors/sources.ts";
 import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
+import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
 export type StageResult = { counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
@@ -119,7 +120,8 @@ export function displayName(name: string, resolved: string | null): string {
   }).join("");
 }
 
-export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean } = {}): Promise<StageResult> {
+export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean; localIdentity?: LocalIdentityAdmission } = {}): Promise<StageResult> {
+  if (opts.localIdentity) assertLocalAdmissionStore(ctx);
   const r = result();
   const settings = await ctx.store.settings();
   const allReviews = await ctx.store.reviewItems();
@@ -135,9 +137,10 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean 
     const signals = await ctx.store.signalsForReview(item.id);
     groups.set(item.normalized_name, [...(groups.get(item.normalized_name) ?? []), ...signals]);
   }
+  if (opts.localIdentity) for (const name of groups.keys()) if (!opts.localIdentity.names.has(name)) groups.delete(name);
   bump(r, "candidates", groups.size);
   let created = 0, lookups = 0;
-  const deadline = Date.now() + 5 * 60 * 1000;
+  const deadline = Date.now() + (opts.localIdentity ? 30 : 5) * 60 * 1000;
   const initialSpend = ctx.spend.spent("treg");
   const known = await ctx.store.companies();
   const sites = await ctx.store.workdaySites(true);
@@ -162,10 +165,13 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean 
       const candidateSites = sites.filter(site => site.normalized_name === normalized);
       const employerLinks = await loadEmployerLinks(ctx, name, candidateSites);
       const cached = await ctx.store.websiteResolution(normalized);
-      const due = !cached || cached.input_signature !== websiteSignature(candidateSites, employerLinks) || Date.parse(cached.next_check_at) <= ctx.now().getTime();
+      const due = !!opts.localIdentity || !cached || cached.input_signature !== websiteSignature(candidateSites, employerLinks) || Date.parse(cached.next_check_at) <= ctx.now().getTime();
       if (due && lookups >= WEBSITE_LIMIT) { bump(r, "website_deferred_run_cap"); continue; }
       if (due) lookups++;
-      const lookup = await resolveWebsite(ctx, name, candidateSites, http, !!opts.dryRun, employerLinks);
+      const lookup = opts.localIdentity
+        ? await opts.localIdentity.resolve(ctx, name, candidateSites, http, employerLinks)
+        : await resolveWebsite(ctx, name, candidateSites, http, !!opts.dryRun, employerLinks);
+      if (opts.localIdentity) bump(r, lookup.status === "confirmed" ? "identity_confirmed" : "identity_held");
       bump(r, due ? "website_checked" : "website_cached");
       if (lookup.status === "error") {
         bump(r, "error_website"); r.errors.push(`website ${normalized}: ${lookup.reason}`);
@@ -184,7 +190,8 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean 
       const best = Math.max(0, ...signals.filter(s => isSignalFresh(s, settings, ctx.now())).map(s => s.confidence));
       // A slug-derived name (Common Crawl tenant) is replaced by the name the confirmed website uses.
       const pageName = candidateSites.some(s => s.match_kind === "first_word") ? confirmedName(lookup) : null;
-      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", best_confidence: best }, known, { canCreate: created < settings.max_new_companies_per_run });
+      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", best_confidence: best }, known,
+        { canCreate: created < settings.max_new_companies_per_run, identityVerified: !!opts.localIdentity && lookup.status === "confirmed" });
       if (opts.dryRun) { bump(r, `would_${decision.action}`); continue; }
       if (decision.action === "skip") { bump(r, "excluded"); continue; }
       const source = signals.find(s => s.type === "known_customer" && /^https:\/\//.test(s.source_url))?.source_url ?? signals.find(s => /^https:\/\//.test(s.source_url))?.source_url;

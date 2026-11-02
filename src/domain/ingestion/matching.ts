@@ -26,8 +26,9 @@ export function isExcludedCompany(name: string | null | undefined): boolean {
 }
 
 // Rules: a confirmed exact website match merges. A similar (or equal) name without one goes to review.
-// A new company with a confirmed website and a trusted signal is created. Everything else goes to review.
-export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean }): MatchDecision {
+// Normally a new company needs a confirmed website and a trusted signal. The guarded
+// local AI experiment substitutes verified identity for that signal gate.
+export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean; identityVerified?: boolean }): MatchDecision {
   if (isExcludedCompany(candidate.name)) return { action: "skip", why: "excluded organisation (the vendor)" };
   const domain = normalizeDomain(candidate.domain);
   if (domain && candidate.domain_confirmed) {
@@ -40,9 +41,9 @@ export function decideMatch(candidate: Candidate, known: KnownCompany[], room: {
   const similar = known.find(company => isSimilarName(company.name, candidate.name));
   if (similar) return { action: "review", reason: "similar_name", suggested_company_id: similar.id, why: `name is similar to existing ${similar.name}` };
   if (!domain || !candidate.domain_confirmed) return { action: "review", reason: "no_website", suggested_company_id: null, why: "no confirmed website" };
-  if (candidate.best_confidence < TRUSTED_CONFIDENCE) return { action: "review", reason: "untrusted_signal", suggested_company_id: null, why: `best signal confidence ${candidate.best_confidence}` };
+  if (!room.identityVerified && candidate.best_confidence < TRUSTED_CONFIDENCE) return { action: "review", reason: "untrusted_signal", suggested_company_id: null, why: `best signal confidence ${candidate.best_confidence}` };
   if (!room.canCreate) return { action: "review", reason: "over_run_cap", suggested_company_id: null, why: "new-company cap for this run reached" };
-  return { action: "create", why: `new company with website ${domain} and a trusted signal` };
+  return { action: "create", why: `new company with website ${domain} and ${room.identityVerified ? "AI-verified identity" : "a trusted signal"}` };
 }
 
 // Size handling: companies under 3,000 employees are not blocked, only scored lower by the rubric; unknown is labelled.

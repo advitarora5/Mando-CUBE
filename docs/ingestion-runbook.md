@@ -74,6 +74,44 @@ This uses the existing `found` / `tried_at` columns; no database migration is re
 
 ## Website confirmation and review recovery
 
+### Local AI admission experiment
+
+`npm run pipeline:admission:local -- --input candidates.json --output var/new-admission-run`
+is a separate manual experiment. It refuses remote database/model endpoints and remote
+overrides. It uses local Supabase and local Ollama `qwen2.5:7b`; it never runs scoring,
+contact research or paid APIs. Normal pipeline commands and scheduled admission retain
+their existing rules. No migration or source-setting change is needed.
+
+Input is an array such as `[{"name":"Example Inc","corporate_urls":["https://example.com/"]}]`
+(corporate URLs optional), or a saved SEC-object subset with `title` fields. Maximum 25
+names. Discovery names must exist in the saved SEC snapshot. The experiment scopes
+discovery/collection to that list, enables corporate-careers discovery only for this run,
+and retains captures and signals. `--admission-only` instead evaluates already collected
+candidates. Extraction is structured; Qwen is used for identity only.
+For a frozen comparison, combine `--admission-only --packets packets.json` to use the
+exact previously collected identity evidence without refreshing the paired pages/jobs.
+Packets must match the selected name and each exact site, and remain within the normal
+fourteen-day evidence window. This does not restore the database baseline for you.
+
+AI-confirmed corporate identity replaces both direct-link proof and the 0.9 admission
+gate in this path; original signal confidence is preserved. Up to three corporate URLs
+and three exact sites are evaluated per candidate, within `--max-checks` (default 50,
+maximum 100) and the matching time/request caps. Every observed enabled sibling site
+must pass for one unambiguous corporate domain; disabled siblings or more than three
+sites require manual review because existing admission RPCs link sites by company name.
+Duplicate/merge review, prior human resolutions and the new-company cap still apply.
+Negative/uncertain verdicts, absent evidence, failures and exhausted checks remain held.
+AI confirmation is never written to the normal direct-link cache.
+
+The new output directory records selected names, a baseline, stage reports, frozen
+identity packets, full verdicts/explanations, candidate outcomes and retained signals.
+Missing-site discoveries and missing model input are counted separately. Legacy review
+reason `no_website` also covers AI identity holds; use `identity-outcomes.json` for the
+specific explanation. These outputs do not measure accuracy until independent reference
+labels are supplied. Snapshot the local database before the controlled old/new comparison;
+reuse the same frozen packets for policy comparison, and label a fresh evaluation batch
+before revealing model verdicts. Evidence still expires after fourteen days.
+
 ### Discovery recovery (local experiment)
 
 Primary-site selection uses the tenant brand before the shortest career-like name. For
