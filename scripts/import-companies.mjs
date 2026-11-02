@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import Papa from "papaparse";
 import { createClient } from "@supabase/supabase-js";
 import { evaluateTier, hasEvidence } from "../src/domain/scoring/tier-rules.ts";
+import { matchExistingCompany } from "../src/domain/ingestion/duplicates.ts";
+import { companyAliases } from "../src/data/company-aliases.ts";
 
 const RUBRIC = "week2-100-csv-unreviewed-v1";
 
@@ -121,7 +123,7 @@ async function allCompanies(db) {
   for (let offset = 0; ; offset += 500) {
     const page = await result(
       db.from("companies")
-        .select("id,name")
+        .select("id,name,domain")
         .order("id")
         .range(offset, offset + 499)
     );
@@ -131,23 +133,29 @@ async function allCompanies(db) {
   }
 }
 
-export async function importCompanies(db, records, apply = false) {
+// The same website, name or a reviewed alias reuses the existing company (src/domain/ingestion/duplicates.ts).
+// A similar name stops the import until a person decides: add the name to src/data/company-aliases.ts if it is
+// the same company, or pass --confirm-new "Name" if it is not.
+export async function importCompanies(db, records, apply = false, confirmedNew = []) {
   const existing = await allCompanies(db);
   const plan = [];
+  const confirmed = new Set(confirmedNew.map(normalize));
 
   for (const record of records) {
-    const matches = existing.filter(
-      (row) => normalize(row.name) === normalize(record.company.name)
-    );
+    const match = matchExistingCompany(record.company, existing, companyAliases);
 
-    if (matches.length > 1) {
+    if (match.kind === "ambiguous") {
       throw new Error(
-        `Multiple database matches for ${record.company.name}; resolve before importing.`
+        `${record.company.name} matches ${match.companies.map((c) => c.name).join(", ")}; resolve before importing.`
       );
     }
 
+    const matched = match.kind === "existing" ? match.company : null;
+    const needsReview =
+      match.kind === "review" && !confirmed.has(normalize(record.company.name));
+
     const companyId =
-      matches[0]?.id ??
+      matched?.id ??
       stableId(`mando-csv-company:${normalize(record.company.name)}`);
 
     const scoreId = stableId(
@@ -175,7 +183,13 @@ export async function importCompanies(db, records, apply = false) {
       ...record,
       companyId,
       scoreId,
-      newCompany: !matches.length,
+      newCompany: !matched,
+      needsReview,
+      companyAction: matched
+        ? `Keep existing${matched.name === record.company.name ? "" : ` (${matched.name})`}`
+        : needsReview
+          ? `Needs review: similar to ${match.company.name}`
+          : "Add",
       newScore: !alreadySaved && !preserveAssessment,
       newInsights: !insights.length,
       scoreAction: alreadySaved
@@ -189,18 +203,31 @@ export async function importCompanies(db, records, apply = false) {
   console.table(
     plan.map((item) => ({
       company: item.company.name,
-      company_action: item.newCompany ? "Add" : "Keep existing fields",
+      company_action: item.companyAction,
       score_action: item.scoreAction,
       imported_total: evaluateTier(item.score).total,
       imported_tier: item.score.tier,
     }))
   );
 
+  const review = plan.filter((item) => item.needsReview);
+  if (review.length) {
+    console.log(
+      `${review.length} companies have a name similar to one already on the dashboard. ` +
+        "If it is the same company, add the name to src/data/company-aliases.ts; " +
+        'if not, rerun with --confirm-new "Company name". Nothing will be saved until each is decided.'
+    );
+  }
+
   if (!apply) {
     console.log(
       "PREVIEW ONLY: no database writes. Add --apply to save this import."
     );
     return plan;
+  }
+
+  if (review.length) {
+    throw new Error("Import stopped: similar company names need a decision first.");
   }
 
   // If an insert fails, stable IDs let a rerun resume without duplicates.
@@ -256,15 +283,23 @@ export async function importCompanies(db, records, apply = false) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const filename = args.find((arg) => !arg.startsWith("--"));
+  const files = [];
+  const confirmedNew = [];
+  let apply = false;
+  let unknown = false;
 
-  if (
-    !filename ||
-    args.some((arg) => arg.startsWith("--") && arg !== "--apply") ||
-    args.filter((arg) => !arg.startsWith("--")).length !== 1
-  ) {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--apply") apply = true;
+    else if (args[i] === "--confirm-new" && args[i + 1]) confirmedNew.push(args[++i]);
+    else if (args[i].startsWith("--")) unknown = true;
+    else files.push(args[i]);
+  }
+
+  const filename = files[0];
+
+  if (!filename || unknown || files.length !== 1) {
     throw new Error(
-      'Usage: node --env-file=.env.local scripts/import-companies.mjs "path/to/companies.csv" [--apply]'
+      'Usage: node --env-file=.env.local scripts/import-companies.mjs "path/to/companies.csv" [--confirm-new "Company name"]... [--apply]'
     );
   }
 
@@ -295,7 +330,7 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  await importCompanies(db, records, args.includes("--apply"));
+  await importCompanies(db, records, apply, confirmedNew);
 }
 
 if (

@@ -127,3 +127,18 @@ source captures and an offline validator. Start with
 `node scripts/ingestion/prepare-run.mjs reddit-workday` and follow
 [the ingestion guide](docs/ingestion/README.md). All three source families are enabled for separate 15-minute pilots.
 This milestone does not launch collection, call Ollama, schedule runs or write to Supabase.
+
+## Duplicate companies
+
+The pipeline, the Import button (`decideMatch`) and the CSV importer (`scripts/import-companies.mjs`) check for an existing match before adding a company. The same website or a reviewed alias attaches to the existing company; the CSV importer also reuses a company with the same name. A similar name waits for a person: the pipeline sends it to the review queue, and the CSV importer stops until the name is added to the alias list or confirmed with `--confirm-new "Company name"`.
+
+Aliases (legal names, former names, abbreviations the name rules miss) live in `src/data/company-aliases.ts`. Pairs a person confirmed are different companies go in `distinctCompanies` in the same file.
+
+- `npm run companies:duplicates` lists companies on the dashboard that may be the same company (same website, same name, known alias, similar name), with the merge command for each. Read-only.
+- `npm run companies:duplicates -- --check <file.csv|file.json>` says whether companies you are about to add are already there (columns `company` and optional `domain`). Read-only. SQL scripts and rows typed into Supabase skip the checks above, so run this first.
+- `npm run companies:merge -- --keep <id> --drop <id>` previews a merge: it runs in full inside the database and is rolled back, then lists what would move. Add `--apply` to merge.
+
+A merge keeps the kept company's name and values and fills only its empty fields from the duplicate; lead status keeps the furthest outreach stage. Contacts, scores, weekly snapshots, drafts, signals, Workday sites, review items and any later table that references companies move to the kept company. Insights, pipeline origin and enrichment status keep the kept company's row with its gaps filled. If both companies have a weekly snapshot for the same week, the merge stops so no history is dropped. Afterwards, add the merged name to the alias list (the command prints the line) and record the merge in the [company-data error log](docs/company-data-error-log.md).
+
+The merge runs in the `merge_companies` database function (`supabase/migrations/202610270001_merge_companies.sql`). Apply that migration to the shared database once before the first merge.
+

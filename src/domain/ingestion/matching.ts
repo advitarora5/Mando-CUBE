@@ -1,3 +1,5 @@
+import type { CompanyAlias } from "../../data/company-aliases.ts";
+import { aliasOwner } from "./duplicates.ts";
 import { isSimilarName, normalizeDomain, normalizeName } from "./normalize.ts";
 
 export type KnownCompany = { id: string; name: string; domain: string | null };
@@ -25,15 +27,19 @@ export function isExcludedCompany(name: string | null | undefined): boolean {
   return EXCLUDED.has(normalizeName(name));
 }
 
-// Rules: an exact website match merges. A similar (or equal) name without a website match goes to review.
-// A new company with a confirmed website and a trusted signal is created. Everything else goes to review.
-export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean }): MatchDecision {
+// Rules: an exact website match or a reviewed alias (src/data/company-aliases.ts) merges. A similar (or equal)
+// name without either goes to review. A new company with a confirmed website and a trusted signal is created.
+// Everything else goes to review.
+export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean }, aliases: CompanyAlias[] = []): MatchDecision {
   if (isExcludedCompany(candidate.name)) return { action: "skip", why: "excluded organisation (the vendor)" };
   const domain = normalizeDomain(candidate.domain);
   if (domain) {
     const exact = known.find(company => normalizeDomain(company.domain) === domain);
     if (exact) return { action: "attach", company_id: exact.id, why: `website ${domain} matches ${exact.name}` };
   }
+  const ownerId = aliasOwner(candidate.name, aliases);
+  const owner = ownerId ? known.find(company => company.id === ownerId) : undefined;
+  if (owner) return { action: "attach", company_id: owner.id, why: `${candidate.name} is a known name of ${owner.name}` };
   const similar = known.find(company => isSimilarName(company.name, candidate.name));
   if (similar) return { action: "review", reason: "similar_name", suggested_company_id: similar.id, why: `name is similar to existing ${similar.name}` };
   if (!domain || !candidate.domain_confirmed) return { action: "review", reason: "no_website", suggested_company_id: null, why: "no confirmed website" };

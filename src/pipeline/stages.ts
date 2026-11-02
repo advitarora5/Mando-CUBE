@@ -1,5 +1,6 @@
 // The pipeline stages. Each one reads from and writes to the store only, so any stage can run on its own.
 // Failures are counted and logged per item; a stage never throws out of a run.
+import { companyAliases } from "../data/company-aliases.ts";
 import { decideMatch, TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
 import { isSimilarName, nameSimilarity, normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
@@ -158,7 +159,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean 
       }
       const lookup = await resolveDomain(ctx, name);
       const best = Math.max(...signals.map(s => s.confidence));
-      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.confirmed, best_confidence: best }, known, { canCreate: created < settings.max_new_companies_per_run });
+      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.confirmed, best_confidence: best }, known, { canCreate: created < settings.max_new_companies_per_run }, companyAliases);
       const ids = signals.map(s => s.id);
       if (opts.dryRun) { bump(r, `would_${decision.action}`); continue; }
       if (decision.action === "skip") { bump(r, "excluded"); continue; }

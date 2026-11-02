@@ -3,6 +3,7 @@
 // signal_type (go_live | hiring | release_planning | known_customer | budget_clue | event), signal_date (YYYY-MM-DD).
 // A row's signal needs a source link and a quote; the quote is a person's transcription and is stored as given.
 import Papa from "papaparse";
+import { companyAliases } from "../data/company-aliases.ts";
 import { contentFingerprint } from "../domain/ingestion/fingerprint.ts";
 import { decideMatch } from "../domain/ingestion/matching.ts";
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
@@ -56,7 +57,7 @@ export async function importCsv(ctx: PipelineContext, text: string, opts: { dryR
       // A row without a link is stored under a reserved, non-resolving address rather than an invented page.
       const url = row.source ?? `https://import.invalid/csv/${fingerprint.slice(0, 16)}`;
       const capture = await ctx.store.saveCapture({ source: "csv-import", url, fetched_at: ctx.now().toISOString(), http_status: 200, content_type: "application/json", raw, fingerprint, meta: { kind: "csv_row", line: row.line } }, ctx.runId);
-      const decision = decideMatch({ name: row.company, domain: row.domain, domain_confirmed: !!row.domain, best_confidence: 0.9 }, known, { canCreate: created < settings.max_new_companies_per_run });
+      const decision = decideMatch({ name: row.company, domain: row.domain, domain_confirmed: !!row.domain, best_confidence: 0.9 }, known, { canCreate: created < settings.max_new_companies_per_run }, companyAliases);
       let signalId: string | null = null;
       if (row.signal_type && row.quote && row.source) {
         signalId = (await ctx.store.upsertSignal({ company_id: null, review_item_id: null, capture_id: capture.id, extraction_id: null, type: row.signal_type, signal_date: row.signal_date, source_url: row.source, quote: row.quote, confidence: 0.9, company_name: row.company, products: null, project_type: null, role_seniority: null, timing_words: null, method: "structured", seen_at: ctx.now().toISOString() })).id;

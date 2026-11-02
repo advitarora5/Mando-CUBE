@@ -48,6 +48,7 @@ Do not turn missing information into an invented value or an unsupported score.
 
 Fix supported company fields using the existing dashboard controls. Record the exact change and verification source in the issue.
 If a correction requires a code change, unsupported field, evidence replacement or record merge, record it as pending and coordinate with the relevant owner.
+For a duplicate company, follow [Duplicate companies](../README.md#duplicate-companies): preview the merge, apply it, add the old name to the alias list, and record both company IDs and the merge report in the issue.
 Preserve the original source reference in the report so the pipeline mistake can still be traced after the dashboard row changes.
 See the [pipeline runbook](ingestion-runbook.md) for collector, extraction, matching and review-queue boundaries.
 
