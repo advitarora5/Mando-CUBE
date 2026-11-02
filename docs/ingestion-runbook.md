@@ -49,6 +49,14 @@ npm run pipeline -- health
 npm run pipeline -- review list | approve <id> --domain x.com | merge <id> <company_id> | reject <id>
 ```
 
+### Review decisions
+
+Verify the corporate domain, exact Workday site and attached evidence before approving or merging. A tenant-name guess is not identity proof. Approve creates a pipeline-origin company; merge attaches evidence to an existing company without creating a duplicate. Neither operation performs contact research or scoring by itself. Mixed valid/invalid evidence must be corrected or quarantined before resolving: the CLI attaches all waiting evidence for the review, not a reviewer-selected subset.
+
+After migration `202611020001_review_rejection_safety.sql`, reject atomically closes the review and disables its unassigned Workday sites. Signals remain stored under the rejected review and are excluded from unassigned matching. Already assigned company sites are protected. Rediscovering an existing site does not re-enable it; reassessing a rejected site requires an explicit verified correction. Rejection concerns that association/evidence, not a permanent blacklist of the named company. Decisions cannot be repeated or reopened through these commands.
+
+Apply repository migrations through the normal release process before relying on this rejection behavior. The migration does not retroactively change historical decisions; the November 1 audit's two wrong-site associations were already disabled manually.
+
 `--limit` is items per source (for the resolver: Workday sites to find; it tries up to six names per site).
 `--no-llm` and `--no-treg` switch those off for one run.
 
