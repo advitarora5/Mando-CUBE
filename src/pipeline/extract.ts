@@ -6,6 +6,7 @@ import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { ProjectType } from "../domain/ingestion/pipeline-score.ts";
 import { htmlToText, verifyQuote } from "../domain/ingestion/quote.ts";
 import { sitesFromRobots, primarySites, origin } from "./collectors/workday.ts";
+import { corporateWorkdayLinks } from "./collectors/corporate-careers.ts";
 import type { CaptureRow, LLMProvider, SignalInput } from "./types.ts";
 
 // extract-v2 (prompt + type/company/length checks) beat v1 on the golden set in round 1; v1 stays for comparison.
@@ -115,7 +116,7 @@ export type ExtractedCapture = {
   model: ModelReading | null;
   // The capture has text only a model can read; without a working model it stays queued.
   needsModel?: boolean;
-  sites?: { tenant: string; pod: string; site: string; company_name: string; normalized_name: string; match_kind: "full_name" | "first_word" }[];
+  sites?: { tenant: string; pod: string; site: string; company_name: string; normalized_name: string; match_kind: "full_name" | "first_word" | "careers_link" }[];
 };
 
 type Meta = Record<string, unknown>;
@@ -132,9 +133,23 @@ export async function extractCapture(capture: CaptureRow & { meta?: Meta }, llm:
     case "sec_company_list":
       return { signals: [], structured: { rows: meta.rows ?? null }, model: null };
 
+    case "corporate_careers": {
+      const company = s(meta.company_name) ?? "";
+      const observed = capture.http_status === 200 ? corporateWorkdayLinks(capture.body, capture.url, company) : [];
+      const selected = observed.filter(link => link.site === primarySites(observed.filter(other => other.tenant === link.tenant && other.pod === link.pod).map(other => other.site), link.tenant)[0]);
+      return {
+        structured: { company_name: company, observed_workday_links: observed.map(link => link.url) }, model: null,
+        sites: selected.map(link => ({ tenant: link.tenant, pod: link.pod, site: link.site, company_name: company, normalized_name: normalizeName(company), match_kind: "careers_link" })),
+        signals: selected.flatMap(link => {
+          const quote = verifyQuote(link.quote, capture.body, 1);
+          return quote.ok ? [{ ...base(company), type: "known_customer" as const, signal_date: null, source_url: link.url, quote: quote.quote, confidence: 0.6, method: "structured" as const }] : [];
+        }),
+      };
+    }
+
     case "workday_robots": {
       const tenant = String(meta.tenant), pod = String(meta.pod);
-      const sites = primarySites(sitesFromRobots(capture.body, tenant, pod));
+      const sites = primarySites(sitesFromRobots(capture.body, tenant, pod), tenant);
       const company = String(meta.company_name);
       const line = capture.body.split(/\r?\n/).find(l => l.includes(`/${sites[0]}/siteMap.xml`)) ?? "";
       const quote = verifyQuote(line, capture.body, 1);

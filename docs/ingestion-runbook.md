@@ -74,6 +74,41 @@ This uses the existing `found` / `tried_at` columns; no database migration is re
 
 ## Website confirmation and review recovery
 
+### Discovery recovery (local experiment)
+
+Primary-site selection uses the tenant brand before the shortest career-like name. For
+example, `shell` prefers `ShellCareers` over `NOVCareers`. The job collector can recover
+observed alternatives from a saved robots capture, including databases that only stored
+an older primary choice. It tries at most three sites per tenant. A successful unfiltered
+empty job response allows trying the next site; zero keyword hits on an otherwise live
+site do not. Access errors and challenges stop that tenant rather than triggering fallback.
+
+The resolver has an **opt-in** `sources.config.corporate_discovery: true` path after
+name-derived tenant guesses miss. It starts with `corporate_websites[normalized_name]`
+(a URL or URL array), existing company/review domains, then a compact full-name `.com`
+hypothesis. These URLs are candidates, not ownership evidence. Without a configured
+lookup service, this remains a limited domain-discovery strategy.
+
+Each homepage must independently identify the complete normalized company name. The
+resolver follows same-company careers links and can check conventional `careers.` / `jobs.`
+subdomains and `/careers`; every resulting page must also independently identify the
+company. Only HTTPS links to an exact `tenant.wdN.myworkdayjobs.com` host and site are
+extracted. Comments, script-only anchors, malformed paths and off-domain careers redirects
+cannot supply a site. Corporate HTTP uses the existing DNS, robots, redirect, body and
+timeout guards. It has a maximum of twelve requests per company, included in the resolver's
+overall request cap; at most two candidate roots and three careers URLs per root are tried.
+Access/transport failures are retryable, not completed discovery misses.
+
+Successful HTML is retained unchanged as a `corporate_careers` raw capture. Extraction
+rechecks its page identity and exact anchor, creates a `careers_link` site and a **0.6**
+discovery signal, and retains the verbatim source anchor. This does not confirm the
+corporate website, change the admission threshold or connect the shadow identity checker
+to admission. A fresh trusted signal and the existing website confirmation are still required.
+
+Do not enable this experiment on scheduled or shared runs without reviewing a local
+comparison first. The saved twenty-name batch is useful for a before/after discovery
+comparison, not a fresh identity holdout.
+
 Apply the website migrations through `202610250002_employer_website_confirmation.sql` to the local database before running this version.
 The migration adds `website_resolutions` with service-role-only access and an atomic review-admission
 RPC. Production rollout is a separate step: the Supabase integration may deploy migrations merged to main.

@@ -1,0 +1,27 @@
+Sitemap: https://shell.wd3.myworkdayjobs.com/ShellCareers/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Fasttrack/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/NOVCareers/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Proactive/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Avature/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Naukri/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Pracuj/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Instagram/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/LinkedIn_Paid_Campaign/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/BrightNetwork/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/Stepstone/siteMap.xml
+Sitemap: https://shell.wd3.myworkdayjobs.com/SEEK/siteMap.xml
+
+User-agent: *
+Allow: /ShellCareers/
+Allow: /Fasttrack/
+Allow: /NOVCareers/
+Allow: /Proactive/
+Allow: /Avature/
+Allow: /Naukri/
+Allow: /Pracuj/
+Allow: /Instagram/
+Allow: /LinkedIn_Paid_Campaign/
+Allow: /BrightNetwork/
+Allow: /Stepstone/
+Allow: /SEEK/
+Disallow: /refreshFacet/

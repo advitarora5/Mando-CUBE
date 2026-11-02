@@ -1,0 +1,140 @@
+{
+  "started_at": "2026-11-02T20:17:52.518Z",
+  "finished_at": "2026-11-02T20:22:07.072Z",
+  "selected_sha256": "0f4fa976d4592182ca28343b3aa0a676c4a1027fdf2ee53a944b719c31b5998b",
+  "counts": {
+    "selected": 20,
+    "completed_attempt_records": 11,
+    "found_names": 3,
+    "sites": 3,
+    "job_captures": 15,
+    "admitted": 0,
+    "held": 3
+  },
+  "backend": "isolated MemoryStore",
+  "site_pairs": [
+    {
+      "company": "BANK OF AMERICA CORP /DE/",
+      "tenant": "ghr",
+      "pod": "wd1",
+      "site": "lateral-us",
+      "match_kind": "careers_link"
+    },
+    {
+      "company": "CATERPILLAR INC",
+      "tenant": "cat",
+      "pod": "wd5",
+      "site": "CaterpillarCareers",
+      "match_kind": "careers_link"
+    },
+    {
+      "company": "Shell plc",
+      "tenant": "shell",
+      "pod": "wd3",
+      "site": "ShellCareers",
+      "match_kind": "full_name"
+    }
+  ],
+  "stages": [
+    {
+      "job": "collect",
+      "source": "sec-company-list",
+      "status": "succeeded",
+      "ms": 16,
+      "requests": 0,
+      "counts": {
+        "items": 1,
+        "new_captures": 1
+      },
+      "errors": []
+    },
+    {
+      "job": "extract",
+      "source": null,
+      "status": "succeeded",
+      "ms": 1,
+      "requests": 0,
+      "counts": {
+        "pending": 1,
+        "extracted": 1
+      },
+      "errors": []
+    },
+    {
+      "job": "collect",
+      "source": "workday-site-resolver",
+      "status": "partial",
+      "ms": 230171,
+      "requests": 244,
+      "counts": {
+        "error_corporate_access": 9,
+        "items": 3,
+        "new_captures": 3
+      },
+      "errors": [
+        "corporate_access https://oracle.com/: website HTTP 403",
+        "corporate_access https://cocacola.com/: website robots unavailable: HTTP 200",
+        "corporate_access https://delltechnologies.com/: website redirect limit reached",
+        "corporate_access https://procterandgamble.com/: fetch failed",
+        "corporate_access https://generalelectric.com/: fetch failed",
+        "corporate_access https://hsbc.com/: unsafe website URL",
+        "corporate_access https://philipmorrisinternational.com/: This operation was aborted",
+        "corporate_access https://netflix.com/: website disallowed by robots.txt",
+        "corporate_access https://jobs.homedepot.com/: website response exceeds size limit"
+      ]
+    },
+    {
+      "job": "extract",
+      "source": null,
+      "status": "succeeded",
+      "ms": 45,
+      "requests": 0,
+      "counts": {
+        "pending": 3,
+        "new_workday_sites": 3,
+        "new_signals": 3,
+        "extracted": 3
+      },
+      "errors": []
+    },
+    {
+      "job": "collect",
+      "source": "workday-career-sites",
+      "status": "succeeded",
+      "ms": 21244,
+      "requests": 21,
+      "counts": {
+        "items": 15,
+        "new_captures": 15
+      },
+      "errors": []
+    },
+    {
+      "job": "extract",
+      "source": null,
+      "status": "succeeded",
+      "ms": 15,
+      "requests": 0,
+      "counts": {
+        "pending": 15,
+        "new_signals": 15,
+        "extracted": 15
+      },
+      "errors": []
+    },
+    {
+      "job": "match",
+      "source": null,
+      "status": "succeeded",
+      "ms": 3057,
+      "requests": 5,
+      "counts": {
+        "candidates": 3,
+        "website_checked": 3,
+        "review_no_website": 3,
+        "trusted_candidates": 1
+      },
+      "errors": []
+    }
+  ]
+}
