@@ -146,6 +146,40 @@ test('round 2: reads past the API row limit (1,000): every company is visible to
   assert.equal(all.length, count, 'no company is silently cut off at 1,000');
 });
 
+test('review rejection atomically disables unassigned sites, preserves evidence and rejects invalid decisions', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const normalized = `reject${seed}`;
+  const { id } = await store.addReviewItem({ candidate_name: normalized, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: 'untrusted_signal' });
+  const site = { tenant: normalized, pod: 'wd1', site: 'Careers', company_name: normalized, normalized_name: normalized, match_kind: 'first_word', discovered_from: 'workday-site-resolver', capture_id: null };
+  testTenants.push(normalized);
+  const { id: siteId } = await store.upsertWorkdaySite(site);
+  await store.linkWorkdaySites(normalized, { review_item_id: id });
+  const { data: existing, error: companyError } = await db.from('companies').insert({ name: 'Verified fixture', domain: `${normalized}.example` }).select('id').single();
+  assert.equal(companyError, null);
+  const { error: verifiedSiteError } = await db.from('workday_sites').insert({ ...site, site: 'Verified', company_id: existing.id, review_item_id: id });
+  assert.equal(verifiedSiteError, null);
+  const { id: captureId } = await store.saveCapture({ source: 'csv-import', url: `https://${normalized}.example`, fetched_at: new Date().toISOString(), http_status: 200, content_type: 'text/plain', raw: 'Unverified Workday association', fingerprint: 'e'.repeat(64), meta: {} }, null);
+  const { data: signal, error: signalError } = await db.from('signals').insert({ capture_id: captureId, review_item_id: id, type: 'known_customer', source_url: `https://${normalized}.example`, quote: 'Unverified Workday association', confidence: 0.5 }).select('id').single();
+  assert.equal(signalError, null);
+  for (const [status, company] of [['approved', null], ['merged', null], ['rejected', existing.id], ['pending', null], [null, null]]) {
+    const { error } = await db.rpc('review_resolve', { p_item: id, p_company: company, p_status: status, p_note: 'Invalid' });
+    assert.ok(error, `must reject ${status}/${company}`);
+    assert.ok((await store.reviewItems('pending')).some(item => item.id === id));
+  }
+  await store.resolveReview(id, { action: 'reject' }, 'Wrong employer association', null);
+  const { data: sites, error: sitesError } = await db.from('workday_sites').select('id, enabled, company_id, review_item_id').eq('review_item_id', id);
+  assert.equal(sitesError, null);
+  assert.equal(sites.find(row => row.id === siteId).enabled, false);
+  assert.equal(sites.find(row => row.company_id === existing.id).enabled, true);
+  const { data: evidence, error: evidenceError } = await db.from('signals').select('company_id, review_item_id').eq('id', signal.id).single();
+  assert.equal(evidenceError, null);
+  assert.deepEqual(evidence, { company_id: null, review_item_id: id });
+  assert.equal((await store.upsertWorkdaySite(site)).inserted, false);
+  const { data: rediscovered } = await db.from('workday_sites').select('enabled').eq('id', siteId).single();
+  assert.equal(rediscovered.enabled, false);
+  await assert.rejects(store.resolveReview(id, { action: 'approve' }, 'Already decided', null), /not pending/);
+});
+
 test('regression: integration runs never write test data onto real (non-.example) companies or their contacts', { skip }, async () => {
   const { data: fakeOnReal } = await db.from('contacts').select('id, email, companies!inner(domain)').like('email', '%.example').not('companies.domain', 'like', '%.example');
   assert.deepEqual(fakeOnReal, []);

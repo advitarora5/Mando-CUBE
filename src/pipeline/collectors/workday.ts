@@ -31,9 +31,15 @@ const NON_PRIMARY = /intern|early.?career|executive|confidential|internal|alumni
 const PRIMARY_HINT = /career|external|jobs|search/i;
 
 // One site per tenant: the main external one.
-export function primarySites(sites: string[]): string[] {
+export function primarySites(sites: string[], tenant?: string): string[] {
   const main = sites.filter(site => !NON_PRIMARY.test(site));
-  const pool = main.length ? main : sites;
+  const eligible = main.length ? main : sites;
+  const tenantKey = tenant?.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const branded = tenantKey ? eligible.filter(site => {
+    const siteKey = site.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return siteKey === tenantKey || (siteKey.startsWith(tenantKey) && /^(careers?|external|jobs?|search)/.test(siteKey.slice(tenantKey.length)));
+  }) : [];
+  const pool = branded.length ? branded : eligible;
   // A site whose name starts every other site name is the base site ("Workday" vs "Workday_Jobs").
   const base = pool.find(site => pool.every(other => other.toLowerCase().startsWith(site.toLowerCase())));
   if (base && pool.length > 1) return [base];
@@ -108,7 +114,7 @@ export class WorkdayResolver implements Collector {
           const sites = sitesFromRobots(got.body, candidate.tenant, pod);
           if (!sites.length) continue;
           result.items.push(item(source.id, got.url, got.status, got.contentType, got.body, ctx.now(),
-            { kind: "workday_robots", tenant: candidate.tenant, pod, sites, primary_sites: primarySites(sites), company_name: name, normalized_name: normalized, match_kind: candidate.kind }));
+            { kind: "workday_robots", tenant: candidate.tenant, pod, sites, primary_sites: primarySites(sites, candidate.tenant), company_name: name, normalized_name: normalized, match_kind: candidate.kind }));
           found = true;
           break outer;
         }
@@ -135,7 +141,7 @@ export class WorkdayJobs implements Collector {
     const byTenant = new Map<string, typeof enabled>();
     for (const site of enabled) byTenant.set(`${site.tenant}.${site.pod}`, [...(byTenant.get(`${site.tenant}.${site.pod}`) ?? []), site]);
     // --limit counts sites (companies); the ones checked longest ago (or never) go first, so every company is covered over time.
-    const sites = [...byTenant.values()].map(group => group.find(s => s.site === primarySites(group.map(g => g.site))[0])!).filter(Boolean)
+    const sites = [...byTenant.values()].map(group => group.find(s => s.site === primarySites(group.map(g => g.site), group[0].tenant)[0])!).filter(Boolean)
       .sort((a, b) => (a.last_checked_at ?? "").localeCompare(b.last_checked_at ?? "")).slice(0, limits.maxItems);
     ctx.log.info(`workday jobs: ${sites.length} sites`);
     for (const site of sites) {

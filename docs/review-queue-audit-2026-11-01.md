@@ -42,3 +42,16 @@ The extraction change rejects the observed everyday-word contexts before creatin
 ## Previous workstream and next handoff
 
 The shared error log was added in PR #31 (merged to main). The earlier quote-window/date fixes in PR #33 merged into `aadi-pipeline`, and free-contact gating PR #32 merged into `refined-pipeline`; those branch merges do not by themselves establish production deployment. The new admissions still need the team's scoring/contact steps. The prior local screenshot reconciliation remains open in issue #34 until the actual local exports are supplied.
+
+## November 2 completion follow-up on this branch
+
+Independently re-read the nine original decisions: six approvals, one NVIDIA merge and two rejected associations are still saved, with **zero pending reviews**. Both wrong-company sites remain disabled and unassigned. Read-only table counts remain **160 companies, 623 scores, 238 contacts and 425 weekly snapshots**. This follow-up made no production writes and did not rerun the completed batch; matching counts alone are not a new whole-table digest audit.
+
+Two operational gaps are now covered by code and regressions:
+
+- **Reject safely:** migration `202611020001_review_rejection_safety.sql` makes `review_resolve` disable unassigned Workday sites for a rejected review in the same transaction as the decision. Signals retain their rejected review reference, so they stay quarantined rather than becoming matching candidates again. Sites already attached to a verified company are not disabled. Invalid status/company combinations fail before any update, and completed decisions remain final. The in-memory store mirrors rejection and rejects nonexistent merge targets.
+- **Preserve the Accenture correction:** resolver metadata and job collection now prefer a tenant-branded external site over a shorter sibling site (`AccentureCareers` over `AvanadeCareers`). Existing external/internal filters and the prior fallback remain. This is site selection, not identity verification: a `western` tenant/site still does not prove Western Digital owns it. Tasks 2–3 remain separate.
+
+Validation: **273 offline tests pass**, TypeScript checking and full-repository ESLint pass. Applied every repository migration to a disposable local PostgreSQL 16 database and exercised approve, merge, reject, invalid decisions, decision finality, signal quarantine, protection of assigned sites and revoked public RPC execution; all assertions passed and test writes were rolled back. The Supabase REST integration suite passes its independent guard test and skips six database-backed tests because a local Supabase API is not running; the new rejection integration regression is included for that environment.
+
+Deployment still requires PR integration, applying the new migration through the normal database release process, and deploying the collector changes. The migration changes future decisions only; it does not rewrite historical reviews or run enrichment/scoring. Do not represent this branch push as a production deployment. Accenture remains one confirmed site-choice occurrence in shared issue #42; the two wrong-identity cases remain tracked under #40/#41 for the separate AI identity work.
