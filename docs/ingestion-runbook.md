@@ -92,6 +92,9 @@ For a frozen comparison, combine `--admission-only --packets packets.json` to us
 exact previously collected identity evidence without refreshing the paired pages/jobs.
 Packets must match the selected name and each exact site, and remain within the normal
 fourteen-day evidence window. This does not restore the database baseline for you.
+`--reuse-results previous-results.json` can reuse valid answers with `--packets`; the
+normal signature, model digest and freshness checks still apply. Model calls and reused
+answers are counted separately in `identity-call-counts.json`.
 
 AI-confirmed corporate identity replaces both direct-link proof and the 0.9 admission
 gate in this path; original signal confidence is preserved. Up to three corporate URLs
@@ -113,6 +116,12 @@ reuse the same frozen packets for policy comparison, and label a fresh evaluatio
 before revealing model verdicts. Evidence still expires after fourteen days.
 
 ### Discovery recovery (local experiment)
+
+The resolver accepts exact tenant/pod sitemap URLs on both `myworkdayjobs.com`
+and `wdN.myworkdaysite.com/recruiting/tenant/site/`. Full-name guessing tries
+seven configured common pods by default, including observed `wd503`; first-word
+guessing still tries three. Existing request caps apply. Complete trailing SEC
+tags such as `/CAN/` are removed before generating names, without leaving a fragment.
 
 Primary-site selection uses the tenant brand before the shortest career-like name. For
 example, `shell` prefers `ShellCareers` over `NOVCareers`. The job collector can recover

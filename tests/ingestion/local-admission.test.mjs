@@ -1,11 +1,18 @@
-// Written with the refactor; intentionally not executed until the local experiment is approved.
+// Admission policy and local-only boundary regression tests; no live provider calls.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decideMatch } from '../../src/domain/ingestion/matching.ts';
-import { assertLocalAdmissionUrl, assertLocalAdmissionStore, localIdentityAdmission } from '../../src/pipeline/local-identity-admission.ts';
+import { assertLocalAdmissionUrl, assertLocalAdmissionStore, localIdentityAdmission, confirmedCorporateDomain } from '../../src/pipeline/local-identity-admission.ts';
 import { SupabaseStore } from '../../src/pipeline/store/supabase.ts';
 
 const candidate = { name: 'Example Industries', domain: 'example.com', domain_confirmed: true, best_confidence: 0.6 };
+test('AI-confirmed parent and careers subdomain agree, while unrelated domains remain ambiguous', () => {
+  assert.equal(confirmedCorporateDomain(['bankofamerica.com', 'careers.bankofamerica.com']), 'bankofamerica.com');
+  assert.equal(confirmedCorporateDomain(['careers.bankofamerica.com', 'bankofamerica.com']), 'bankofamerica.com');
+  assert.equal(confirmedCorporateDomain(['blackrock.com', 'blackstone.com']), null);
+  assert.equal(confirmedCorporateDomain(['careers.example.com', 'investor.example.com']), null);
+  assert.equal(confirmedCorporateDomain([]), null);
+});
 test('local AI policy admits a verified low-confidence discovery; default policy still holds it', () => {
   assert.equal(decideMatch(candidate, [], { canCreate: true }).reason, 'untrusted_signal');
   assert.equal(decideMatch(candidate, [], { canCreate: true, identityVerified: true }).action, 'create');

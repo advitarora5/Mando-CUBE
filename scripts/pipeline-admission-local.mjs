@@ -16,7 +16,7 @@ const flags = {};
 try {
   for (let i = 2; i < process.argv.length; i++) {
     const key = process.argv[i];
-    if (!['--input', '--output', '--admission-only', '--max-checks', '--packets'].includes(key) || key in flags) throw Error(`Unknown or repeated argument ${key}`);
+    if (!['--input', '--output', '--admission-only', '--max-checks', '--packets', '--reuse-results'].includes(key) || key in flags) throw Error(`Unknown or repeated argument ${key}`);
     if (key === '--admission-only') flags[key] = true;
     else { const value = process.argv[++i]; if (!value || value.startsWith('--')) throw Error(`Missing value for ${key}`); flags[key] = value; }
   }
@@ -36,6 +36,9 @@ try {
   if (flags['--packets'] && !flags['--admission-only']) throw Error('--packets requires --admission-only so discovery cannot change the comparison batch');
   const frozenPackets = flags['--packets'] ? z.array(identityCaseSchema).max(100).parse(JSON.parse(fs.readFileSync(flags['--packets'], 'utf8'))) : undefined;
   if (frozenPackets && new Set(frozenPackets.map(p => p.id)).size !== frozenPackets.length) throw Error('Duplicate frozen packet IDs');
+  if (flags['--reuse-results'] && !frozenPackets) throw Error('--reuse-results requires --packets');
+  const cachedResults = flags['--reuse-results'] ? JSON.parse(fs.readFileSync(flags['--reuse-results'], 'utf8')).results : undefined;
+  if (cachedResults && !Array.isArray(cachedResults)) throw Error('Invalid cached identity results');
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
   const save = (name, value) => {
     const dest = path.join(output, name + '.json');
@@ -75,12 +78,14 @@ try {
     },
   });
   // Check the local model before any collection or admission writes.
-  const identity = await localIdentityAdmission(ctx, candidates, { host: process.env.IDENTITY_OLLAMA_HOST ?? 'http://127.0.0.1:11434', model: 'qwen2.5:7b', maxChecks, packets: frozenPackets, save });
+  const identity = await localIdentityAdmission(ctx, candidates, { host: process.env.IDENTITY_OLLAMA_HOST ?? 'http://127.0.0.1:11434', model: 'qwen2.5:7b', maxChecks, packets: frozenPackets, cachedResults, save });
   if (!flags['--admission-only']) {
     const sec = JSON.parse(fs.readFileSync(process.env.PIPELINE_SEC_FILE ?? 'sec.json', 'utf8'));
     const selected = Object.fromEntries(Object.entries(sec).filter(([, row]) => allowed.has(normalizeName(row.title))));
     if (new Set(Object.values(selected).map(row => normalizeName(row.title))).size !== allowed.size) throw Error('Discovery names must exist in the saved SEC snapshot; use --admission-only for existing non-SEC candidates');
-    save('selected-sec', selected); process.env.PIPELINE_SEC_FILE = path.join(output, 'selected-sec.json');
+    // The SEC collector validates a complete company-list snapshot. Retain that
+    // input unchanged; resolverAttempts above scopes probes to the frozen names.
+    save('selected-sec', selected);
     for (const [plan, source] of [['collect', 'sec-company-list'], ['collect', 'workday-site-resolver'], ['extract'], ['collect', 'workday-career-sites'], ['extract']]) {
       const report = await runPipeline(ctx, { plan, source, limit: candidates.length, dryRun: false, trigger: 'manual' });
       state.stages.push(report); save('summary', state);

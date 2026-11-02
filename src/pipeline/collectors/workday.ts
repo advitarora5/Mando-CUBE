@@ -16,15 +16,29 @@ export const WORKDAY_OFFSET_CAP = 2000;
 export const RESOLVER_REFRESH_DAYS = 7;
 export const RESOLVER_MISS_RETRY_DAYS = 30;
 // Pods seen most often first. Each probe is one robots.txt request.
-export const WORKDAY_PODS = ["wd5", "wd1", "wd3", "wd12", "wd103", "wd501", "wd10", "wd108"];
+export const WORKDAY_PODS = ["wd5", "wd1", "wd3", "wd12", "wd103", "wd501", "wd503", "wd10", "wd108"];
 // Volatile fields that change daily without the posting changing ("Posted 5 Days Ago").
 export const WORKDAY_VOLATILE_KEYS = ["postedOn", "similarJobs", "userAuthenticated"];
 
 export const origin = (tenant: string, pod: string) => `https://${tenant}.${pod}.myworkdayjobs.com`;
 
 export function sitesFromRobots(body: string, tenant: string, pod: string): string[] {
-  const host = `${tenant}.${pod}.myworkdayjobs.com`.replace(/\./g, "\\.");
-  const sites = [...body.matchAll(new RegExp(`${host}/([^/\\s]+)/siteMap\\.xml`, "gi"))].map(m => m[1]);
+  const sites: string[] = [];
+  for (const line of body.split(/\r?\n/)) {
+    const value = line.match(/^\s*Sitemap:\s*(\S+)\s*$/i)?.[1];
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.username || url.password || url.port || url.search || url.hash) continue;
+      if (url.hostname === `${tenant}.${pod}.myworkdayjobs.com`) {
+        const match = url.pathname.match(/^\/([A-Za-z0-9_-]+)\/siteMap\.xml$/i);
+        if (match) sites.push(match[1]);
+      } else if (url.hostname === `${pod}.myworkdaysite.com`) {
+        const match = url.pathname.match(/^\/recruiting\/([a-z0-9-]+)\/([A-Za-z0-9_-]+)\/siteMap\.xml$/i);
+        if (match && match[1].toLowerCase() === tenant.toLowerCase()) sites.push(match[2]);
+      }
+    } catch { /* A malformed sitemap is not a discovered site. */ }
+  }
   return [...new Set(sites)];
 }
 
@@ -119,8 +133,8 @@ export class WorkdayResolver implements Collector {
   async collect(source: SourceRow, limits: CollectLimits, ctx: PipelineContext): Promise<CollectResult> {
     const result = empty();
     const http = new PoliteHttp(ctx, { maxRequests: limits.maxRequests, minDelayMs: limits.minDelayMs, maxRetries: 1, timeoutMs: 10000 });
-    // The full-name guess tries the six most common pods; the weaker first-word guess only the top three.
-    const podsFor = (kind: string) => WORKDAY_PODS.slice(0, kind === "full_name" ? Number(source.config.full_name_pods ?? 6) : Number(source.config.first_word_pods ?? 3));
+    // Full-name guesses include the observed wd503 pod; weaker first-word guesses stay bounded to three.
+    const podsFor = (kind: string) => WORKDAY_PODS.slice(0, kind === "full_name" ? Number(source.config.full_name_pods ?? 7) : Number(source.config.first_word_pods ?? 3));
     // limit = sites to find; about one name in four has a guessable tenant, so up to six names per wanted site are tried.
     const names = await resolverCandidates(ctx, limits.maxItems * Number(source.config.names_per_site ?? 6));
     const knownSites = await ctx.store.workdaySites(true);

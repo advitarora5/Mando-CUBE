@@ -4,7 +4,7 @@ import { SupabaseStore } from "./store/supabase.ts";
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
 import { corporateCandidates } from "./collectors/corporate-careers.ts";
 import { prepareIdentityCase } from "./identity-evidence.ts";
-import { IDENTITY_MODEL_OPTIONS, MAX_IDENTITY_AGE_MS, verifyIdentity, type IdentityCase, type IdentityResult } from "./identity.ts";
+import { IDENTITY_MODEL_OPTIONS, MAX_IDENTITY_AGE_MS, reusableIdentity, verifyIdentity, type IdentityCase, type IdentityResult } from "./identity.ts";
 import { OllamaProvider } from "./llm.ts";
 import type { EmployerWebsiteLink, PipelineContext, WebsiteResolution, WorkdaySite } from "./types.ts";
 import type { WebsiteHttp } from "./website.ts";
@@ -28,9 +28,17 @@ export type LocalIdentityAdmission = {
   resolve(ctx: PipelineContext, name: string, sites: WorkdaySite[], http: WebsiteHttp, refs: EmployerWebsiteLink[]): Promise<WebsiteResolution>;
 };
 
+// Only collapse subdomains when the parent was itself observed and AI-confirmed.
+// Never guess a registrable domain or equate differently named corporate hosts.
+export function confirmedCorporateDomain(domains: Iterable<string>): string | null {
+  const unique = [...new Set(domains)];
+  return unique.find(parent => unique.every(domain => domain === parent || domain.endsWith(`.${parent}`))) ?? null;
+}
+
 export async function localIdentityAdmission(ctx: PipelineContext, candidates: LocalAdmissionCandidate[], opts: {
   host: string; model: string; maxChecks: number;
   packets?: IdentityCase[];
+  cachedResults?: IdentityResult[];
   save: (name: string, value: unknown) => void;
 }): Promise<LocalIdentityAdmission> {
   assertLocalAdmissionStore(ctx);
@@ -44,11 +52,12 @@ export async function localIdentityAdmission(ctx: PipelineContext, candidates: L
   const llm = new OllamaProvider({ host: opts.host, model: opts.model, fetchImpl: ctx.fetch, timeoutMs: 120000, ...IDENTITY_MODEL_OPTIONS });
   const packets: IdentityCase[] = [], results: IdentityResult[] = [];
   const outcomes: { name: string; status: string; reason: string; domain: string | null }[] = [];
-  let checks = 0;
+  let checks = 0, cacheHits = 0;
   const persist = () => {
     opts.save("identity-packets", packets);
     opts.save("identity-results", { mode: "local_admission", model: opts.model, model_revision: tag.digest, results });
     opts.save("identity-outcomes", outcomes);
+    opts.save("identity-call-counts", { model_calls: checks, reused_answers: cacheHits });
   };
   persist();
   return {
@@ -95,8 +104,10 @@ export async function localIdentityAdmission(ctx: PipelineContext, candidates: L
           const packet = savedPacket ?? await prepareIdentityCase(context, { id: `local-${normalized}-${packets.length + 1}`, target_name: name,
             corporate_url: corporateUrl, site: { tenant: site.tenant, pod: site.pod, site: site.site }, review_id: site.review_item_id }, http, { refreshJobs: true });
           packets.push(packet); persist(); // Freeze evidence on disk before inference.
-          const result = await verifyIdentity(packet, llm, tag.digest, context.now());
-          if (result.status !== "insufficient_input") checks++;
+          const cached = frozen && opts.cachedResults?.find(r => r.case_id === packet.id && reusableIdentity(r, packet, opts.model, tag.digest, context.now()));
+          const result = cached || await verifyIdentity(packet, llm, tag.digest, context.now());
+          if (cached) cacheHits++;
+          else if (result.status !== "insufficient_input") checks++;
           results.push(result); persist();
           resolution.evidence.checks.push({ domain: normalizeDomain(packet.corporate_url) ?? "", url: packet.corporate_url,
             reason: `${result.status}: ${result.verdict}; ${result.error ?? result.answer?.explanation ?? ""}` });
@@ -108,8 +119,9 @@ export async function localIdentityAdmission(ctx: PipelineContext, candidates: L
         if (everySiteMatched && domain) confirmed.add(domain);
       }
       if (incomplete) return finish("AI check limit reached; candidate remains held");
+      const confirmedDomain = confirmedCorporateDomain(confirmed);
+      if (confirmedDomain) return finish("AI confirmed the corporate identity against every observed enabled Workday site", confirmedDomain);
       if (confirmed.size > 1) return finish("multiple corporate domains matched; human review required");
-      if (confirmed.size === 1) return finish("AI confirmed the corporate identity against every observed enabled Workday site", [...confirmed][0]);
       return finish("AI did not confirm: different company, uncertainty, missing input or model failure; see identity-results");
     },
   };
