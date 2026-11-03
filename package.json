@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
+    "dev:local": "node --env-file-if-exists=.env.local --env-file=.env.pipeline.local scripts/dev-local.mjs",
     "build": "next build --webpack",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint",
@@ -13,7 +14,15 @@
     "drafts": "node --env-file=.env.local scripts/generate-drafts.mjs",
     "score:save": "node --env-file=.env.local scripts/save-assessments.mjs",
     "contacts:research": "node --env-file=.env.local scripts/run-contact-research.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "companies:duplicates": "node --env-file=.env.local scripts/find-duplicate-companies.mjs",
+    "companies:merge": "node --env-file=.env.local scripts/merge-companies.mjs",
+    "test": "node --test tests/*.test.mjs tests/ingestion/*.test.mjs",
+    "test:integration": "node --env-file-if-exists=.env.pipeline.local --test tests/integration/*.test.mjs",
+    "pipeline": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline.mjs",
+    "pipeline:full": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline-full.mjs",
+    "pipeline:eval": "node --env-file-if-exists=.env.pipeline.local scripts/eval-extraction.mjs",
+    "extract": "node scripts/ingestion/extract.mjs",
+    "eval:extraction": "node scripts/ingestion/eval-extraction.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

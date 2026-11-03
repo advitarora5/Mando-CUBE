@@ -14,8 +14,22 @@ export const rubric: Record<Category, { label: string; weight: number; explanati
 // Inclusive minimum totals. Anything below Maybe is Disqualified.
 export const tierThresholds = { Qualified: 70, Maybe: 55 } as const;
 
-export function tierForTotal(total: number): Tier {
-  return total >= tierThresholds.Qualified ? "Qualified" : total >= tierThresholds.Maybe ? "Maybe" : "Disqualified";
+// Team rubric revision (Mando team scoring rubric, 2026-10-13): same weights, Qualified from 70, Maybe from 55.
+// Thresholds follow each score row's rubric_version; the default for any other version is the shared 70/55.
+export const TEAM_RUBRIC_70 = "mando-team-70";
+const versionThresholds: { prefix: string; thresholds: { Qualified: number; Maybe: number } }[] = [
+  { prefix: TEAM_RUBRIC_70, thresholds: { Qualified: 70, Maybe: 55 } },
+];
+
+export function tierThresholdsFor(rubricVersion?: string | null): { Qualified: number; Maybe: number } {
+  // Ignore anything that is not a version string (e.g. the index when called through Array.map).
+  if (typeof rubricVersion !== "string") return tierThresholds;
+  return versionThresholds.find(v => rubricVersion.startsWith(v.prefix))?.thresholds ?? tierThresholds;
+}
+
+export function tierForTotal(total: number, rubricVersion?: string | null): Tier {
+  const t = tierThresholdsFor(rubricVersion);
+  return total >= t.Qualified ? "Qualified" : total >= t.Maybe ? "Maybe" : "Disqualified";
 }
 
 // Timing Trigger points by days since the Workday go-live (inclusive upper bound).

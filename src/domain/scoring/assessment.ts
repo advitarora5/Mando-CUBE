@@ -25,7 +25,8 @@ export function releaseAlignment(source: string | null, now: Date = new Date()):
 }
 
 // Every category that earns points must carry a source link and a one-line reason. Omitted categories score 0.
-export function buildAssessment(companyId: string, input: Partial<Record<Category, CategoryInput>>): AssessmentResult {
+export function buildAssessment(companyId: string, input: Partial<Record<Category, CategoryInput>>, opts: { rubricVersion?: string } = {}): AssessmentResult {
+  const rubricVersion = opts.rubricVersion ?? RUBRIC_VERSION;
   const errors: string[] = [];
   const scores = {} as Record<`${Category}_score`, number>;
   const evidence = {} as Record<`${Category}_evidence`, string>;
@@ -40,6 +41,6 @@ export function buildAssessment(companyId: string, input: Partial<Record<Categor
     evidence[`${category}_evidence` as const] = formatted ?? "";
   }
   if (errors.length) return { ok: false, errors };
-  const { total, tier, tier_reason } = evaluateTier({ ...scores, ...evidence });
-  return { ok: true, row: { company_id: companyId, rubric_version: RUBRIC_VERSION, ...scores, ...evidence, tier }, total, tier, tier_reason };
+  const { total, tier, tier_reason } = evaluateTier({ ...scores, ...evidence, rubric_version: rubricVersion });
+  return { ok: true, row: { company_id: companyId, rubric_version: rubricVersion, ...scores, ...evidence, tier }, total, tier, tier_reason };
 }

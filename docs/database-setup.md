@@ -34,7 +34,7 @@ Added by `202610120001_ingestion_foundation.sql`. It only adds tables and a view
 - pipeline_runs: every run with trigger, status, requests made, model spend, counts and error.
 - raw_captures: responses exactly as received with link, fetch time and SHA-256 fingerprint. A trigger rejects updates and deletes.
 - extractions: structured or model reading of one capture. Captures without a successful extraction are the queue.
-- signals: go_live, hiring, release_planning, known_customer, budget_clue, event, each with source link, date when stated, exact quote and confidence. Hiring and release-planning signals expire 14 days after `last_seen_at`.
+- signals: go_live, hiring, release_planning, known_customer, budget_clue, event, each with source link, date when stated, exact quote and confidence. Every type except go_live expires 14 days after `last_seen_at`. `202610190001_ingestion_pipeline.sql` adds Workday sites, paid-call idempotency, enrichment requests, review functions and health views (see docs/ingestion-runbook.md).
 - review_queue: candidates awaiting approve, merge or reject, with signals attached by `review_item_id`.
 - company_origins: companies created by the pipeline (`origin = pipeline`). Kept separate so `companies` is unchanged.
 - company_contact_readiness (view): `ready_for_contacts` from each company's latest assessment and the current threshold.

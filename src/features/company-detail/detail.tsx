@@ -7,6 +7,7 @@ import { safeUrl, type CompanyDetail, type Contact } from "@/domain/contracts/de
 import { Editor, type Field } from "@/features/company-editor/editor";
 import { WeeklyHistory } from "@/features/weekly-history/history";
 import type { Movement, Snapshot } from "@/domain/history";
+import type { DeltaExplanation } from "@/domain/delta-explanation";
 import { ContactDrafts } from "@/features/outreach/drafts";
 import type { StoredDraft } from "@/server/repositories/outreach-drafts";
 import { saveCompany, saveContact, saveInsights, saveLeadStatus } from "@/features/company-editor/actions";
@@ -105,7 +106,7 @@ function ContactRow({ contact, primary, companyId, drafts }: { contact: Contact;
   </div>;
 }
 
-export function Detail({ company: c, snapshots = [], drafts = [], rank, movement }: { company: CompanyDetail; snapshots?: Snapshot[]; drafts?: StoredDraft[]; rank?: number; movement?: Movement | null }) {
+export function Detail({ company: c, snapshots = [], drafts = [], rank, movement, explanation }: { company: CompanyDetail; snapshots?: Snapshot[]; drafts?: StoredDraft[]; rank?: number; movement?: Movement | null; explanation?: DeltaExplanation }) {
   const insights = c.insights;
   const days = c.days_since_signal;
   const goLive = goLiveScore(c.workday_signal_date);
@@ -136,6 +137,11 @@ export function Detail({ company: c, snapshots = [], drafts = [], rank, movement
 
   const overview = <div className="grid-2">
     <div className="stack">
+      {explanation && <section className="card" aria-labelledby="delta-why"><div className="card-head"><h2 id="delta-why">Why the rank changed</h2></div><div className="card-body">
+        <p className="delta-summary">{explanation.summary}</p>
+        {explanation.reasons.length > 0 && <ul className="bullets">{explanation.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
+        <p className="muted">Compared with the assessment behind last week&apos;s rank.</p>
+      </div></section>}
       <section className="card"><div className="card-head"><h2>Why now</h2></div><div className="card-body">
         {whyBullets.items.length ? <ul className="bullets">{whyBullets.items.map(item => <li key={item}>{item}</li>)}</ul> : <p className="muted">No why-now rationale yet. Add one under Buyer insights.</p>}
         {whyBullets.rest > 0 && <details className="raw" style={{ marginTop: 8 }}><summary>Show full rationale</summary><pre>{why}</pre></details>}
@@ -240,7 +246,7 @@ export function Detail({ company: c, snapshots = [], drafts = [], rank, movement
         </div>
       </div>
       <div className="record-score">
-        <div className="stack" style={{ gap: 6, justifyItems: "end" }}><TierChip score={c.score} /><span className="muted num">{rank ? `Rank ${rank}` : "Unranked"} <Delta movement={movement ?? null} current={rank} /></span></div>
+        <div className="stack" style={{ gap: 6, justifyItems: "end" }}><TierChip score={c.score} /><span className="muted num">{rank ? `Rank ${rank}` : "Unranked"} <Delta movement={movement ?? null} current={rank} note={explanation?.summary} /></span></div>
         <div className="record-total"><strong>{c.score?.total ?? "—"}</strong><small>of 100</small></div>
       </div>
     </header>

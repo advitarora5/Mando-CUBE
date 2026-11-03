@@ -16,12 +16,13 @@ import { Avatar, ChannelIcons } from "@/components/channels";
 import { TabBar } from "@/components/tabs";
 import { useCopy } from "@/components/toast";
 import { Delta } from "./delta";
+import type { DeltaExplanation } from "@/domain/delta-explanation";
 import type { Movement } from "@/domain/history";
 
 export type PanelTab = "overview" | "contacts" | "evidence";
 
-export function CompanyPreview({ company: c, rank, movement, tab, focus, onTab, onClose, linkable }: {
-  company: CompanyListItem; rank: number | undefined; movement: Movement | null; tab: PanelTab; focus: Category | null;
+export function CompanyPreview({ company: c, rank, movement, explanation, tab, focus, onTab, onClose, linkable }: {
+  company: CompanyListItem; rank: number | undefined; movement: Movement | null; explanation?: DeltaExplanation; tab: PanelTab; focus: Category | null;
   onTab: (tab: PanelTab, focus?: Category | null) => void; onClose: () => void; linkable: boolean;
 }) {
   const copy = useCopy();
@@ -32,6 +33,11 @@ export function CompanyPreview({ company: c, rank, movement, tab, focus, onTab, 
   const source = safeUrl(c.source);
 
   const overview = <div className="stack">
+    {explanation && <section aria-label="Why the rank changed">
+      <p className="ev-label">Why the rank changed</p>
+      <p className="delta-summary">{explanation.summary}</p>
+      {explanation.reasons.length > 0 && <ul className="bullets">{explanation.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
+    </section>}
     <section>
       <p className="ev-label">Why now</p>
       {why.items.length ? <ul className="bullets">{why.items.map(item => <li key={item}>{item}</li>)}</ul> : <p className="muted">No why-now rationale recorded yet.</p>}

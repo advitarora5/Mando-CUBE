@@ -1,0 +1,480 @@
+[
+ {
+  "tenant": "3m",
+  "url": "https://3m.wd1.myworkdayjobs.com/wday/cxs/3m/Search/job/IN-BANGALORE/Senior-Workday-Developer_R01163833",
+  "body": {
+   "jobPostingInfo": {
+    "id": "d07c87fa5e33100196b69bb8a0b50000",
+    "title": "Senior Workday Developer",
+    "jobDescription": "3M has a long-standing reputation as a company committed to innovation. We provide the freedom to explore and encourage curiosity and creativity. We gain new insight from diverse thinking, and take risks on new ideas.  Here, you can apply your talent in bold ways that matter.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>Job Description:</b></p><p style=\"text-align:inherit\"></p><p><b>Collaborate with Innovative 3Mers Around the World</b></p><p>Choosing where to start and grow your career has a major impact on your professional and personal life, so it’s equally important you know that the company that you choose to work at, and its leaders, will support and guide you. With a wide variety of people, global locations, technologies and products, 3M is a place where you can collaborate with other curious, creative 3Mers.</p><p></p><p><b>The Impact You’ll Make in this Role</b>  </p><p>As a <b>Senior Workday Developer</b>, you will play a critical role in strengthening and evolving our Workday ecosystem to support seamless HR and payroll operations. Through hands‑on development and configuration, you will drive reliable integrations, scalable payroll interfaces, and insightful reporting that directly enable business efficiency and decision‑making.</p><p>You will collaborate closely with a Senior Workday Architect to implement approved designs and standards, ensuring high‑quality tenant‑level configurations that are secure, optimized, and future‑ready. Your expertise will help improve system stability, streamline operational delivery, and enhance the overall employee experience across Workday.</p><p></p><p><b>Key Responsibilities:</b></p><ul><li><p>Design, build, test, and support Workday integrations, including EIBs, Core Connectors, Workday Studio, and REST/SOAP interfaces.</p></li><li><p>Develop and support payroll and downstream interfaces, including PECI, PICOF, and other payroll‑related extracts.</p></li><li><p>Build and maintain custom Workday reports and calculated fields to support business and integration needs.</p></li><li><p>Support Workday Prism Analytics datasets and reporting where required for cross‑system or historical analytics.</p></li><li><p>Develop and maintain Workday Extend applications when native Workday functionality does not meet business requirements.</p></li><li><p>Configure and support Workday business processes and security related to integrations and reporting.</p></li><li><p>Partner with the Senior Workday Architect to implement approved technical designs and ensure solutions align with platform standards.</p></li><li><p>Provide ongoing production support, troubleshooting, and release‑related regression support.</p></li></ul><p></p><p><b>Your Skills and Expertise</b></p><ul><li><p>Bachelor’s degree or higher (completed and verified prior to start).</p></li><li><p>Overall 8&#43; years of experience, with a minimum of 4&#43; years of hands-on Workday experience in an enterprise environment.</p></li><li><p>Strong experience with Workday integrations, including Studio, EIB, Core Connectors, REST/SOAP, and XSLT.</p></li><li><p>Proven experience supporting payroll interfaces (e.g., PECI, PICOF, payroll output files).</p></li><li><p>Advanced experience developing custom Workday reports and calculated fields.</p></li><li><p>Experience supporting production Workday tenants and recurring Workday releases.</p></li></ul><p></p><p><b>Additional qualifications that could help you succeed even further in this role include:</b></p><ul><li><p>Experience with Workday Prism Analytics.</p></li><li><p>Experience developing Workday Extend applications and orchestrations.</p></li><li><p>Workday Integration or Extend certification.</p></li><li><p>Familiarity with global HR, payroll, or finance system integrations.</p></li></ul><p></p><p><b>Location: Bangalore, India (Hybrid)</b></p><p></p><p><b>Supporting Your Well-being</b></p><p>3M offers many programs to help you live your best life – both physically and financially. To ensure competitive pay and benefits, 3M regularly benchmarks with other companies that are comparable in size and scope.</p><p></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Learn more about 3M’s creative solutions to the world’s problems at www.3M.com or on Instagram, Facebook, and LinkedIn @3M.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Safety is a core value at 3M. All employees are expected to contribute to a strong Environmental Health and Safety (EHS) culture by following safety policies, identifying hazards, and engaging in continuous improvement.<p></p><p></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>Please note: your application may not be considered if you do not provide your education and work history, either by: 1) uploading a resume, or 2) entering the information into the application fields directly.</b></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p><b><u>3M Global Terms of Use and Privacy Statement</u></b></p><p><br />Carefully read these Terms of Use before using this website. Your access to and use of this website and application for a job at 3M are conditioned on your acceptance and compliance with these terms.</p><p></p><p>Please click on the following links and select the country where you are applying for employment to review the applicable <a target=\"_blank\" href=\"https://multimedia.3m.com/mws/media/2653553O/3m-website-terms-of-use-global.pdf\"><span style=\"color:#0875e1\"><u>Terms of Use (link here)</u></span></a> and <a target=\"_blank\" href=\"https://multimedia.3m.com/mws/media/1259100O/3m-jobs-country-data-privacy-statements-internal.pdf\"><span style=\"color:#0875e1\"><u>Privacy Policy (link here)</u></span></a>. Before submitting your application, you will be asked to confirm your agreement with the terms.</p>",
+    "location": "IN, BANGALORE",
+    "postedOn": "Posted 30+ Days Ago",
+    "startDate": "2026-06-29",
+    "timeType": "Full time",
+    "jobReqId": "R01163833",
+    "jobPostingId": "Senior-Workday-Developer_R01163833",
+    "jobPostingSiteId": "Search",
+    "country": {
+     "descriptor": "India",
+     "id": "c4f78be1a8f14da0ab49ce1162348a5e"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "IN, BANGALORE",
+     "country": {
+      "descriptor": "India",
+      "id": "c4f78be1a8f14da0ab49ce1162348a5e",
+      "alpha2Code": "IN"
+     }
+    },
+    "remoteType": "On-site",
+    "externalUrl": "https://3m.wd1.myworkdayjobs.com/Search/job/IN-BANGALORE/Senior-Workday-Developer_R01163833",
+    "questionnaireId": "1935bbb6a9981000ead3c50c04eb0000",
+    "secondaryQuestionnaireId": "1935bbb6a9981000ec71ef83deba0000"
+   },
+   "hiringOrganization": {
+    "name": "IND 3M Global Tech Center PVT LTD",
+    "url": ""
+   },
+   "similarJobs": [
+    {
+     "title": "SAP FI/CO Finance Lead",
+     "externalPath": "/job/IN-BANGALORE/SAP-FI-CO-Finance-Lead_R01166635",
+     "timeType": "Full time",
+     "locationsText": "IN, BANGALORE",
+     "postedOn": "Posted 17 Days Ago",
+     "startDate": "2026-09-25",
+     "remoteType": "On-site"
+    },
+    {
+     "title": "Senior Engineer - DevOps",
+     "externalPath": "/job/IN-BANGALORE/Senior-Engineer---DevOps_R01166855",
+     "timeType": "Full time",
+     "locationsText": "IN, BANGALORE",
+     "postedOn": "Posted 30+ Days Ago",
+     "startDate": "2026-06-22",
+     "remoteType": "On-site"
+    }
+   ],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "3m",
+  "url": "https://3m.wd1.myworkdayjobs.com/wday/cxs/3m/Search/job/US-Minnesota-Maplewood/HR-Technology-Senior-Analyst--Workday-Talent-Management_R01170670",
+  "body": {
+   "jobPostingInfo": {
+    "id": "e5852ade8a7e10010ddca7fb17ad0000",
+    "title": "HR Technology Senior Analyst, Workday Talent Management",
+    "jobDescription": "<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>Job Description:</b></p><p style=\"text-align:inherit\"></p><p><b>HR Technology Senior Analyst - Workday Talent Management </b></p><p></p><p><b>Collaborate with Innovative 3Mers Around the World</b></p><p>Choosing where to start and grow your career has a major impact on your professional and personal life, so it’s equally important you know that the company that you choose to work at, and its leaders, will support and guide you. With a wide variety of people, global locations, technologies and products, 3M is a place where you can collaborate with other curious, creative 3Mers.</p><p></p><p><b>This position provides an opportunity to transition from other private, public, government or military experience to a 3M career.</b></p><p><b>About the Role </b><br /> </p><p>We are seeking an experienced HR Technology Senior Analyst specializing in Workday Talent Management configuration who can deliver scalable, compliant, and intuitive global employee experiences across performance, talent reviews, succession, goals, skills, development planning, and internal mobility processes. In this senior role, you will own end-to-end solution design and apply deep Workday expertise to govern complex talent management configurations. You will drive innovation across core HR and talent processes, lead cross functional initiatives, and translate business needs into clear, user focused system designs. This role requires strong analytical capabilities, advanced configuration proficiency, and the leadership to guide analysts and project teams in delivering accurate, compliant, and high quality HR technology solutions.</p><p></p><p><b>Key Responsibilities</b></p><p></p><p><b>Workday Expertise &amp; Solution Design</b></p><ul><li>Serve as the senior Workday expert for Talent Management system design and configurations, specifically across Performance, Talent Reviews, Skills, Goals, Succession, and Talent Insights.</li><li>Translate business requirements into scalable system designs.</li><li>Ensure all functional designs adhere to governance, documentation standards, compliance requirements, and audit controls.</li><li>Partner with technical teams on talent-related integrations, data flows, and troubleshooting.</li></ul><p></p><p><b>Governance &amp; Quality Assurance</b></p><ul><li>Oversee and mentor HR Technology Analysts in configuration, testing, and deployment activities.</li><li>Review and approve configuration, test scripts, test results, and documentation to ensure accuracy and audit readiness.</li><li>Lead complex troubleshooting related talent processes and integrations</li></ul><p></p><p><b>Optimization &amp; Workday Enhancements</b></p><ul><li>Evaluate Workday semiannual releases and identify features that improve talent processes and user experiences.</li><li>Recommend and implement process and system enhancements, including automation and error-reduction strategies.</li><li>Drive continuous improvement initiatives in partnership with Talent Management Operations, HR Business Operations, and other HR COEs.</li><li>Stay current on evolving Talent system trends within Workday and other relevant platforms to inform system strategy.</li></ul><p></p><p><b>Collaboration, Training &amp; Stakeholder Partnership</b></p><ul><li>Partner with Talent Management Operations, HR Business Process Operations, IT, Data Privacy, and other relevant stakeholders to gather requirements, influence design decisions, and resolve complex issues.</li><li>Lead functional workshops, design reviews, and decision-making discussions, ensuring alignment of technology solutions with business needs.</li><li>Provide ongoing training, knowledge transfer, and documentation for analysts, HR partners, and talent team members.</li><li>Communicate system changes, impacts, risks, and recommendations to business leaders and operations teams.</li></ul><p></p><p><b>User Experience, Testing &amp; Continuous Improvement</b></p><ul><li>Champion user-centric design principles for talent processes.</li><li>Lead structured testing cycles for releases, enhancements, and integration updates.</li><li>Ensure clean data, accurate processing, and reliable system performance across talent functions.</li><li>Proactively identify issues, recommend solutions, and drive long-term improvements.</li></ul><p></p><p><b>Your Skills and Expertise  </b></p><p>To set you up for success in this role from day one, 3M requires (at a minimum) the following qualifications:</p><ul><li>Bachelor’s Degree or higher (completed and verified prior to start).</li><li>Five (5) years of HR Technology experience in a private, public, government or military environment</li><li>Five (5) years of Workday configuration experience specializing in Talent Management in a private, public, government or military environment</li></ul><p></p><p>Additional qualifications that could help you succeed even further in this role include:</p><ul><li>Workday Pro certification preferred.</li><li>Advanced Workday Talent configuration expertise (Performance, Talent, Goals, Skills, Succession).</li><li>Experience leading or mentoring analysts or technical team members.</li><li>Strong project management skills; ability to influence at all levels.</li><li>Exceptional communication, analytical, and problem-solving skills.</li><li>Experience with other Talent Systems, such as Fuel50.</li></ul><p></p><p><b>Work location: </b></p><ul><li><b>Work location: </b>Maplewood, MN</li><li><i>On-site at least 4 days per week</i></li><li><b>Travel: </b>May include up to 10% domestic/international</li><li><b>Relocation: </b>May be authorized</li></ul><p></p><p><b>Must be legally authorized to work in country of employment without sponsorship for employment visa status (e.g., H1B status).</b></p><p></p><p><b>Supporting Your Well-being </b></p><p>3M offers many programs to help you live your best life – both physically and financially. To ensure competitive pay and benefits, 3M regularly benchmarks with other companies that are comparable in size and scope.</p><p></p><p><b>Chat with Max</b></p><p>For assistance with searching through our current job openings or for more information about all things 3M, visit Max, our virtual recruiting assistant on 3M.com/careers.</p><p></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Applicable to US Applicants Only:The expected compensation range for this position is $145,676 - $178,049, which includes base pay plus variable incentive pay, if eligible. This range represents a good faith estimate for this position. The specific compensation offered to a candidate may vary based on factors including, but not limited to, the candidate’s relevant knowledge, training, skills, work location, and/or experience. In addition, this position may be eligible for a range of benefits (e.g., Medical, Dental &amp; Vision, Health Savings Accounts, Health Care &amp; Dependent Care Flexible Spending Accounts, Disability Benefits, Life Insurance, Voluntary Benefits, Paid Absences and Retirement Benefits, etc.). Additional information is available at: https://www.3m.com/3M/en_US/careers-us/working-at-3m/benefits/.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Good Faith Posting Date Range 09/08/2026 To 10/08/2026 Or until filled<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>All US-based 3M full time employees will need to sign an employee agreement as a condition of employment with 3M. This agreement lays out key terms on using 3M Confidential Information and Trade Secrets. It also has provisions discussing conflicts of interest and how inventions are assigned. Employees that are Job Grade 7 or equivalent and above may also have obligations to not compete against 3M or solicit its employees or customers, both during their employment, and for a period after they leave 3M.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Learn more about 3M’s creative solutions to the world’s problems at www.3M.com or on Instagram, Facebook, and LinkedIn @3M.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Responsibilities of this position include that corporate policies, procedures and security standards are complied with while performing assigned duties.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Safety is a core value at 3M. All employees are expected to contribute to a strong Environmental Health and Safety (EHS) culture by following safety policies, identifying hazards, and engaging in continuous improvement.<p></p><p></p>Pay &amp; Benefits Overview: https://www.3m.com/3M/en_US/careers-us/working-at-3m/benefits/<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>3M does not discriminate in hiring or employment on the basis of race, color, sex, national origin, religion, age, disability, veteran status, or any other characteristic protected by applicable law.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>Please note: your application may not be considered if you do not provide your education and work history, either by: 1) uploading a resume, or 2) entering the information into the application fields directly.</b></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p><b><u>3M Global Terms of Use and Privacy Statement</u></b></p><p><br />Carefully read these Terms of Use before using this website. Your access to and use of this website and application for a job at 3M are conditioned on your acceptance and compliance with these terms.</p><p></p><p>Please click on the following links and select the country where you are applying for employment to review the applicable <a target=\"_blank\" href=\"https://multimedia.3m.com/mws/media/2653553O/3m-website-terms-of-use-global.pdf\"><span style=\"color:#0875e1\"><u>Terms of Use (link here)</u></span></a> and <a target=\"_blank\" href=\"https://multimedia.3m.com/mws/media/1259100O/3m-jobs-country-data-privacy-statements-internal.pdf\"><span style=\"color:#0875e1\"><u>Privacy Policy (link here)</u></span></a>. Before submitting your application, you will be asked to confirm your agreement with the terms.</p>",
+    "location": "US, Minnesota, Maplewood",
+    "postedOn": "Posted 30+ Days Ago",
+    "startDate": "2026-09-08",
+    "timeType": "Full time",
+    "jobReqId": "R01170670",
+    "jobPostingId": "HR-Technology-Senior-Analyst--Workday-Talent-Management_R01170670",
+    "jobPostingSiteId": "Search",
+    "country": {
+     "descriptor": "United States of America",
+     "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "US, Minnesota, Maplewood",
+     "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09",
+      "alpha2Code": "US"
+     }
+    },
+    "remoteType": "On-site",
+    "externalUrl": "https://3m.wd1.myworkdayjobs.com/Search/job/US-Minnesota-Maplewood/HR-Technology-Senior-Analyst--Workday-Talent-Management_R01170670",
+    "questionnaireId": "6034bd0f0d16012adfd16b4d6401cb9e",
+    "secondaryQuestionnaireId": "dfee517910e310016628c6fff2fd0000"
+   },
+   "hiringOrganization": {
+    "name": "USA 3M Company",
+    "url": ""
+   },
+   "similarJobs": [],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "3m",
+  "url": "https://3m.wd1.myworkdayjobs.com/wday/cxs/3m/Search/job/US-Minnesota-Hutchinson/Human-Resources-Coordinator_R01169542",
+  "body": {
+   "jobPostingInfo": {
+    "id": "0f908e393a111001b7c0fb6015f40000",
+    "title": "Human Resources Coordinator",
+    "jobDescription": "<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>Job Description:</b></p><p style=\"text-align:inherit\"></p><div></div><div><div><div><div><div><div><div><div><div><p><b>Job Title</b></p><p>Human Resources Coordinator</p><p></p><p><b>Collaborate with Innovative 3Mers Around the World</b></p><p>Choosing where to start and grow your career has a major impact on your professional and personal life, so it’s equally important you know that the company that you choose to work at, and its leaders, will support and guide you. With a wide variety of people, global locations, technologies and products, 3M is a place where you can collaborate with other curious, creative 3Mers.</p><p></p><p>This position provides an opportunity to transition from other private, public, government or military environments to a 3M career.</p><p></p><p><b>The Impact You’ll Make in this Role</b></p><p>As a Human Resources Coordinator, you will have the opportunity to tap into your curiosity and collaborate with some of the most innovative people around the world. Here, you will make an impact by:</p><ul><li><p>Coordinating accurate and timely administration of complex and highly confidential information related to compensation, benefits, performance, and other areas of HR</p></li><li><p>Communicating tactfully and professionally at all levels and exercising discretion concerning confidential and sensitive information</p></li><li><p>Providing guidance and support to all employees and management, conducting orientations and training, preparing employee engagement activities, and other related activities</p></li><li><p>Influencing the enforcement and adherence to policies, as well as exercising the authority to independently act within those guidelines</p></li></ul><p></p><p><b>Your Skills and Expertise  </b></p><p>To set you up for success in this role from day one, 3M requires (at a minimum) the following qualifications:</p><ul><li><p>High School Diploma/GED or higher (completed and verified prior to start) from an accredited institution</p></li><li><p>Three (3) combined years of experience in human resources, administrative support, and/or clerical role in a private, public, government or military environment</p></li></ul><p></p><p>Additional qualifications that could help you succeed even further in this role include:</p><ul><li><p>Possess expertise or education equivalent to that which would be obtained in a bachelor’s degree or higher (completed and verified prior to start) from an accredited institution</p></li><li><p>Experience using HR systems, including Workday</p></li><li><p>Advanced experience in the HR function</p></li><li><p>Demonstrated ability to handle sensitive information</p></li><li><p>Ability and willingness to resolve employee issues and exercise judgement to elevate when necessary</p></li></ul><p></p><p><b>Work location: This role follows an on-site working model, requiring the employee to work in Hutchinson, MN.</b></p><p><b>Relocation Assistance: Not authorized </b></p><p></p><p><b>Must be legally authorized to work in country of employment without sponsorship for employment visa status (e.g., H1B status).</b></p><p></p><p><b>Supporting Your Well-being</b> </p><p>3M offers many programs to help you live your best life – both physically and financially. To ensure competitive pay and benefits, 3M regularly benchmarks with other companies that are comparable in size and scope. </p><p></p><p><b>Resources for You</b> </p><p>For more details on what happens before, during and after the interview process, check out the Insights for Candidates page at 3M.com/careers. </p></div></div></div></div></div></div></div></div></div><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Applicable to US Applicants Only:The expected compensation range for this position is $59,455 - $72,668, which includes base pay plus variable incentive pay, if eligible. This range represents a good faith estimate for this position. The specific compensation offered to a candidate may vary based on factors including, but not limited to, the candidate’s relevant knowledge, training, skills, work location, and/or experience. In addition, this position may be eligible for a range of benefits (e.g., Medical, Dental &amp; Vision, Health Savings Accounts, Health Care &amp; Dependent Care Flexible Spending Accounts, Disability Benefits, Life Insurance, Voluntary Benefits, Paid Absences and Retirement Benefits, etc.). Additional information is available at: https://www.3m.com/3M/en_US/careers-us/working-at-3m/benefits/.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Good Faith Posting Date Range 08/27/2026 To 09/26/2026 Or until filled<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>All US-based 3M full time employees will need to sign an employee agreement as a condition of employment with 3M. This agreement lays out key terms on using 3M Confidential Information and Trade Secrets. It also has provisions discussing conflicts of interest and how inventions are assigned. Employees that are Job Grade 7 or equivalent and above may also have obligations to not compete against 3M or solicit its employees or customers, both during their employment, and for a period after they leave 3M.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Learn more about 3M’s creative solutions to the world’s problems at www.3M.com or on Instagram, Facebook, and LinkedIn @3M.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Responsibilities of this position include that corporate policies, procedures and security standards are complied with while performing assigned duties.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Safety is a core value at 3M. All employees are expected to contribute to a strong Environmental Health and Safety (EHS) culture by following safety policies, identifying hazards, and engaging in continuous improvement.<p></p><p></p>Pay &amp; Benefits Overview: https://www.3m.com/3M/en_US/careers-us/working-at-3m/benefits/<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>3M does not discriminate in hiring or employment on the basis of race, color, sex, national origin, religion, age, disability, veteran status, or any other characteristic protected by applicable law.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>Please note: your application may not be considered if you do not provide your education and work history, either by: 1) uploading a resume, or 2) entering the information into the application fields directly.</b></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p><b><u>3M Global Terms of Use and Privacy Statement</u></b></p><p><br />Carefully read these Terms of Use before using this website. Your access to and use of this website and application for a job at 3M are conditioned on your acceptance and compliance with these terms.</p><p></p><p>Please click on the following links and select the country where you are applying for employment to review the applicable <a target=\"_blank\" href=\"https://multimedia.3m.com/mws/media/2653553O/3m-website-terms-of-use-global.pdf\"><span style=\"color:#0875e1\"><u>Terms of Use (link here)</u></span></a> and <a target=\"_blank\" href=\"https://multimedia.3m.com/mws/media/1259100O/3m-jobs-country-data-privacy-statements-internal.pdf\"><span style=\"color:#0875e1\"><u>Privacy Policy (link here)</u></span></a>. Before submitting your application, you will be asked to confirm your agreement with the terms.</p>",
+    "location": "US, Minnesota, Hutchinson",
+    "postedOn": "Posted 30+ Days Ago",
+    "startDate": "2026-08-27",
+    "timeType": "Full time",
+    "jobReqId": "R01169542",
+    "jobPostingId": "Human-Resources-Coordinator_R01169542",
+    "jobPostingSiteId": "Search",
+    "country": {
+     "descriptor": "United States of America",
+     "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "US, Minnesota, Hutchinson",
+     "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09",
+      "alpha2Code": "US"
+     }
+    },
+    "remoteType": "On-site",
+    "externalUrl": "https://3m.wd1.myworkdayjobs.com/Search/job/US-Minnesota-Hutchinson/Human-Resources-Coordinator_R01169542",
+    "questionnaireId": "6034bd0f0d16012adfd16b4d6401cb9e",
+    "secondaryQuestionnaireId": "0f908e393a111001b78a09bc35800000"
+   },
+   "hiringOrganization": {
+    "name": "USA 3M Company",
+    "url": ""
+   },
+   "similarJobs": [],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "brookfield",
+  "url": "https://brookfield.wd5.myworkdayjobs.com/wday/cxs/brookfield/brookfield/job/Bengaluru-India/Senior-Analyst---Workday-Integrations---Workato_R2045918",
+  "body": {
+   "jobPostingInfo": {
+    "id": "7e28b0069dff10019f0edc93b8490000",
+    "title": "Analyst – Workday Integrations & Workato",
+    "jobDescription": "<p><b>Location</b></p><p></p>Bengaluru - COWRKS, New Indiranagar, Infinity Tower B<p></p><p><span><span><span><b><span>Brookfield Culture</span></b></span></span></span></p><p></p><p><span><span><span><span>Brookfield has a unique and dynamic culture.  We seek team members who have a long-term focus and whose values align with our Attributes of a Brookfield Leader:  Entrepreneurial, Collaborative and Disciplined.  Brookfield is committed to the development of our people through challenging work assignments and exposure to diverse businesses.</span></span></span></span></p><p><br /><b>Job Description</b></p><p></p><p></p><p><b>Job Title:</b> Analyst – Workday Integrations &amp; Workato</p><p></p><p><b>Position Overview</b></p><p>We are seeking a highly skilled <b>Analyst</b> on our Human Resources Services team to support, enhance, and optimize our Workday ecosystem with a focus on <b>Workday Integrations and Workato</b>. The ideal candidate will serve as a technical subject matter expert, partnering with HR and business stakeholders to deliver scalable solutions, ensure data integrity, and drive process automation.</p><p>This position will be based out of our Bengaluru office and onsite 5 days a week.</p><p></p><p><b>Key Responsibilities</b></p><ul><li><b>Integration Support &amp; Development</b><ul><li>Design, build, test, and maintain Workday integrations (EIB, Core Connectors, Studio, APIs).</li><li>Troubleshoot and resolve integration issues, ensuring data accuracy and compliance with business rules.</li><li>Monitor integration performance and provide ongoing support for production and non-production environments.</li></ul></li><li><b>Workato (iPaaS Automation)</b><ul><li>Design and implement workflows in Workato to automate business processes across HR, Finance, and other enterprise systems.</li><li>Maintain and optimize existing Workato recipes to ensure efficiency and scalability.</li><li>Partner with cross-functional teams to identify new automation opportunities.</li></ul></li><li><b>Cross-Functional Collaboration</b><ul><li>Work closely with HRS, business stakeholders and vendors to understand integration and automation needs.</li><li>Provide technical expertise during enhancements and projects.</li><li>Document processes, integration flows, and technical specifications for ongoing knowledge sharing.</li></ul></li><li><b>Governance &amp; Continuous Improvement</b><ul><li>Ensure compliance with data privacy, security, and audit requirements.</li><li>Proactively recommend process improvements and emerging technology solutions.</li><li>Act as a mentor/resource for junior analysts and peers.</li></ul></li></ul><p><b>Qualifications</b></p><ul><li><b>Education:</b> Bachelor’s degree in Information Systems, Computer Science, HR Technology, or related field (or equivalent experience).</li></ul><p><b>Experience:</b></p><ul><li>4–6&#43; years supporting <b>Workday Integrations</b> (EIB, Core Connectors, Studio, Web Services).</li><li>1-2 years of experience with <b>Workday Extend</b> application development is preferred, not required.</li><li>2&#43; years designing and managing <b>Workato</b> automations or similar iPaaS tools.</li><li>Strong understanding of HR, Payroll, and Finance business processes.</li><li>Proficiency in XML, XSLT, REST/SOAP APIs, and other integration technologies.</li><li>Excellent problem-solving, analytical, and communication skills.</li><li>Ability to manage multiple priorities and work in a fast-paced, dynamic environment.</li></ul><p><b>Skills &amp; Competencies</b></p><ul><li>Teamwork - demonstrated ability to work effectively with peers, embrace differences and build consensus, while working towards aligned goals and common objectives</li><li>Communication – highly developed presentation skills both written and oral, with a proven ability to take complex data and clearly express it in a compelling manner</li><li>Process Orientation - Learn about peers’ processes and directives and incorporate into reporting administration function as appropriate</li><li>Initiative – self-starter with an action bias and an eagerness to learn, who can work with little direction and take initiative beyond the established scope of responsibilities</li><li>Critical Thinking - Utilizes problem-solving skills, analysis, sound judgement and evidence to support well-considered recommendations to resolve issues</li><li>Operational Excellence – outstanding time-management, strong attention to detail, dedication to accuracy and high degree of pride in work output</li><li>Adaptability - Skillfully and promptly exhibit flexibility by leveraging available resources to modify work to changing scenarios as required</li></ul><p></p><p></p><p></p><p></p><p><span>Brookfield is committed to maintaining a Positive Work Environment that is safe and respectful; our shared success depends on it.  Accordingly, we do not tolerate workplace discrimination, violence or harassment.</span></p><p></p>We are proud to create a diverse environment and are proud to be an equal opportunity employer. We are grateful for your interest in this position, however, only candidates selected for pre-screening will be contacted.",
+    "location": "Bengaluru, India",
+    "postedOn": "Posted 30+ Days Ago",
+    "startDate": "2026-01-20",
+    "timeType": "Full time",
+    "jobReqId": "R2045918",
+    "jobPostingId": "Senior-Analyst---Workday-Integrations---Workato_R2045918",
+    "jobPostingSiteId": "brookfield",
+    "country": {
+     "descriptor": "India",
+     "id": "c4f78be1a8f14da0ab49ce1162348a5e"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "Bengaluru - COWRKS, New Indiranagar, Infinity Tower B",
+     "country": {
+      "descriptor": "India",
+      "id": "c4f78be1a8f14da0ab49ce1162348a5e",
+      "alpha2Code": "IN"
+     }
+    },
+    "externalUrl": "https://brookfield.wd5.myworkdayjobs.com/brookfield/job/Bengaluru-India/Senior-Analyst---Workday-Integrations---Workato_R2045918",
+    "questionnaireId": "8882330a130b010103a58e0756440000",
+    "secondaryQuestionnaireId": "8882330a130b010103a581f7f4590000"
+   },
+   "hiringOrganization": {
+    "name": "Brooksolutions Global Services Pvt Ltd",
+    "url": ""
+   },
+   "similarJobs": [],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "brookfield",
+  "url": "https://brookfield.wd5.myworkdayjobs.com/wday/cxs/brookfield/brookfield/job/New-York-New-York/Analyst--HR-Operations_R2052490",
+  "body": {
+   "jobPostingInfo": {
+    "id": "0060cca5f4821000ccc808b5bcd90000",
+    "title": "Analyst, HR Operations",
+    "jobDescription": "<p><b>Location</b></p><p></p>Brookfield Place New York - 225 Liberty Street, 8th Floor<p></p><p><span><span><span><b><span>Brookfield Culture</span></b></span></span></span></p><p></p><p><span><span><span><span>Brookfield has a unique and dynamic culture.  We seek team members who have a long-term focus and whose values align with our Attributes of a Brookfield Leader:  Entrepreneurial, Collaborative and Disciplined.  Brookfield is committed to the development of our people through challenging work assignments and exposure to diverse businesses.</span></span></span></span></p><p><br /><b>Job Description</b></p><p></p><p><span>Human Resources Services (HRS) is an internal function providing global operations and business support across Brookfield’s lines of business.</span></p><p></p><p>As a member of the HR Service Desk (HRSD), the <b>Analyst, HR Operations</b> is responsible for delivering high-quality HR support to employees, managers, and the broader global HR team. The role serves as a key point of contact for HR-related questions, employee assistance, and the execution of day-to-day HR transactions across the employee lifecycle.</p><p>The Analyst will respond to employee and manager inquiries, provide guidance on HR programs, policies, processes, and systems, and complete a broad range of transactions within Workday and other HR platforms. This includes supporting activities such as hires, job changes, organizational changes, leaves, employee data updates, and terminations.</p><p>The role requires a strong customer-service mindset, attention to detail, sound judgment, and the ability to independently manage and resolve employee requests in a high-volume, global shared services environment. This position supports Brookfield Asset Management and affiliate organizations globally.</p><p></p><p><b>Responsibilities</b></p><ul><li><p><b>Employee &amp; Manager Support:</b> Serve as a primary point of contact for employees and managers, responding to HR-related questions and providing clear, timely, and professional assistance.</p></li><li><p><b>HR Case Management:</b> Manage employee and manager requests from intake through resolution, ensuring questions and issues are appropriately researched, documented, resolved, or escalated when required.</p></li><li><p><b>HR Transactions:</b> Process a broad range of employee lifecycle transactions accurately and efficiently within Workday, including hires, job changes, transfers, promotions, organizational changes, employee data updates, leaves, and terminations.</p></li><li><p><b>Employee Data Administration:</b> Maintain accurate employee information within HR systems and complete required data reviews and validation to support data integrity.</p></li><li><p><b>Employee Guidance:</b> Assist employees and managers in navigating HR processes, policies, systems, self-service tools, and available HR resources.</p></li><li><p><b>Onboarding &amp; Offboarding Support:</b> Support employee onboarding and offboarding activities, ensuring required HR transactions, documentation, and employee communications are completed accurately and on time.</p></li><li><p><b>HR Documentation:</b> Prepare, review, and maintain employee-related documentation and correspondence associated with HR transactions and processes.</p></li><li><p><b>Issue Resolution:</b> Investigate transactional or system-related issues, identify appropriate solutions, and partner with HR colleagues or other teams where additional expertise or escalation is required.</p></li><li><p><b>Process &amp; Knowledge Support:</b> Follow established HR procedures and knowledge articles while identifying opportunities to improve processes, employee experience, and service delivery.</p></li><li><p><b>Service Delivery:</b> Execute HR requests and transactions in accordance with established service level agreements (SLAs), quality standards, controls, and compliance requirements.</p></li><li><p><b>Confidentiality &amp; Compliance:</b> Handle sensitive employee information with discretion and ensure HR transactions are completed in accordance with company policies, procedures, and applicable requirements.</p></li><li><p>Perform other HR Service Desk transactional, administrative, and employee support activities as assigned.</p></li></ul><p></p><p><b>Qualifications &amp; Requirements</b></p><ul><li><p>Strong customer service orientation with a demonstrated ability to support employees and managers in a professional and responsive manner.</p></li><li><p>Bachelor&#39;s degree in Human Resources, Business Administration, or a related discipline.</p></li><li><p>Minimum 3 years of HR administrative, HR operations, employee services, or shared services experience, preferably within a professional services environment.</p></li><li><p>Experience processing HR transactions across the employee lifecycle.</p></li><li><p>Experience working with an HRIS; <b>Workday experience is considered an asset</b>.</p></li><li><p>Experience working in a high-volume HR shared services, service desk, or case management environment is preferred.</p></li><li><p>Ability to interpret HR processes and policies and provide clear guidance to employees and managers.</p></li><li><p>Ability to independently investigate and resolve employee requests, including more complex or non-standard situations, using sound judgment and appropriate escalation.</p></li><li><p>Strong analytical and problem-solving skills.</p></li><li><p>Excellent written and verbal communication skills.</p></li><li><p>Strong attention to detail with a commitment to accuracy and data integrity.</p></li><li><p>Highly organized with the ability to manage a high volume of requests and competing priorities.</p></li><li><p>Self-motivated with the ability to take ownership of employee requests and manage them through to resolution.</p></li><li><p>Ability to handle confidential and sensitive employee information appropriately.</p></li><li><p>Strong computer skills, including Microsoft Office applications such as Word, Excel, PowerPoint, and Outlook.</p></li><li><p>Experience using Excel to review, reconcile, and audit data using formulas, lookups, and pivot tables is an asset.</p></li></ul><p></p><p>Salary Range: $70,000 - $85,000</p><p></p><p>Our compensation structure is comprised of a base salary and a short-term incentive program (cash bonus). Cash compensation tends to vary based on geography to account for local market conditions and is set to be market competitive. Compensation decisions are based on a number of factors including relative experience, overall years of experience, industry experience, education and designations.</p><br /><p>Brookfield is committed to maintaining a Positive Work Environment that is safe and respectful; our shared success depends on it. We do not tolerate workplace discrimination, violence or harassment. We are proud to be an Equal Opportunity Employer and make employment decisions based on qualifications, merit and business needs, without regard to any characteristic protected by applicable law. Applicant information is collected and handled in accordance with our Applicant Privacy Notice.</p>",
+    "location": "New York, New York",
+    "postedOn": "Posted 28 Days Ago",
+    "startDate": "2026-09-14",
+    "timeType": "Full time",
+    "jobReqId": "R2052490",
+    "jobPostingId": "Analyst--HR-Operations_R2052490",
+    "jobPostingSiteId": "brookfield",
+    "country": {
+     "descriptor": "United States of America",
+     "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "Brookfield Place New York",
+     "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09",
+      "alpha2Code": "US"
+     }
+    },
+    "externalUrl": "https://brookfield.wd5.myworkdayjobs.com/brookfield/job/New-York-New-York/Analyst--HR-Operations_R2052490",
+    "questionnaireId": "8882330a130b010103a58e0756440000",
+    "secondaryQuestionnaireId": "8882330a130b010103a581f7f4590000"
+   },
+   "hiringOrganization": {
+    "name": "Brookfield Asset Management LLC",
+    "url": ""
+   },
+   "similarJobs": [],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "brookfield",
+  "url": "https://brookfield.wd5.myworkdayjobs.com/wday/cxs/brookfield/brookfield/job/Toronto-Ontario/Analyst--HR-Operations_R2052891",
+  "body": {
+   "jobPostingInfo": {
+    "id": "0060cca5f48210016c53ca3c6aff0000",
+    "title": "Analyst, HR Operations",
+    "jobDescription": "<p><b>Location</b></p><p></p>Brookfield Place - 181 Bay Street<p></p><p><span><span><span><b><span>Brookfield Culture</span></b></span></span></span></p><p></p><p><span><span><span><span>Brookfield has a unique and dynamic culture.  We seek team members who have a long-term focus and whose values align with our Attributes of a Brookfield Leader:  Entrepreneurial, Collaborative and Disciplined.  Brookfield is committed to the development of our people through challenging work assignments and exposure to diverse businesses.</span></span></span></span></p><p><br /><b>Job Description</b></p><p></p><p><span>Human Resources Services (HRS) is an internal function providing global operations and business support across Brookfield’s lines of business.</span></p><p></p><p>As a member of the HR Service Desk (HRSD), the <b>Analyst, HR Operations</b> is responsible for delivering high-quality HR support to employees, managers, and the broader global HR team. The role serves as a key point of contact for HR-related questions, employee assistance, and the execution of day-to-day HR transactions across the employee lifecycle.</p><p>The Analyst will respond to employee and manager inquiries, provide guidance on HR programs, policies, processes, and systems, and complete a broad range of transactions within Workday and other HR platforms. This includes supporting activities such as hires, job changes, organizational changes, leaves, employee data updates, and terminations.</p><p>The role requires a strong customer-service mindset, attention to detail, sound judgment, and the ability to independently manage and resolve employee requests in a high-volume, global shared services environment. This position supports Brookfield Asset Management and affiliate organizations globally.</p><p></p><p><b>Responsibilities</b></p><ul><li><p><b>Employee &amp; Manager Support:</b> Serve as a primary point of contact for employees and managers, responding to HR-related questions and providing clear, timely, and professional assistance.</p></li><li><p><b>HR Case Management:</b> Manage employee and manager requests from intake through resolution, ensuring questions and issues are appropriately researched, documented, resolved, or escalated when required.</p></li><li><p><b>HR Transactions:</b> Process a broad range of employee lifecycle transactions accurately and efficiently within Workday, including hires, job changes, transfers, promotions, organizational changes, employee data updates, leaves, and terminations.</p></li><li><p><b>Employee Data Administration:</b> Maintain accurate employee information within HR systems and complete required data reviews and validation to support data integrity.</p></li><li><p><b>Employee Guidance:</b> Assist employees and managers in navigating HR processes, policies, systems, self-service tools, and available HR resources.</p></li><li><p><b>Onboarding &amp; Offboarding Support:</b> Support employee onboarding and offboarding activities, ensuring required HR transactions, documentation, and employee communications are completed accurately and on time.</p></li><li><p><b>HR Documentation:</b> Prepare, review, and maintain employee-related documentation and correspondence associated with HR transactions and processes.</p></li><li><p><b>Issue Resolution:</b> Investigate transactional or system-related issues, identify appropriate solutions, and partner with HR colleagues or other teams where additional expertise or escalation is required.</p></li><li><p><b>Process &amp; Knowledge Support:</b> Follow established HR procedures and knowledge articles while identifying opportunities to improve processes, employee experience, and service delivery.</p></li><li><p><b>Service Delivery:</b> Execute HR requests and transactions in accordance with established service level agreements (SLAs), quality standards, controls, and compliance requirements.</p></li><li><p><b>Confidentiality &amp; Compliance:</b> Handle sensitive employee information with discretion and ensure HR transactions are completed in accordance with company policies, procedures, and applicable requirements.</p></li><li><p>Perform other HR Service Desk transactional, administrative, and employee support activities as assigned.</p></li></ul><p></p><p><b>Qualifications &amp; Requirements</b></p><ul><li><p>Strong customer service orientation with a demonstrated ability to support employees and managers in a professional and responsive manner.</p></li><li><p>Bachelor&#39;s degree in Human Resources, Business Administration, or a related discipline.</p></li><li><p>Minimum 3 years of HR administrative, HR operations, employee services, or shared services experience, preferably within a professional services environment.</p></li><li><p>Experience processing HR transactions across the employee lifecycle.</p></li><li><p>Experience working with an HRIS; <b>Workday experience is considered an asset</b>.</p></li><li><p>Experience working in a high-volume HR shared services, service desk, or case management environment is preferred.</p></li><li><p>Ability to interpret HR processes and policies and provide clear guidance to employees and managers.</p></li><li><p>Ability to independently investigate and resolve employee requests, including more complex or non-standard situations, using sound judgment and appropriate escalation.</p></li><li><p>Strong analytical and problem-solving skills.</p></li><li><p>Excellent written and verbal communication skills.</p></li><li><p>Strong attention to detail with a commitment to accuracy and data integrity.</p></li><li><p>Highly organized with the ability to manage a high volume of requests and competing priorities.</p></li><li><p>Self-motivated with the ability to take ownership of employee requests and manage them through to resolution.</p></li><li><p>Ability to handle confidential and sensitive employee information appropriately.</p></li><li><p>Strong computer skills, including Microsoft Office applications such as Word, Excel, PowerPoint, and Outlook.</p></li><li><p>Experience using Excel to review, reconcile, and audit data using formulas, lookups, and pivot tables is an asset.</p></li></ul><p></p><p>#LI-CL2</p><p></p><p>Salary Range: C$65,000 - $80,000</p><p></p><p><b>Position Opening Reason:</b></p><p></p>Backfill<br /><p>Brookfield is committed to maintaining a Positive Work Environment that is safe, respectful; our shared success depends on it. We do not tolerate workplace discrimination, violence or harassment. We are proud to be an Equal Opportunity Employer and make employment decisions based on qualifications, merit, and business needs, without regard to any characteristic protected by applicable law. Applicant information is collected and handled in accordance with our Applicant Privacy Notice. As part of this commitment, we provide barrier-free and accessible employment practices in accordance with the Accessibility for Ontarians with Disabilities Act (AODA) and applicable human rights legislation. If you require a Human Rights Code-protected accommodation at any stage of the recruitment process, please let us know when contacted, and we will work with you to meet your needs.</p>",
+    "location": "Toronto, Ontario",
+    "postedOn": "Posted 26 Days Ago",
+    "startDate": "2026-09-16",
+    "timeType": "Full time",
+    "jobReqId": "R2052891",
+    "jobPostingId": "Analyst--HR-Operations_R2052891",
+    "jobPostingSiteId": "brookfield",
+    "country": {
+     "descriptor": "Canada",
+     "id": "a30a87ed25634629aa6c3958aa2b91ea"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "Brookfield Place",
+     "country": {
+      "descriptor": "Canada",
+      "id": "a30a87ed25634629aa6c3958aa2b91ea",
+      "alpha2Code": "CA"
+     }
+    },
+    "externalUrl": "https://brookfield.wd5.myworkdayjobs.com/brookfield/job/Toronto-Ontario/Analyst--HR-Operations_R2052891",
+    "questionnaireId": "8882330a130b010103a58e0756440000",
+    "secondaryQuestionnaireId": "8882330a130b010103a581f7f4590000"
+   },
+   "hiringOrganization": {
+    "name": "Brookfield HRS TS LP",
+    "url": ""
+   },
+   "similarJobs": [],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "workday",
+  "url": "https://workday.wd5.myworkdayjobs.com/wday/cxs/workday/Workday/job/USA-CA-Pleasanton/Principal-Partner-Enterprise-Architect_JR-0108006",
+  "body": {
+   "jobPostingInfo": {
+    "id": "44b08689481110010a59c5f5b78d0000",
+    "title": "Principal Partner AI Architect",
+    "jobDescription": "<p><b>Your work days are brighter here.</b></p><p></p><p>We’re obsessed with making hard work pay off, for our people, our customers, and the world around us. As a Fortune 500 company and a leading AI platform for managing people, money, and agents, we’re shaping the future of work so teams can reach their potential and focus on what matters most. The minute you join, you’ll feel it. Not just in the products we build, but in how we show up for each other. Our culture is rooted in integrity, empathy, and shared enthusiasm. We’re in this together, tackling big challenges with bold ideas and genuine care. We look for curious minds and courageous collaborators who bring sun-drenched optimism and drive. Whether you&#39;re building smarter solutions, supporting customers, or creating a space where everyone belongs, you’ll do meaningful work with Workmates who’ve got your back. In return, we’ll give you the trust to take risks, the tools to grow, the skills to develop and the support of a company invested in you for the long haul. So, if you want to inspire a brighter work day for everyone, including yourself, you’ve found a match in Workday, and we hope to be a match for you too.</p><p></p><p></p><p></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>About the Team</b></p>The Partner AI Experience team is Workday’s dedicated investment in accelerating our most strategic GSI and Ecosystem partnerships. Working alongside the Global Partner Organization (GPO), this team serves as the technical, functional, and quantitative experts, providing the enablement infrastructure, product intelligence, and go-to-market support that allows our partners to build and sell Workday AI with confidence and speed.<br><br>Each pod is aligned to a single strategic GSI or Ecosystem Motion and staffed with specialists across the oCIO, oCHRO, and oCFO domains, along with a dedicated Business Value Architect. The pod works across the partner’s solution consulting teams, architects, offering leaders, and value desks to ensure the partner’s Workday practice is equipped, differentiated, and positioned to grow.<p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>About the Role</b></p><p style=\"text-align:inherit\"></p><p><span>As a Partner AI Architect (oCIO) at the </span>Principal or Senior Partner Enterprise Architect<span> level, you are the technical authority within your pod for Workday’s AI platform, integration architecture, and agentic capabilities. Your focus is ensuring the partner’s most technical teams — architects, CTOs, and offering developers — have the depth of understanding they need to design, position, and build on Workday’s platform with confidence, well before their customers ask the questions.</span></p><p></p><p><span>Your work shapes how the partner’s technical practice thinks about and builds on Workday, so that when platform and agentic decisions are being made at clients, Workday is already the assumed foundation. You will translate complex Workday architecture into clear, credible narratives for CTO-level audiences, design reference architectures the partner can own, and ensure the partner’s demo environments reflect the full, integrated power of Workday’s platform. You will coordinate closely with the Forward Deployed Partner Architect aligned to your GSI, who engages directly on the partner’s largest Workday deals.</span></p><p></p><p><span>This role aligns to the </span>Principal <span>Enterprise Architect job skills and core skills, emphasizing enterprise architecture leadership, strategic influence, deep technical expertise, and cross-organizational collaboration.</span></p><p></p><p><b><b>Key Responsibilities</b></b></p><p></p><p><b><b>Technical Practice Readiness</b></b></p><ul><li><p><span>Serve as the primary technical authority for Workday’s AI platform, integration architecture (A2A, MCP), agentic capabilities, and Data Cloud within your pod.</span></p></li><li><p><span>Ensure the partner’s architects and technical teams have deep, current knowledge of Workday’s platform and roadmap well ahead of general availability, so they confidently lead platform conversations before Workday is in the room.</span></p></li><li><p><span>Design and deliver architect-tier sessions and technical deep-dives that build genuine fluency within the partner’s elite technical teams, not just surface-level awareness.</span></p></li><li><p><span>Maintain authoritative knowledge of Workday’s technical roadmap and translate upcoming releases into clear implications for the partner’s architecture patterns, delivery standards, and solution portfolio.</span></p></li></ul><p></p><p><b><b>Architecture &amp; Platform Strategy</b></b></p><ul><li><p><span>Architect reference solutions that articulate how Workday’s unified platform — spanning HCM, Finance, and agentic AI — fits into a client’s broader technology and AI strategy, giving the partner a credible, repeatable story for how Workday anchors the enterprise ecosystem.</span></p></li><li><p><span>Define agent orchestration and governance patterns that leverage Workday’s security framework, data model, and agent system of record to deliver enterprise-grade AI, enabling partners to speak confidently to governance, compliance, and risk.</span></p></li><li><p><span>Design cross-platform agent integration patterns that show how Workday agents connect and collaborate within a client’s broader AI ecosystem, including integration best practices across MCP and A2A that position Workday as the trusted data foundation.</span></p></li><li><p><span>Help the partner identify architectural patterns that create durable, partner-owned IP — ensuring offerings are designed to scale and be reused, rather than remain one-off implementations.</span></p></li></ul><p></p><p><b><b>Competitive &amp; Platform Positioning</b></b></p><ul><li><p><span>Equip the partner’s technical teams with sharp, current competitive positioning, clearly articulating how Workday’s native architecture and connected data model compares to competitors and generic AI builds stitched together via APIs.</span></p></li><li><p><span>Translate Workday’s technical differentiation into language that resonates with CTOs, chief architects, and senior technology leaders — focusing on architectural implications, risk posture, and long-term platform consequences rather than features alone.</span></p></li><li><p><span>Bring partner-developed architectural patterns and technical innovations back to Workday’s Forward Deployed and field teams, ensuring those insights strengthen Workday’s broader technical positioning and sales motions.</span></p></li><li><p><span>Serve as a first line of defense for the partner’s technical teams — fielding architectural objections, platform questions, and complex technical issues encountered with clients, and ensuring the partner has the depth and positioning to move forward with confidence.</span></p></li><li><p><span>Represent Workday alongside the partner at joint industry events, technical forums, and architecture conferences — co-presenting on platform strategy and agentic AI to strengthen the partner’s technical credibility and Workday’s presence in key conversations.</span></p></li></ul><p></p><p><b><b>Demo &amp; Technical Readiness</b></b></p><ul><li><p><span>Partner with the Solution Architecture team to shape demo environment data, functional flows, and provisioning, ensuring the partner’s demo experience reflects the full integration of Workday-delivered product with GSI-delivered solutions, credibly end-to-end.</span></p></li><li><p><span>Bring partner-built solutions and architectural assets back to the Solution Architecture team so Workday’s field teams can demo partner-delivered solutions seamlessly — closing the loop between what the partner builds and what Workday can show.</span></p></li><li><p><span>Build and maintain code accelerators, integration playbooks, and technical reference materials the partner’s teams can deploy at scale across their global practice.</span></p></li><li><p><span>Coordinate with the Forward Deployed Partner Architect on the partner’s largest deals, ensuring architectural standards and patterns defined at the practice level translate directly into deal-level technical confidence.</span></p></li></ul><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>About You</b></p><p style=\"text-align:inherit\"></p><p><b><b>Basic Qualifications</b></b></p><p></p><p><b><b>Principal Partner Enterprise Architect</b></b></p><ul><li><p><span>7&#43; years of enterprise software solution consulting, architecture, or hands-on experience supporting enterprise software applications at Workday or a comparable enterprise software company.</span></p></li><li><p><span>5&#43; years of applied knowledge of cloud architecture, security, reporting, and integration standards, including API-based and native integration patterns.</span></p></li><li><p>5&#43; years of Workday experience</p></li><li><p><span>Experience working with or within Global System Integrators, large SIs, or strategic technology partners — either from the vendor side or from within a GSI or consulting practice.</span></p></li><li><p><span>Demonstrated domain expertise in oCIO-relevant capabilities such as platform architecture, AI/ML integration, agentic frameworks, or enterprise technology strategy.</span></p></li></ul><p></p><p><b>Senior Partner Enterprise Architect</b></p><ul><li><p><span>5&#43; years of enterprise software solution consulting, architecture, or hands-on experience supporting enterprise software applications at Workday or a comparable enterprise software company.</span></p></li><li><p><span>3&#43; years of applied knowledge of cloud architecture, security, reporting, and integration standards, including API-based and native integration patterns.</span></p></li><li><p>3&#43; years of Workday experience</p></li><li><p><span>Experience working with or within Global System Integrators, large SIs, or strategic technology partners — either from the vendor side or from within a GSI or consulting practice.</span></p></li><li><p><span>Demonstrated domain expertise in oCIO-relevant capabilities such as platform architecture, AI/ML integration, agentic frameworks, or enterprise technology strategy.</span></p></li></ul><p></p><p><b><b>Other Qualifications</b></b></p><ul><li><p><span>Proven ability to engage credibly with GSI CTOs, chief architects, and offering development leads as a technical peer and trusted advisor, grounded in deep platform knowledge and/or prior consulting or implementation experience.</span></p></li><li><p><span>Strong command of Workday’s technical architecture and AI platform — including Sana, Data Cloud, and integration frameworks — or equivalent experience with a clear track record of ramping quickly on new platforms; deep Workday knowledge is highly valued.</span></p></li><li><p><span>Experience designing and delivering reference architectures, technical playbooks, or integration standards that are adopted at scale within a partner or enterprise organization.</span></p></li><li><p><span>Ability to translate complex technical concepts into clear, outcome-oriented narratives for both technical and executive audiences, with strong written and verbal communication skills.</span></p></li><li><p><span>AI evangelist mindset: a visceral curiosity for agents, LLMs, RAG, and MCP, with a practical understanding of how to architect and operationalize agentic AI in the enterprise.</span></p></li><li><p><span>Natural feedback loop orientation — you proactively surface what you are seeing in partner practices (architectural challenges, emerging patterns, competitive signals) back to Workday’s Product &amp; Technology teams so the platform continues to reflect real partner and customer needs.</span></p></li><li><p><span>Highly collaborative working style with demonstrated ability to coordinate across GPO, Product &amp; Technology, Forward Deployed, Solution Consulting, and other cross-functional teams.</span></p></li><li><p><span>Energized by a fast-moving, investment-stage environment, comfortable operating where standards are being written, not just followed, with a strong bias toward learning, iteration, and continuous improvement.</span></p></li></ul><p><br /><b>Workday Pay Transparency Statement</b></p><p></p><p>The annualized base salary ranges for the primary location and any additional locations are listed below.  Workday pay ranges vary based on work location. As a part of the total compensation package, this role may be eligible for the Workday Bonus Plan or a role-specific commission/bonus, as well as annual refresh stock grants. Recruiters can share more detail during the hiring process. Each candidate’s compensation offer will be based on multiple factors including, but not limited to, geography, experience, skills, job duties, and business need, among other things. For more information regarding Workday’s comprehensive benefits, please <a target=\"_blank\" href=\"https://workdaybenefits.com/us/welcome-to-workday-benefits/prospective-workmates\"><span style=\"color:#0000ff\"><u>click here</u></span></a>.</p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Primary Location: USA.CA.Pleasanton<p style=\"text-align:inherit\"><br /> </p>Primary Location Base Pay Range:  $138,600 USD - $208,000 USD<p style=\"text-align:inherit\"><br /> </p>Additional US Location(s) Base Pay Range: $162,200 USD - $243,200 USD<p></p><p>Additional Considerations:  </p><p></p><p></p>If performed in Colorado, the pay range for this job is $162,200 USD - $243,200 USD based on min and max pay range for that role if performed in CO.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><div><div><div><div><div><div><div><p style=\"text-align:left\"><span>The application deadline for this role is the same as the posting end date stated as below:</span><br /> </p></div></div></div></div></div></div></div>10/26/2026<p><br /><br /><b>Our Approach to Flexible Work</b><br /> </p><p><span>With Flex Work, we’re combining the best of both worlds: in-person time and remote. Our approach enables our teams to deepen connections, maintain a strong community, and do their best work. We know that flexibility can take shape in many ways, so rather than a number of required days in-office each week, we simply </span><b>spend at least half (50%) of our time each quarter in the office or in the field</b><span> with our customers, prospects, and partners (depending on role). This means you&#39;ll have the freedom to create a flexible schedule that caters to your business, team, and personal needs, while being intentional to make the most of time spent together. Those in our remote &#34;home office&#34; roles also have the opportunity to come together in our offices for important moments that matter.</span></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><span>Pursuant to applicable Fair Chance law, Workday will consider for employment qualified applicants with arrest and conviction records.</span></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><span>Workday is an Equal Opportunity Employer including individuals with disabilities and protected veterans.</span></p><br /><p><span style=\"color:#292a2e\">Workday is committed to providing reasonable accommodations for qualified individuals during our application process, in order to perform one or more essential functions of their job, as well as regarding the use of AI tools for employment decision-making to any degree. Please see below for more details including how to request an accommodation as a qualified veteran, due to a disability or for religious reasons, or as otherwise provided under applicable law. </span></p><br /><p><span style=\"color:#292a2e\">Workday prohibits taking adverse action against any candidate or employee for reporting a possible violation of this policy, requesting one or more work accommodations, exercising a privacy right, or cooperating in an investigation in accordance with applicable law. Any employee who retaliates against a candidate or employee for doing so may be subject to disciplinary action, up to and including termination of employment, to the fullest extent allowable under applicable law. </span></p><br /><p><span style=\"color:#292a2e\">If you require a reasonable accommodation, you may email </span><a target=\"_blank\" href=\"mailto:accommodations&#64;workday.com\"><span style=\"color:#1868db\"><u>accommodations&#64;workday.com</u></span></a><span style=\"color:#292a2e\">, as far in advance as possible.</span></p><br /><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b><span>Are you being referred to one of our roles? If so, ask your connection at Workday about our Employee Referral process!</span></b></p><p>At Workday, we value our candidates’ privacy and data security.  Workday will never ask candidates to apply to jobs through websites that are not Workday Careers. </p><p>  </p><p>Please be aware of sites that may ask for you to input your data in connection with a job posting that appears to be from Workday but is not.</p><p>  </p><p>In addition, Workday will never ask candidates to pay a recruiting fee, or pay for consulting or coaching services, in order to apply for a job at Workday.</p>",
+    "location": "USA, CA, Pleasanton",
+    "additionalLocations": [
+     "Workday USA Offices",
+     "USA Remote"
+    ],
+    "postedOn": "Posted 12 Days Ago",
+    "startDate": "2026-09-30",
+    "timeType": "Full Time",
+    "jobReqId": "JR-0108006",
+    "jobPostingId": "Principal-Partner-Enterprise-Architect_JR-0108006",
+    "jobPostingSiteId": "Workday",
+    "country": {
+     "descriptor": "United States of America",
+     "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "USA, CA, Pleasanton",
+     "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09",
+      "alpha2Code": "US"
+     }
+    },
+    "remoteType": "Remote",
+    "externalUrl": "https://workday.wd5.myworkdayjobs.com/Workday/job/USA-CA-Pleasanton/Principal-Partner-Enterprise-Architect_JR-0108006",
+    "questionnaireId": "ec1d4a8375ea10003bbcdcbfb5da0000",
+    "secondaryQuestionnaireId": "0de44b7f52b0102375b02d4b22600000",
+    "timeLeftToApply": "13 days left to apply",
+    "endDate": "2026-10-26",
+    "jobPostingEndDateAsText": "End Date: October 26, 2026"
+   },
+   "hiringOrganization": {
+    "name": "Workday, Inc.",
+    "url": ""
+   },
+   "similarJobs": [
+    {
+     "title": "Principal API Architect, Product Engineering – Agent‑Ready APIs & Data",
+     "externalPath": "/job/USA-CA-Pleasanton/Principal-API-Architect--Product-Engineering---Agent-Ready-APIs---Data_JR-0108218",
+     "timeType": "Full Time",
+     "locationsText": "2 Locations",
+     "postedOn": "Posted Today",
+     "startDate": "2026-10-12",
+     "remoteType": "Flex",
+     "timeLeftToApply": "2 days left to apply",
+     "jobPostingEndDateAsText": "End Date: October 15, 2026"
+    },
+    {
+     "title": "Sr. Principal Architect - Observability",
+     "externalPath": "/job/USA-CA-Pleasanton/Sr-Principal-Architect---Observability_JR-0110234",
+     "timeType": "Full Time",
+     "locationsText": "USA, CA, Pleasanton",
+     "postedOn": "Posted 18 Days Ago",
+     "startDate": "2026-09-24",
+     "remoteType": "Flex"
+    },
+    {
+     "title": "Presales-  Enterprise Architect",
+     "externalPath": "/job/USANYHome-Office-NY-Metro-Tri-State/Presales---Enterprise-Architect_JR-0109846",
+     "timeType": "Full Time",
+     "locationsText": "2 Locations",
+     "postedOn": "Posted 30+ Days Ago",
+     "startDate": "2026-09-10",
+     "remoteType": "Remote",
+     "timeLeftToApply": "17 days left to apply",
+     "jobPostingEndDateAsText": "End Date: October 31, 2026"
+    },
+    {
+     "title": "Sr. Solution Architect, Enterprise Applications",
+     "externalPath": "/job/USA-CA-Pleasanton/Sr-Solution-Architect--Enterprise-Applications_JR-IC-000076-1",
+     "timeType": "Full Time",
+     "locationsText": "USA, CA, Pleasanton",
+     "postedOn": "Posted 10 Days Ago",
+     "startDate": "2026-10-02",
+     "remoteType": "Flex"
+    },
+    {
+     "title": "Principal, Workday Finance Technical Architect",
+     "externalPath": "/job/USA-CA-Pleasanton/Principal--Workday-Finance-Technical-Architect_JR-0110105-1",
+     "timeType": "Full Time",
+     "locationsText": "2 Locations",
+     "postedOn": "Posted 7 Days Ago",
+     "startDate": "2026-10-05",
+     "remoteType": "Flex"
+    }
+   ],
+   "userAuthenticated": false
+  }
+ },
+ {
+  "tenant": "workday",
+  "url": "https://workday.wd5.myworkdayjobs.com/wday/cxs/workday/Workday/job/USA-CA-Pleasanton/Partner-Solution-Consultant-Advisor---oCFO_JR-0108016",
+  "body": {
+   "jobPostingInfo": {
+    "id": "a7a705f7f21b10004fbd295fd6720000",
+    "title": "Partner AI Solution Consultant Advisor - oCFO",
+    "jobDescription": "<p><b>Your work days are brighter here.</b></p><p></p><p>We’re obsessed with making hard work pay off, for our people, our customers, and the world around us. As a Fortune 500 company and a leading AI platform for managing people, money, and agents, we’re shaping the future of work so teams can reach their potential and focus on what matters most. The minute you join, you’ll feel it. Not just in the products we build, but in how we show up for each other. Our culture is rooted in integrity, empathy, and shared enthusiasm. We’re in this together, tackling big challenges with bold ideas and genuine care. We look for curious minds and courageous collaborators who bring sun-drenched optimism and drive. Whether you&#39;re building smarter solutions, supporting customers, or creating a space where everyone belongs, you’ll do meaningful work with Workmates who’ve got your back. In return, we’ll give you the trust to take risks, the tools to grow, the skills to develop and the support of a company invested in you for the long haul. So, if you want to inspire a brighter work day for everyone, including yourself, you’ve found a match in Workday, and we hope to be a match for you too.</p><p></p><p></p><p></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>About the Team</b></p>The Partner AI Experience team is Workday’s dedicated investment in accelerating our most strategic GSI and Ecosystem partnerships. Working alongside the Global Partner Organization (GPO), this team serves as the technical, functional, and quantitative experts, providing the enablement infrastructure, product intelligence, and go-to-market support that allows our partners to build and sell Workday AI with confidence and speed.<br><br>Each pod is aligned to a single strategic GSI or Ecosystem Motion and staffed with specialists across the oCIO, oCHRO, and oCFO domains, along with a dedicated Business Value Architect. The pod works across the partner’s solution consulting teams, architects, offering leaders, and value desks to ensure the partner’s Workday practice is equipped, differentiated, and positioned to grow.<p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>About the Role</b></p><p style=\"text-align:inherit\"></p><p><span>As a Senior or Principal Partner AI Advisor (oCFO) in the Partner AI Experience team, you are the Finance-focused functional expert within your pod for Workday’s Financial Management suite and its agentic AI capabilities. You help ensure the partner’s Finance-aligned teams — solution consultants, offering developers, and practice leads — have the depth of knowledge they need to position, demo, and build Workday-led Finance and accounting AI solutions with confidence.</span></p><p><span>You will build your expertise in Workday Financials and agentic AI, translate the roadmap into outcome-focused narratives, and support partners as they position Workday in Finance transformation, planning, and AI decisions. You will collaborate closely with your pod, Solution Architecture, and Solution Consulting to keep partner teams current on Workday capabilities and confident in differentiating Workday when customers are evaluating platforms.</span></p><p></p><p><b><b>Key Responsibilities:</b></b></p><p></p><p><b><span>Functional Practice Readiness</span></b></p><ul><li><p><span>Develop strong expertise in Workday Financials and agentic Finance capabilities and use it to enable partner Finance solution consultants and offering teams.</span></p></li><li><p><span>Support delivery of enablement that helps partners gain early visibility into Workday’s Financials roadmap and AI capabilities — including Core Financials, Accounting, Financial Planning, Procurement, and agentic Finance solutions.</span></p></li><li><p><span>Contribute to persona-based functional playbooks (CFO, Controller, Head of FP&amp;A) that translate Workday’s capabilities into outcome-driven narratives the partner’s teams can take into conversations.</span></p></li><li><p><span>Help interpret upcoming Financials releases for partner offerings, go-to-market positioning, and client conversations.</span></p></li></ul><p></p><p><b><span>Agentic Finance &amp; Accounting AI</span></b></p><ul><li><p><span>Help partners understand the agentic AI opportunity within Finance — where intelligent automation, AI-driven financial insights, and accounting agents create value for their clients.</span></p></li><li><p><span>Support the pod in articulating how agentic AI transforms Finance operations, including use cases such as close automation, anomaly detection, real-time forecasting, and intelligent procurement workflows.</span></p></li><li><p><span>Contribute to discussions on the regulatory and risk landscape around Finance agentic AI — including audit trails, financial controls, data integrity, and compliance considerations.</span></p></li><li><p><span>Assist in identifying industry-specific agent libraries and high-return use cases where partners can build differentiated, partner-owned Finance solutions on Workday’s agentic platform.</span></p></li></ul><p></p><p><b><span>Competitive &amp; Functional Positioning</span></b></p><ul><li><p><span>Help equip partner Finance teams with current competitive positioning — how Workday differentiates across the Finance landscape versus legacy platforms, point solutions, and AI-native players.</span></p></li><li><p><span>Translate Workday’s functional differentiation into clear, outcome-focused language that resonates with Finance stakeholders.</span></p></li><li><p><span>Share partner-developed Finance solutions and innovations back with Workday’s field and solution consulting teams so joint customers benefit from the partner’s IP.</span></p></li><li><p><span>Support joint industry events, Finance forums, and practice conferences with partners, contributing to presentations on Finance transformation and agentic AI.</span></p></li><li><p><span>Act as a first line of support for partner Finance teams on functional questions and common competitive objections, escalating or partnering with senior team members as needed.</span></p></li></ul><p></p><p><b><span>Demo &amp; Functional Readiness</span></b></p><ul><li><p><span>Collaborate with Solution Architecture and Solution Consulting to help ensure partner demo environments reflect current Workday functionality and product depth.</span></p></li><li><p><span>Help bring partner-built Finance solutions back to the Solution Architecture and Solution Consulting teams so Workday’s field can demo partner-delivered Finance solutions seamlessly.</span></p></li></ul><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b>About You</b></p><p style=\"text-align:inherit\"></p><p><b><b>Basic Qualifications</b></b></p><p></p><p><u><b><b>Senior Partner Solution Consultant (P4)</b></b></u></p><ul><li><p><span>5&#43; years of Finance domain expertise spanning Core Financials, Accounting, FP&amp;A, Procurement, or financial reporting at Workday or a comparable enterprise Finance software or consulting organization.</span></p></li></ul><ul><li><p><span>3&#43; years in a presales, solution consulting, advisory or implementation role for enterprise Finance or ERP software, with demonstrated impact in complex or strategic opportunities.</span></p></li></ul><p></p><p><u><b><b>Principal Partner Solution Consultant (P5)</b></b></u></p><ul><li><p><span>7&#43; years of Finance domain expertise spanning Core Financials, Accounting, FP&amp;A, Procurement, or financial reporting at Workday or a comparable enterprise Finance software or consulting organization.</span></p></li></ul><ul><li><p><span>5&#43; years in a presales, solution consulting, advisory or implementation role for enterprise Finance or ERP software, with demonstrated impact in complex or strategic opportunities.</span></p></li></ul><p></p><p></p><p><b><b>Other Qualifications</b></b></p><ul><li><p><span>Experience working with or within Global System Integrators, large SIs, or strategic technology partners, either from the vendor side or from within a GSI or consulting practice.</span></p></li><li><p><span>Proven ability to engage credibly with GSI Finance practice leads, CFO-level audiences, and Finance offering development teams as a functional peer and trusted advisor.</span></p></li><li><p><span>Deep knowledge of Workday’s Financials suite and AI/agentic capabilities, or strong equivalent experience with a clear track record of ramping quickly on new products and capabilities.</span></p></li><li><p><span>Strong command of the Finance and ERP competitive landscape, with the ability to translate that knowledge into actionable competitive positioning for partners.</span></p></li><li><p><span>Demonstrated experience designing and delivering functional playbooks, persona-based narratives, or solution positioning that builds durable capability within partner or customer organizations.</span></p></li><li><p><span>Exceptional communication and storytelling skills, with the ability to lead strategic conversations and influence senior stakeholders across both partner and Workday organizations.</span></p></li><li><p><span>Highly collaborative working style with experience orchestrating across GPO, Product &amp; Technology, Forward Deployed, Solution Architecture, and Solution Consulting teams.</span></p></li><li><p><span>Comfortable operating in a fast-moving, investment-stage environment, with a track record of creating structure, iterating quickly, and mentoring others.</span></p></li></ul><p></p><p><br /><b>Workday Pay Transparency Statement</b></p><p></p><p>The annualized base salary ranges for the primary location and any additional locations are listed below.  Workday pay ranges vary based on work location. As a part of the total compensation package, this role may be eligible for the Workday Bonus Plan or a role-specific commission/bonus, as well as annual refresh stock grants. Recruiters can share more detail during the hiring process. Each candidate’s compensation offer will be based on multiple factors including, but not limited to, geography, experience, skills, job duties, and business need, among other things. For more information regarding Workday’s comprehensive benefits, please <a target=\"_blank\" href=\"https://workdaybenefits.com/us/welcome-to-workday-benefits/prospective-workmates\"><span style=\"color:#0000ff\"><u>click here</u></span></a>.</p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p>Primary Location: USA.CA.Pleasanton<p style=\"text-align:inherit\"><br /> </p>Primary Location Base Pay Range:  $147,400 USD - $221,200 USD<p style=\"text-align:inherit\"><br /> </p>Additional US Location(s) Base Pay Range: $126,000 USD - $189,000 USD<p></p><p>Additional Considerations:  </p><p></p><p></p>If performed in Colorado, the pay range for this job is $126,000 USD - $189,000 USD based on min and max pay range for that role if performed in CO.<p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><div><div><div><div><div><div><div><p style=\"text-align:left\"><span>The application deadline for this role is the same as the posting end date stated as below:</span><br /> </p></div></div></div></div></div></div></div>10/13/2026<p><br /><br /><b>Our Approach to Flexible Work</b><br /> </p><p><span>With Flex Work, we’re combining the best of both worlds: in-person time and remote. Our approach enables our teams to deepen connections, maintain a strong community, and do their best work. We know that flexibility can take shape in many ways, so rather than a number of required days in-office each week, we simply </span><b>spend at least half (50%) of our time each quarter in the office or in the field</b><span> with our customers, prospects, and partners (depending on role). This means you&#39;ll have the freedom to create a flexible schedule that caters to your business, team, and personal needs, while being intentional to make the most of time spent together. Those in our remote &#34;home office&#34; roles also have the opportunity to come together in our offices for important moments that matter.</span></p><p style=\"text-align:inherit\"></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><span>Pursuant to applicable Fair Chance law, Workday will consider for employment qualified applicants with arrest and conviction records.</span></p><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><span>Workday is an Equal Opportunity Employer including individuals with disabilities and protected veterans.</span></p><br /><p><span style=\"color:#292a2e\">Workday is committed to providing reasonable accommodations for qualified individuals during our application process, in order to perform one or more essential functions of their job, as well as regarding the use of AI tools for employment decision-making to any degree. Please see below for more details including how to request an accommodation as a qualified veteran, due to a disability or for religious reasons, or as otherwise provided under applicable law. </span></p><br /><p><span style=\"color:#292a2e\">Workday prohibits taking adverse action against any candidate or employee for reporting a possible violation of this policy, requesting one or more work accommodations, exercising a privacy right, or cooperating in an investigation in accordance with applicable law. Any employee who retaliates against a candidate or employee for doing so may be subject to disciplinary action, up to and including termination of employment, to the fullest extent allowable under applicable law. </span></p><br /><p><span style=\"color:#292a2e\">If you require a reasonable accommodation, you may email </span><a target=\"_blank\" href=\"mailto:accommodations&#64;workday.com\"><span style=\"color:#1868db\"><u>accommodations&#64;workday.com</u></span></a><span style=\"color:#292a2e\">, as far in advance as possible.</span></p><br /><p style=\"text-align:inherit\"></p><p style=\"text-align:left\"><b><span>Are you being referred to one of our roles? If so, ask your connection at Workday about our Employee Referral process!</span></b></p><p>At Workday, we value our candidates’ privacy and data security.  Workday will never ask candidates to apply to jobs through websites that are not Workday Careers. </p><p>  </p><p>Please be aware of sites that may ask for you to input your data in connection with a job posting that appears to be from Workday but is not.</p><p>  </p><p>In addition, Workday will never ask candidates to pay a recruiting fee, or pay for consulting or coaching services, in order to apply for a job at Workday.</p>",
+    "location": "USA, CA, Pleasanton",
+    "additionalLocations": [
+     "USA Remote",
+     "Canada, ON, Toronto",
+     "Canada, BC, Vancouver",
+     "Workday USA Offices"
+    ],
+    "postedOn": "Posted 11 Days Ago",
+    "startDate": "2026-10-01",
+    "timeType": "Full Time",
+    "jobReqId": "JR-0108016",
+    "jobPostingId": "Partner-Solution-Consultant-Advisor---oCFO_JR-0108016",
+    "jobPostingSiteId": "Workday",
+    "country": {
+     "descriptor": "United States of America",
+     "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
+    "canApply": true,
+    "posted": true,
+    "includeResumeParsing": true,
+    "jobRequisitionLocation": {
+     "descriptor": "USA, CA, Pleasanton",
+     "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09",
+      "alpha2Code": "US"
+     }
+    },
+    "remoteType": "Remote",
+    "externalUrl": "https://workday.wd5.myworkdayjobs.com/Workday/job/USA-CA-Pleasanton/Partner-Solution-Consultant-Advisor---oCFO_JR-0108016",
+    "questionnaireId": "ec1d4a8375ea10003bbcdcbfb5da0000",
+    "secondaryQuestionnaireId": "0de44b7f52b0102375b02d4b22600000",
+    "timeLeftToApply": "1 hour left to apply",
+    "endDate": "2026-10-13",
+    "jobPostingEndDateAsText": "End Date: October 13, 2026"
+   },
+   "hiringOrganization": {
+    "name": "Workday, Inc.",
+    "url": ""
+   },
+   "similarJobs": [
+    {
+     "title": "Solution Consultant - FIN- Tech & Media",
+     "externalPath": "/job/USA-CA-Remote/Solution-Consultant---FIN--Tech---Media_JR-0110036",
+     "timeType": "Full Time",
+     "locationsText": "14 Locations",
+     "postedOn": "Posted 12 Days Ago",
+     "startDate": "2026-09-30",
+     "remoteType": "Remote",
+     "timeLeftToApply": "1 day left to apply",
+     "jobPostingEndDateAsText": "End Date: October 14, 2026"
+    },
+    {
+     "title": "Sr Solution Architect, Workday Financials",
+     "externalPath": "/job/USA-CA-Pleasanton/Sr-Solution-Architect_JR-0110133",
+     "timeType": "Full Time",
+     "locationsText": "4 Locations",
+     "postedOn": "Posted 11 Days Ago",
+     "startDate": "2026-10-01",
+     "remoteType": "Flex"
+    },
+    {
+     "title": "Senior Financials Solutions Consultant - Professional Services",
+     "externalPath": "/job/USA-Remote/Senior-Financials-Solutions-Consultant---Professional-Services_JR-0109875",
+     "timeType": "Full Time",
+     "locationsText": "53 Locations",
+     "postedOn": "Posted 12 Days Ago",
+     "startDate": "2026-09-30",
+     "remoteType": "Remote",
+     "timeLeftToApply": "2 days left to apply",
+     "jobPostingEndDateAsText": "End Date: October 16, 2026"
+    },
+    {
+     "title": "Sr Product Manager - Evisort AI",
+     "externalPath": "/job/Canada-BC-Vancouver/Sr-Product-Manager---Evisort-AI_JR-0110283",
+     "timeType": "Full Time",
+     "locationsText": "Canada, BC, Vancouver",
+     "postedOn": "Posted 18 Days Ago",
+     "startDate": "2026-09-24",
+     "remoteType": "Flex"
+    },
+    {
+     "title": "Director, Product - State & Local Government",
+     "externalPath": "/job/USA-GA-Atlanta/Director--Product---State---Local-Government_JR-0110557",
+     "timeType": "Full Time",
+     "locationsText": "68 Locations",
+     "postedOn": "Posted 3 Days Ago",
+     "startDate": "2026-10-09",
+     "remoteType": "Remote",
+     "timeLeftToApply": "2 days left to apply",
+     "jobPostingEndDateAsText": "End Date: October 16, 2026"
+    }
+   ],
+   "userAuthenticated": false
+  }
+ }
+]

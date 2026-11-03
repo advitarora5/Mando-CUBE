@@ -33,11 +33,14 @@ test('ready for contacts at Budget + Release + Timing of 25 or more, adjustable'
  assert.equal(readyForContacts({ budget_score: 10, release_score: 9, timing_score: 5 }, parseSettings([{ key: 'ready_for_contacts_threshold', value: 24 }])), true);
 });
 
-test('hiring and release signals expire after 14 days unless seen again; go-live does not', () => {
+test('every signal type expires after 14 days unless seen again; go-live does not', () => {
  const settings = parseSettings([]);
  const now = new Date('2026-10-12T12:00:00Z');
  assert.equal(isSignalFresh({ type: 'hiring', last_seen_at: '2026-09-28T12:00:00Z' }, settings, now), true);
  assert.equal(isSignalFresh({ type: 'hiring', last_seen_at: '2026-09-28T11:59:00Z' }, settings, now), false);
  assert.equal(isSignalFresh({ type: 'release_planning', last_seen_at: '2026-09-01T00:00:00Z' }, settings, now), false);
+ for (const type of ['known_customer', 'budget_clue', 'event']) {
+  assert.equal(isSignalFresh({ type, last_seen_at: '2026-09-28T11:59:00Z' }, settings, now), false, type);
+ }
  assert.equal(isSignalFresh({ type: 'go_live', last_seen_at: '2025-01-01T00:00:00Z' }, settings, now), true);
 });

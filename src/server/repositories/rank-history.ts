@@ -11,13 +11,13 @@ export async function getSnapshots(companyId?: string): Promise<Snapshot[]> {
     const db = database();
     const rows: Snapshot[] = [];
     for (let from = 0; ; from += 1000) {
-      let query = db.from("weekly_snapshots").select("week_start, company_id, rank, scores(total)").order("week_start").order("rank").range(from, from + 999);
+      let query = db.from("weekly_snapshots").select("week_start, company_id, rank, score_id, scores(total)").order("week_start").order("rank").range(from, from + 999);
       if (companyId) query = query.eq("company_id", companyId);
       const { data, error } = await query;
       if (error) throw error;
       for (const row of data ?? []) {
         const score = Array.isArray(row.scores) ? row.scores[0] : row.scores;
-        rows.push({ week_start: row.week_start, company_id: row.company_id, rank: row.rank, total: score?.total ?? null });
+        rows.push({ week_start: row.week_start, company_id: row.company_id, rank: row.rank, score_id: row.score_id ?? null, total: score?.total ?? null });
       }
       if ((data?.length ?? 0) < 1000) return rows;
     }

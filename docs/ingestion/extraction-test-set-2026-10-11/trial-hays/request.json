@@ -1,0 +1,16 @@
+{
+  "model": "llama3.1:8b",
+  "stream": false,
+  "format": "json",
+  "options": {
+    "temperature": 0,
+    "num_ctx": 8192,
+    "num_predict": 2500
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Extract company research facts from the supplied source captures. Use only source text. Do not browse or guess missing information. Return JSON with companies (name, role, Workday products explicitly named), signals (description, status as described by source, whether current status is verified), publication_date, project_dates, employee_count, named_contacts, uncertainties, and evidence for each factual assertion (capture_ref, segment_id, exact short quote). Use null or empty lists for absent information. Preserve date precision. Distinguish products from business activities, source publication dates from project dates, and job responsibilities from purchase intent. Do not infer budget, buyer authority, licensed products, or exact event dates. The capture collection date establishes when it was collected, not when published. Output JSON only.\n\n{\"case_id\": \"case-02\", \"captures\": [{\"capture_ref\": \"job-boards-2026-10-10T05-16-21-164Z/capture-14\", \"source_id\": \"capture-14\", \"url\": \"https://hayselectricalservices.applytojob.com/apply/6GIK6md8nY/Workday-System-Analyst\", \"title\": \"Workday System Analyst - Hays Electrical Services\", \"source_type\": \"job_listing\", \"collected_at\": \"2026-10-10T05:23:08Z\", \"published_date\": null, \"content_scope\": \"selected_passages\", \"segments\": [{\"id\": \"capture-14-page\", \"parent_id\": null, \"kind\": \"page\", \"author\": null, \"url\": \"https://hayselectricalservices.applytojob.com/apply/6GIK6md8nY/Workday-System-Analyst\", \"published_date\": null, \"text\": \"Hays Electrical Services\\nWorkday System Analyst\\nHouston, TX\\nFull Time\\nExperienced\\nHays Electrical Services is seeking a Workday System Analyst to support both the implementation and ongoing optimization of our Workday HCM platform. Reporting to the Workday System Administrator, this role starts by supporting the active implementation — assisting with testing, data validation, documentation, and end-user readiness — and then transitions into the continuous improvement phase that follows go-live: identifying process gaps, resolving day-to-day system issues, building and refining reports, supporting release testing, and helping HR, Payroll, and business stakeholders get more value out of the system over time. This is a strong fit for someone who wants to build deep Workday functional expertise across a full system lifecycle, working closely with a senior administrator on a platform that will evolve well beyond its initial launch.\\nHelp prepare and validate parallel payroll and benefits testing materials\\nSupport cutover and go-live readiness activities, including checklist tracking and coordination\\nacross HR, Payroll, and IT\\nSupport semi-annual Workday release testing: review release notes for relevant changes, build\\ntest scripts, execute regression testing, and document results\"}], \"links_followed\": []}]}"
+    }
+  ]
+}

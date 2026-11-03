@@ -1,0 +1,36 @@
+name: Ingestion tests
+
+# Unit, collector-contract and pipeline tests, then integration on a throwaway local Supabase.
+# Offline: network, model and treg are faked with recorded fixtures. Spends nothing.
+on:
+  pull_request:
+  push:
+    branches: [main, advit-ingestion-pipeline]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Start local Supabase (throwaway)
+        run: npx supabase start -x studio,realtime,storage-api,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor
+      - name: Integration tests on the local database
+        env:
+          PIPELINE_SUPABASE_URL: http://127.0.0.1:54321
+        run: |
+          export PIPELINE_SUPABASE_KEY="$(npx supabase status -o env | grep '^SECRET_KEY=' | cut -d= -f2- | tr -d '"')"
+          node --test tests/integration/*.test.mjs

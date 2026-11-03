@@ -1,0 +1,510 @@
+{
+ "data": {
+  "subredditfeed": {
+   "subredditV3": {
+    "elements": {
+     "pageInfo": {
+      "endCursor": "dDNfMXg0ZnRmbg=="
+     },
+     "edges": [
+      {
+       "node": {
+        "id": "dDNfMXg0b2c2eg==",
+        "groupId": "t3_1x4og6z",
+        "cells": [
+         {
+          "id": "TWV0YWRhdGFDZWxsLXQzXzF4NG9nNno=",
+          "createdAt": "2026-10-13T05:34:55.687000+0000",
+          "authorName": "[redacted]",
+          "color": {
+           "rgbaColor": "#FC5B05FF"
+          },
+          "detailsString": "[redacted]",
+          "detailsLink": "[redacted]",
+          "iconPath": "[redacted]",
+          "iconShape": "ROUND",
+          "isJoinButtonShown": false,
+          "isOverflowButtonHidden": false,
+          "isRecommended": false,
+          "isBrandAffiliate": false
+         },
+         {
+          "id": "VGl0bGVDZWxsLXQzXzF4NG9nNno=",
+          "title": "Launch methodology",
+          "isVisited": false
+         },
+         {
+          "id": "RmxhaXJDZWxsLXQzXzF4NG9nNno=",
+          "flair": {
+           "type": "text",
+           "text": "Core HCM",
+           "textColor": "LIGHT",
+           "template": {
+            "id": "eabdac82-99a6-11eb-96ed-0eadbea9d071",
+            "isEditable": false,
+            "backgroundColor": "#0F2E66",
+            "textColor": "LIGHT",
+            "type": "text"
+           }
+          }
+         },
+         {
+          "id": "UHJldmlld1RleHRDZWxsLXQzXzF4NG9nNno=",
+          "text": "Can someone tell me whats the difference Launch Flex vs Now vs Express? All these word salad means nothing to me and Im confused which one I should choose when building a foundation tenant. And the SOW mentions nothing about these. Where the f is Your Way?",
+          "isRead": false
+         },
+         {
+          "id": "QWN0aW9uQ2VsbC10M18xeDRvZzZ6",
+          "isScoreHidden": false,
+          "isModeratable": false,
+          "commentCount": 0,
+          "score": 1,
+          "voteState": "NONE",
+          "shareCount": 0,
+          "isTranslatable": false,
+          "isTranslated": false,
+          "goldenUpvoteInfo": {
+           "countTotal": 0,
+           "countByCurrentUser": 0,
+           "isGildable": true
+          },
+          "isShareButtonHidden": false
+         }
+        ]
+       }
+      },
+      {
+       "node": {
+        "id": "dDNfMXg0bmF5aw==",
+        "groupId": "t3_1x4nayk",
+        "cells": [
+         {
+          "id": "TWV0YWRhdGFDZWxsLXQzXzF4NG5heWs=",
+          "createdAt": "2026-10-13T04:29:54.965000+0000",
+          "authorName": "[redacted]",
+          "color": {
+           "rgbaColor": "#FC5B05FF"
+          },
+          "detailsString": "[redacted]",
+          "detailsLink": "[redacted]",
+          "iconPath": "[redacted]",
+          "iconShape": "ROUND",
+          "isJoinButtonShown": false,
+          "isOverflowButtonHidden": false,
+          "isRecommended": false,
+          "isBrandAffiliate": false
+         },
+         {
+          "id": "VGl0bGVDZWxsLXQzXzF4NG5heWs=",
+          "title": "Comp in Deloitte USI",
+          "isVisited": false
+         },
+         {
+          "id": "RmxhaXJDZWxsLXQzXzF4NG5heWs=",
+          "flair": {
+           "type": "text",
+           "text": "General Discussion",
+           "textColor": "LIGHT",
+           "template": {
+            "id": "4c9f2f20-f6b6-11ed-8719-b62633097830",
+            "isEditable": false,
+            "backgroundColor": "#0F2E66",
+            "textColor": "LIGHT",
+            "type": "text"
+           }
+          }
+         },
+         {
+          "id": "UHJldmlld1RleHRDZWxsLXQzXzF4NG5heWs=",
+          "text": "Can someone please guide me with the comp range for manager role in Deloitte USI. I have total 11 years of experience with 5 into Workday functional side. Thanks in advance",
+          "isRead": false
+         },
+         {
+          "id": "QWN0aW9uQ2VsbC10M18xeDRuYXlr",
+          "isScoreHidden": false,
+          "isModeratable": false,
+          "commentCount": 2,
+          "score": 1,
+          "voteState": "NONE",
+          "shareCount": 1,
+          "isTranslatable": false,
+          "isTranslated": false,
+          "goldenUpvoteInfo": {
+           "countTotal": 0,
+           "countByCurrentUser": 0,
+           "isGildable": true
+          },
+          "isShareButtonHidden": false
+         }
+        ]
+       }
+      },
+      {
+       "node": {
+        "id": "dDNfMXg0bXgwcg==",
+        "groupId": "t3_1x4mx0r",
+        "cells": [
+         {
+          "id": "TWV0YWRhdGFDZWxsLXQzXzF4NG14MHI=",
+          "createdAt": "2026-10-13T04:08:26.958000+0000",
+          "authorName": "[redacted]",
+          "color": {
+           "rgbaColor": "#FC5B05FF"
+          },
+          "detailsString": "[redacted]",
+          "detailsLink": "[redacted]",
+          "iconPath": "[redacted]",
+          "iconShape": "ROUND",
+          "isJoinButtonShown": false,
+          "isOverflowButtonHidden": false,
+          "isRecommended": false,
+          "isBrandAffiliate": false
+         },
+         {
+          "id": "VGl0bGVDZWxsLXQzXzF4NG14MHI=",
+          "title": "Rising Friends?",
+          "isVisited": false
+         },
+         {
+          "id": "RmxhaXJDZWxsLXQzXzF4NG14MHI=",
+          "flair": {
+           "type": "text",
+           "text": "General Discussion",
+           "textColor": "LIGHT",
+           "template": {
+            "id": "4c9f2f20-f6b6-11ed-8719-b62633097830",
+            "isEditable": false,
+            "backgroundColor": "#0F2E66",
+            "textColor": "LIGHT",
+            "type": "text"
+           }
+          }
+         },
+         {
+          "id": "QWN0aW9uQ2VsbC10M18xeDRteDBy",
+          "isScoreHidden": false,
+          "isModeratable": false,
+          "commentCount": 6,
+          "score": 4,
+          "voteState": "NONE",
+          "shareCount": 2,
+          "isTranslatable": false,
+          "isTranslated": false,
+          "goldenUpvoteInfo": {
+           "countTotal": 0,
+           "countByCurrentUser": 0,
+           "isGildable": true
+          },
+          "isShareButtonHidden": false
+         }
+        ]
+       }
+      },
+      {
+       "node": {
+        "id": "dDNfMXg0azBieQ==",
+        "groupId": "t3_1x4k0by",
+        "cells": [
+         {
+          "id": "TWV0YWRhdGFDZWxsLXQzXzF4NGswYnk=",
+          "createdAt": "2026-10-13T01:40:35.050000+0000",
+          "authorName": "[redacted]",
+          "color": {
+           "rgbaColor": "#FC5B05FF"
+          },
+          "detailsString": "[redacted]",
+          "detailsLink": "[redacted]",
+          "iconPath": "[redacted]",
+          "iconShape": "ROUND",
+          "isJoinButtonShown": false,
+          "isOverflowButtonHidden": false,
+          "isRecommended": false,
+          "isBrandAffiliate": false
+         },
+         {
+          "id": "VGl0bGVDZWxsLXQzXzF4NGswYnk=",
+          "title": "Service type purchase items UOM",
+          "isVisited": false
+         },
+         {
+          "id": "RmxhaXJDZWxsLXQzXzF4NGswYnk=",
+          "flair": {
+           "type": "text",
+           "text": "Finance",
+           "textColor": "LIGHT",
+           "template": {
+            "id": "fb4a3e76-99a6-11eb-8488-0e398db04ebd",
+            "isEditable": false,
+            "backgroundColor": "#0F2E66",
+            "textColor": "LIGHT",
+            "type": "text"
+           }
+          }
+         },
+         {
+          "id": "UHJldmlld1RleHRDZWxsLXQzXzF4NGswYnk=",
+          "text": "Hi all, i understand best practice in workday is to use Hours for UOM when it is a service line. But sometimes suppliers send through invoices quarterly or yearly. Are there any issues with using uom for service lines that are not hours? Also for Service lines, there is no quantity field, is there a",
+          "isRead": false
+         },
+         {
+          "id": "QWN0aW9uQ2VsbC10M18xeDRrMGJ5",
+          "isScoreHidden": false,
+          "isModeratable": false,
+          "commentCount": 0,
+          "score": 1,
+          "voteState": "NONE",
+          "shareCount": 3,
+          "isTranslatable": false,
+          "isTranslated": false,
+          "goldenUpvoteInfo": {
+           "countTotal": 0,
+           "countByCurrentUser": 0,
+           "isGildable": true
+          },
+          "isShareButtonHidden": false
+         }
+        ]
+       }
+      },
+      {
+       "node": {
+        "id": "community_recommendation_v3:_recommendations_dDVfOWxraGFvdDVfZnFvdTFqdDVfYjFwbWNkdDVfZDl2czR6dDVfMnFoZDd0NV8yeWF3ag==",
+        "model": "related_community_recommendations",
+        "title": "Suggested communities",
+        "version": "cr3",
+        "destination": {
+         "reason": "destination_type_null"
+        },
+        "communityRecommendations": [
+         {
+          "recommendationSource": "user_post_rfe",
+          "subreddit": {
+           "name": "wechat_verify_scan",
+           "id": "t5_9lkhao",
+           "prefixedName": "r/wechat_verify_scan",
+           "publicDescriptionText": "Hello and Welcome to our WeChat Community! Here  you can get your WeChat Code Scanned! ",
+           "title": "wechat_verify_scan",
+           "subscribersCount": 2783,
+           "isSubscribed": false,
+           "styles": {
+            "icon": "https://styles.redditmedia.com/t5_9lkhao/styles/communityIcon_avuqj1rfmyfh1.jpg?width=64&frame=1&auto=webp&s=f0781127c7f7574e188c33eefc2f5f9c8ce5692e"
+           }
+          }
+         },
+         {
+          "recommendationSource": "user_post_rfe",
+          "subreddit": {
+           "name": "WildPlanetUA",
+           "id": "t5_fqou1j",
+           "prefixedName": "r/WildPlanetUA",
+           "publicDescriptionText": "Це місце для всіх, кого захоплює загадковий світ природи та незвичайні явища навколо нас. Тут ми обговорюємо природні дива, рідкісні явища, аномальні зони, кліматичні феномени, а також легенди, що пов’язані з ними. 🌎✨\nУчасники спільноти діляться власними спостереженнями, фото, відео та дослідженнями. Ми цінуємо науковий підхід, але не відкидаємо й містичний погляд на світ — адже природа завжди має свої таємниці.",
+           "title": "WildPlanetUA",
+           "subscribersCount": 897,
+           "isSubscribed": false,
+           "styles": {
+            "icon": "https://styles.redditmedia.com/t5_fqou1j/styles/communityIcon_9g4lcdo2r8xf1.jpg?width=64&frame=1&auto=webp&s=8997ad6375bc986ab25cc0509e5e6387d60356d7"
+           }
+          }
+         },
+         {
+          "recommendationSource": "user_post_rfe",
+          "subreddit": {
+           "name": "PlaywithExitLag",
+           "id": "t5_b1pmcd",
+           "prefixedName": "r/PlaywithExitLag",
+           "publicDescriptionText": "Ultimate lag reduction tool for online gaming.\nReduce ping, fix packet loss, eliminate jitter and lag spikes with AI-powered intelligent routing and multi-path technology.\nEnjoy stable connection, lower latency and higher FPS in 4000+ games.\nDeveloped by gamers for gamers. Less lag, more wins! 🚀",
+           "title": "ExitLag",
+           "subscribersCount": 13993,
+           "isSubscribed": false,
+           "styles": {
+            "icon": "https://styles.redditmedia.com/t5_b1pmcd/styles/communityIcon_ca3ij6ijy4hh1.jpg?width=64&frame=1&auto=webp&s=f786ee1a8e142b650e37e8c945e1cd3bc7881d78",
+            "primaryColor": "#F40B13"
+           }
+          }
+         },
+         {
+          "recommendationSource": "user_post_rfe",
+          "subreddit": {
+           "name": "meshyai",
+           "id": "t5_d9vs4z",
+           "prefixedName": "r/meshyai",
+           "publicDescriptionText": "Welcome to Meshy! We're dedicated to simplifying and accelerating 3D modeling with technology for game developers, 3D artists, and printing enthusiasts. Join us to share, learn, and explore the endless possibilities of 3D creation!",
+           "title": "meshyai",
+           "subscribersCount": 21503,
+           "isSubscribed": false,
+           "styles": {
+            "icon": "https://styles.redditmedia.com/t5_d9vs4z/styles/communityIcon_2pe87jv56kxf1.png?width=64&frame=1&auto=webp&s=e9d27badc5d33226c83ac73ea9a6197f294d93c9"
+           }
+          }
+         },
+         {
+          "recommendationSource": "user_post_rfe",
+          "subreddit": {
+           "name": "java",
+           "id": "t5_2qhd7",
+           "prefixedName": "r/java",
+           "publicDescriptionText": "News, Technical discussions, research papers and assorted things of interest related to the Java programming language\nNO programming help, NO learning Java related questions, NO installing or downloading Java questions, NO JVM languages - Exclusively Java",
+           "title": "Java News/Tech/Discussion/etc. No programming help, no learning Java",
+           "subscribersCount": 408842,
+           "isSubscribed": false,
+           "styles": {
+            "icon": "https://styles.redditmedia.com/t5_2qhd7/styles/communityIcon_tzuj58g8ax451.png?width=64&frame=1&auto=webp&s=8ab5fa197cf5aafa65da9917a30b555b6badd36a"
+           },
+           "taxonomy": {
+            "generatedDescription": "Stay ahead in Java programming with our community's resources, discussions, and tips."
+           }
+          }
+         },
+         {
+          "recommendationSource": "user_post_rfe",
+          "subreddit": {
+           "name": "Mongolian",
+           "id": "t5_2yawj",
+           "prefixedName": "r/Mongolian",
+           "publicDescriptionText": "Here is a place where you can post resources, and ask questions about the Mongolian language!",
+           "title": "Learn the Mongolian Language!",
+           "subscribersCount": 3548,
+           "isSubscribed": false
+          }
+         }
+        ]
+       }
+      },
+      {
+       "node": {
+        "id": "dDNfMXg0am93eQ==",
+        "groupId": "t3_1x4jowy",
+        "cells": [
+         {
+          "id": "TWV0YWRhdGFDZWxsLXQzXzF4NGpvd3k=",
+          "createdAt": "2026-10-13T01:25:10.159000+0000",
+          "authorName": "[redacted]",
+          "color": {
+           "rgbaColor": "#FC5B05FF"
+          },
+          "detailsString": "[redacted]",
+          "detailsLink": "[redacted]",
+          "iconPath": "[redacted]",
+          "iconShape": "ROUND",
+          "isJoinButtonShown": false,
+          "isOverflowButtonHidden": false,
+          "isRecommended": false,
+          "isBrandAffiliate": false
+         },
+         {
+          "id": "VGl0bGVDZWxsLXQzXzF4NGpvd3k=",
+          "title": "Rising Keynote",
+          "isVisited": false
+         },
+         {
+          "id": "RmxhaXJDZWxsLXQzXzF4NGpvd3k=",
+          "flair": {
+           "type": "text",
+           "text": "General Discussion",
+           "textColor": "LIGHT",
+           "template": {
+            "id": "4c9f2f20-f6b6-11ed-8719-b62633097830",
+            "isEditable": false,
+            "backgroundColor": "#0F2E66",
+            "textColor": "LIGHT",
+            "type": "text"
+           }
+          }
+         },
+         {
+          "id": "UHJldmlld1RleHRDZWxsLXQzXzF4NGpvd3k=",
+          "text": "Is it just me… or was that the most underwhelmingly odd keynote? Aneel looked uninterested and was staring at his teleprompter and didn’t feel engaged at all. And then we have 30 minutes of Luke Bryan while people are slowly streaming out of the venue.",
+          "isRead": false
+         },
+         {
+          "id": "QWN0aW9uQ2VsbC10M18xeDRqb3d5",
+          "isScoreHidden": false,
+          "isModeratable": false,
+          "commentCount": 30,
+          "score": 46,
+          "voteState": "NONE",
+          "shareCount": 45,
+          "isTranslatable": false,
+          "isTranslated": false,
+          "goldenUpvoteInfo": {
+           "countTotal": 0,
+           "countByCurrentUser": 0,
+           "isGildable": true
+          },
+          "isShareButtonHidden": false
+         }
+        ]
+       }
+      },
+      {
+       "node": {
+        "id": "dDNfMXg0ZnRmbg==",
+        "groupId": "t3_1x4ftfn",
+        "cells": [
+         {
+          "id": "TWV0YWRhdGFDZWxsLXQzXzF4NGZ0Zm4=",
+          "createdAt": "2026-10-12T22:23:23.165000+0000",
+          "authorName": "[redacted]",
+          "color": {
+           "rgbaColor": "#FC5B05FF"
+          },
+          "detailsString": "[redacted]",
+          "detailsLink": "[redacted]",
+          "iconPath": "[redacted]",
+          "iconShape": "ROUND",
+          "isJoinButtonShown": false,
+          "isOverflowButtonHidden": false,
+          "isRecommended": false,
+          "isBrandAffiliate": false
+         },
+         {
+          "id": "VGl0bGVDZWxsLXQzXzF4NGZ0Zm4=",
+          "title": "non effDt custom object's visibility in additional data tab",
+          "isVisited": false
+         },
+         {
+          "id": "RmxhaXJDZWxsLXQzXzF4NGZ0Zm4=",
+          "flair": {
+           "type": "text",
+           "text": "Core HCM",
+           "textColor": "LIGHT",
+           "template": {
+            "id": "eabdac82-99a6-11eb-96ed-0eadbea9d071",
+            "isEditable": false,
+            "backgroundColor": "#0F2E66",
+            "textColor": "LIGHT",
+            "type": "text"
+           }
+          }
+         },
+         {
+          "id": "UHJldmlld1RleHRDZWxsLXQzXzF4NGZ0Zm4=",
+          "text": "Hi, I have a single instance, non effDt custom object on worker. It contains a status with value Active or Inactive. requirement is to display the entries with status = Active. I create a custom report and filter by status, and put it on profile group. The challenge I faced is in \"additional data\" t",
+          "isRead": false
+         },
+         {
+          "id": "QWN0aW9uQ2VsbC10M18xeDRmdGZu",
+          "isScoreHidden": false,
+          "isModeratable": false,
+          "commentCount": 4,
+          "score": 1,
+          "voteState": "NONE",
+          "shareCount": 0,
+          "isTranslatable": false,
+          "isTranslated": false,
+          "goldenUpvoteInfo": {
+           "countTotal": 0,
+           "countByCurrentUser": 0,
+           "isGildable": true
+          },
+          "isShareButtonHidden": false
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

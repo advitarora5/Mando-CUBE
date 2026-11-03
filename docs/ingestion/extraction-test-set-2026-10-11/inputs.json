@@ -1,0 +1,934 @@
+{
+  "schema_version": 1,
+  "purpose": "Exploratory extraction evaluation, not production benchmark",
+  "cases": [
+    {
+      "case_id": "case-01",
+      "captures": [
+        {
+          "capture_ref": "job-boards-2026-10-10T05-16-21-164Z/capture-3",
+          "source_id": "capture-3",
+          "url": "https://www.linkedin.com/jobs/view/4477608464/",
+          "title": "Integration Engineer 3, Workday - Functional (HCM) | Capital One | LinkedIn",
+          "source_type": "job_listing",
+          "collected_at": "2026-10-10T05:18:48.749Z",
+          "published_date": {
+            "raw": "1 day ago",
+            "normalized": null,
+            "precision": "relative"
+          },
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-3-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://www.linkedin.com/jobs/view/4477608464/",
+              "published_date": {
+                "raw": "1 day ago",
+                "normalized": null,
+                "precision": "relative"
+              },
+              "text": "Capital One\nIntegration Engineer 3, Workday - Functional (HCM)\nChicago, IL · 1 day ago\nWe are seeking Workday Engineers who are passionate about developing highly-resilient, fundamentally-sound objects to support the Human Resource technology driving Capital One. As part of a team that’s leading the next wave of disruption on a whole new scale, you will play an integral part in advancing Capital One’s Human Resource Technology ecosystem and culture of technical excellence. You will champion automation of functional and technical processes and bring your expertise to drive innovative solutions.\nDeliver solutions in Workday across HCM, Recruiting, Compensation, Payroll and Benefits through efficient and organized processes while maintaining high standards\nContinually research, test and stay up-to-date on Workday updates, fixes and capabilities\nProvide production support for Workday by troubleshooting problems, testing, and working with the business to resolve issues"
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-02",
+      "captures": [
+        {
+          "capture_ref": "job-boards-2026-10-10T05-16-21-164Z/capture-14",
+          "source_id": "capture-14",
+          "url": "https://hayselectricalservices.applytojob.com/apply/6GIK6md8nY/Workday-System-Analyst",
+          "title": "Workday System Analyst - Hays Electrical Services",
+          "source_type": "job_listing",
+          "collected_at": "2026-10-10T05:23:08Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-14-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://hayselectricalservices.applytojob.com/apply/6GIK6md8nY/Workday-System-Analyst",
+              "published_date": null,
+              "text": "Hays Electrical Services\nWorkday System Analyst\nHouston, TX\nFull Time\nExperienced\nHays Electrical Services is seeking a Workday System Analyst to support both the implementation and ongoing optimization of our Workday HCM platform. Reporting to the Workday System Administrator, this role starts by supporting the active implementation — assisting with testing, data validation, documentation, and end-user readiness — and then transitions into the continuous improvement phase that follows go-live: identifying process gaps, resolving day-to-day system issues, building and refining reports, supporting release testing, and helping HR, Payroll, and business stakeholders get more value out of the system over time. This is a strong fit for someone who wants to build deep Workday functional expertise across a full system lifecycle, working closely with a senior administrator on a platform that will evolve well beyond its initial launch.\nHelp prepare and validate parallel payroll and benefits testing materials\nSupport cutover and go-live readiness activities, including checklist tracking and coordination\nacross HR, Payroll, and IT\nSupport semi-annual Workday release testing: review release notes for relevant changes, build\ntest scripts, execute regression testing, and document results"
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-03",
+      "captures": [
+        {
+          "capture_ref": "job-boards-2026-10-10T05-16-21-164Z/capture-6",
+          "source_id": "capture-6",
+          "url": "https://builtin.com/job/workday-payroll-systems-lead/11087848",
+          "title": "Workday Payroll Systems Lead - Advantage Solutions | Built In",
+          "source_type": "job_listing",
+          "collected_at": "2026-10-10T05:20:00Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-6-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://builtin.com/job/workday-payroll-systems-lead/11087848",
+              "published_date": null,
+              "text": "Advantage Solutions\nWorkday Payroll Systems Lead\nSorry, this job was removed at 10:52 p.m. (UTC) on Friday, Sep 18, 2026\nU.S. and Canadian experienced Workday Payroll Systems Lead to serve as the subject matter expert for payroll processing and systems across a large, multi-entity organization. This role owns the end-to-end execution of payroll for multiple legal entities within Workday, while also acting as a technical and functional resource for the broader systems team. Serve as the lead Workday Payroll and Time Tracking Subject Matter Expert (SME). The ideal candidate combines deep Workday Payroll configuration knowledge with hands-on payroll operations experience, and partners across Payroll, IT, HR, HRIS, and business stakeholders to keep processes running smoothly and evolving with the organization's needs.\nLead testing activities for Workday releases, payroll tax updates, Time Tracking enhancements, configuration changes, and new business requirements, including test planning, execution, and validation"
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-04",
+      "captures": [
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-14",
+          "source_id": "capture-14",
+          "url": "https://avaap.com/case_study/miami-university/",
+          "title": "Miami University — Transforming Operations with Workday",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:23:53.413Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-14-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://avaap.com/case_study/miami-university/",
+              "published_date": null,
+              "text": "Miami selected Avaap as their implementation partner due to their strong presence and expertise in higher education, especially in Ohio institutions. Miami also liked Avaap’s perspective and processes for managing the people-side of the technology implementation. The HCM, FIN and Payroll implementation went live successfully in July 2024, with Workday Student scheduled for deployment in October 2026.\nBuilding on the success of the Workday platform implementation, Miami University is now working with Avaap to implement Workday Student, scheduled to go live in October 2026. This additional module will further enhance the university’s digital transformation by creating a unified platform for all student information and improve the student experience with self-service capabilities.\nMiami University, a prestigious public research university in Oxford, Ohio, partnered with Avaap to implement Workday’s comprehensive enterprise platform to address challenges stemming from disconnected legacy systems. Miami University successfully deployed the full Workday platform in July 2024, and is currently deploying Workday Student, with a scheduled go live in October 2026.\nThe university serves approximately 20,000 students across its campuses."
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-05",
+      "captures": [
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-36",
+          "source_id": "capture-36",
+          "url": "https://www.opkey.com/case-study/onedigital-automates-workday-testing-through-4x-growth",
+          "title": "OneDigital Automates Workday Testing Through 4x Growth",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:30:21.520Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-36-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://www.opkey.com/case-study/onedigital-automates-workday-testing-through-4x-growth",
+              "published_date": null,
+              "text": "CASE STUDY\nOneDigital Automates Workday Testing Through 4x Growth\nFREE DOWNLOAD\nGet the full case study\nRead the complete story — challenges, approach, and measurable outcomes — in a shareable PDF."
+            }
+          ],
+          "links_followed": [
+            "https://hubs.ly/Q04r72650"
+          ]
+        },
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-37",
+          "source_id": "capture-37",
+          "url": "https://app-na1.hubspotdocuments.com/documents/4378242/view/1724400001?accessId=3373cf",
+          "title": "Opkey_OneDigital_Case_Study (1).pdf",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:30:21.520Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-37-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://app-na1.hubspotdocuments.com/documents/4378242/view/1724400001?accessId=3373cf",
+              "published_date": null,
+              "text": "OneDigital Automates Workday Testing Through 4x Growth\nOneDigital leveraged Opkey to:\nRun full end-to-end regression in under one week — every release cycle\nDeploy 330+ automated test cases\nValidate critical workflows across 10+ business process areas\nFree expert teams from manual testing to focus on high-complexity scenarios\nChallenge: Rapid Acquisitions Added Complexity\nResults: Full Regression In Under A Week"
+            }
+          ],
+          "links_followed": []
+        },
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-38",
+          "source_id": "capture-38",
+          "url": "https://www.opkey.com/webinar/how-onedigital-scaled-workday-testing-across-13-modules-with-opkey",
+          "title": "How OneDigital Scaled Workday Testing Across 13 Modules with Opkey",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:30:21.520Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-38-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://www.opkey.com/webinar/how-onedigital-scaled-workday-testing-across-13-modules-with-opkey",
+              "published_date": null,
+              "text": "As OneDigital grew to more than 5,000 employees while managing multiple annual acquisitions, its Workday environment became increasingly complex. Configuration updates, integrations, compliance changes, and quarterly releases created constant testing pressure across HCM, Finance, and Project Management.\nIn this customer-led on-demand webinar, OneDigital will share how they partnered with Opkey to build a scalable Workday testing strategy that keeps pace with continuous business change.\nHow OneDigital automated 300+ Workday test cases\nHow they expanded regression coverage across 13 Workday modules\nHow testing cycles moved from days to hours\nHow governance helped improve visibility across HR, Finance, and IT\nHow automation supports Workday release readiness and internal change\nWebinar\nMay 27, 2026\nGavin Nirmaier\nDirector, Account Management, Opkey\nJohn Bruce\nVP , People Innovation & Technology, OneDigital"
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-06",
+      "captures": [
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-24",
+          "source_id": "capture-24",
+          "url": "https://kognitivinc.com/case-studies/modaxo",
+          "title": "Modaxo case study",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:27:03.910Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-24-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://kognitivinc.com/case-studies/modaxo",
+              "published_date": null,
+              "text": "Modaxo manages a portfolio of technology companies focused on providing solutions to the People Transportation industry. They are part of the Volaris Group and Part of CSI companies who have multiple portfolio companies.\nModaxo and its parent organization, Volaris Group, sought to implement Modaxo on its own Workday instance. A stand alone Workday tenant would allow for greater ownership and flexibility of the Workday environment that could directly align with the portfolio’s growth.\nAfter considering several new tenant strategies with Workday and Services Partner, Kognitiv, Modaxo decided on a Clone and Purge strategy for their standalone tenant. This approach allowed the client to clone the parent company tenant and purge the parent company data from this tenant in a brief timeline rather than undertake the intensive process of building an entirely new tenant for their go live.\nThe thorough planning and coordinated execution led to a smooth stabilization period with successful payroll and integration processing and no system downtime.\nModaxo reduced the project timeline down to 8 weeks from the expected 20-24 weeks of a net new tenant deployment."
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-07",
+      "captures": [
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-21",
+          "source_id": "capture-21",
+          "url": "https://kognitivinc.com/case-studies",
+          "title": "Real Stories. Real Workday Impact.",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:25:33.769Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-21-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://kognitivinc.com/case-studies",
+              "published_date": null,
+              "text": "Explore real client stories that show how Kognitiv helps Workday teams move from challenge to measurable impact. Browse outcomes across post-production support, implementation advisory, platform optimization, financial management, HCM, security, talent, and more.\nFarmers Focus\nDiscover how Kognitiv helped Farmer Focus optimize their Workday Absence and Payroll setup, automating leave management and saving 83 hours of HR admin time annually.\nTierpoint\nTierPoint partnered with Kognitiv to optimize its Workday environment and ensure a successful launch. Through standardized governance, custom integrations, and automated reporting, Kognitiv solved ...\nBronson\nKognitiv helped Bronson Healthcare save ~300 hours annually by simplifying Workday benefit configurations, improving compliance and COBRA accuracy, and enabling a more seamless self-service ...\nStaffbase\nDiscover how Staffbase transformed its finance function with Kognitiv’s 18-month Workday optimization strategy — unlocking €1.6M in savings, automating manual processes, and empowering its internal ...\nModaxo\nModaxo’s Swift Success: Achieving Flexibility and Efficiency with Kognitiv's Tenant Clone and Purge Strategy During Transition.\nSimplepractice\nHow SimplePractice successfully transitioned its workforce to a new Workday tenant with KOG's copy-and-purge methodology to ensure seamless payroll continuity.\nMalwarebytes\nKognitiv helped Malwarebytes save $150K in 4 months by managing critical HRIS projects, streamlining onboarding, and ensuring seamless operations during a major company restructuring.\nTaxAct - Transition to Workday Financials\nFollowing separating from their parent structure, TaxAct leveraged Kognitiv to develop a unique workflow to replicate the existing configuration and historical data in their new Workday tenant while ...\nTaxAct - Tenant Split\nDiscover how TaxAct leveraged Kognitiv to develop several unique approaches for historical data conversion to ensure the preservation of seven years of history."
+            }
+          ],
+          "links_followed": [
+            "https://kognitivinc.com/case-studies/tierpoint",
+            "https://kognitivinc.com/case-studies/staffbase"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "case-08",
+      "captures": [
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-40",
+          "source_id": "capture-40",
+          "url": "https://kpmg.com/us/en/how-we-work/client-stories/workday-client-stories.html",
+          "title": "KPMG and Workday | Featured client stories",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:32:00.796Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-40-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://kpmg.com/us/en/how-we-work/client-stories/workday-client-stories.html",
+              "published_date": null,
+              "text": "Explore how KPMG has helped clients reach their business objectives and transform their businesses with Workday technology implementations.\nGlobal human resources transformation\nTyson Foods taps the power of Workday and ServiceNow to service team members worldwide\nThinking ahead for even faster global growth\nA KPMG Ignition session makes the difference as Brown & Brown insurance accelerates HR, finance, and IT transformation\nImplementing Workday at U.S. Anesthesia Partners\nAmy Messersmith, USAP's Chief Human Resources Officer, shares how Workday and KPMG Powered Enterprise were the right choices to meet their needs for standardization, usability and culture fit."
+            }
+          ],
+          "links_followed": [
+            "https://kpmg.com/us/en/how-we-work/client-stories/major-digital-transformation-right-rx.html",
+            "https://kpmg.com/us/en/how-we-work/client-stories/global-human-resources-transformation.html"
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "case-09",
+      "captures": [
+        {
+          "capture_ref": "partner-websites-2026-10-10T05-17-25-515Z/capture-42",
+          "source_id": "capture-42",
+          "url": "https://kpmg.com/us/en/how-we-work/client-stories/global-human-resources-transformation.html",
+          "title": "Global human resources transformation — Tyson Foods",
+          "source_type": "case_study",
+          "collected_at": "2026-10-10T05:32:00.796Z",
+          "published_date": null,
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-42-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://kpmg.com/us/en/how-we-work/client-stories/global-human-resources-transformation.html",
+              "published_date": null,
+              "text": "CLIENT\nTyson Foods, Inc.\nPLATFORMS\nWorkday, ServiceNow\nOne solution serving more than 130,000 team members\n3,500 self-service tablets deployed for front-line team members\n65% of US team members accessed the new solution within four weeks of go-live\nTyson Foods’ initial Workday deployment consisted of the company’s core HCM platform as well as modules for specific HR functions, including Workday Absence, Workday Benefits, Workday Compensation, Workday Talent Management, Workday Learning, Workday Recruiting, and Workday Onboarding.\nAlong with rolling out additional Workday modules to users in the Asia-Pacific region, Tyson Foods and KPMG worked toward deploying the integrated Workday and ServiceNow solution in more than 30 countries. The final deployment was completed in September 2024. This established a single HCM system globally, laying the foundation for Tyson Foods to target new regions and countries through acquisitions or organic growth, and to recruit and manage new team members locally."
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-10",
+      "captures": [
+        {
+          "capture_ref": "job-boards-2026-10-10T05-16-21-164Z/capture-2",
+          "source_id": "capture-2",
+          "url": "https://www.linkedin.com/jobs/view/4466113113/",
+          "title": "Workday HRIS Analyst | MMD Services",
+          "source_type": "job_listing",
+          "collected_at": "2026-10-10T05:18:10Z",
+          "published_date": {
+            "raw": "3 weeks ago",
+            "normalized": null,
+            "precision": "relative"
+          },
+          "content_scope": "selected_passages",
+          "segments": [
+            {
+              "id": "capture-2-page",
+              "parent_id": null,
+              "kind": "page",
+              "author": null,
+              "url": "https://www.linkedin.com/jobs/view/4466113113/",
+              "published_date": {
+                "raw": "3 weeks ago",
+                "normalized": null,
+                "precision": "relative"
+              },
+              "text": "MMD Services\nWorkday HRIS Analyst\nGreater Chicago Area · 3 weeks ago\nActively reviewing applicants\nWe are partnering with a client is a globally recognized sports and entertainment organization. They are focused on enhancing and optimizing their Workday ecosystem to better support HR operations, reporting, integrations, and enterprise decision-making.\nWe are seeking a Workday-focused HRIS Consultant who thrives in environments where systems, process improvement, and cross-functional collaboration intersect. This role will play a critical part in optimizing the organization’s Workday HCM landscape by improving reporting, streamlining workflows, business process documentation, enhancing integrations, and partnering with stakeholders across the business to improve how Workday supports day-to-day operations.\nBuild and maintain integrations using Workday EIBs (Enterprise Interface Builder) and Core Connectors, ensuring reliable data flow between Workday and downstream systems."
+            }
+          ],
+          "links_followed": []
+        }
+      ]
+    },
+    {
+      "case_id": "case-11",
+      "captures": [
+        {
+          "capture_ref": "reddit-workday-2026-10-10T04-35-54-907Z/capture-2",
+          "collected_at": "2026-10-10T04:38:50.035Z",
+          "content_scope": "selected_passages",
+          "links_followed": [],
+          "published_date": {
+            "normalized": null,
+            "precision": "relative",
+            "raw": "1d ago"
+          },
+          "segments": [
+            {
+              "author": "Initial-Broccoli4911",
+              "id": "t3_1x12jru",
+              "kind": "post",
+              "parent_id": null,
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "We are targeting Go-Live within the month. Company went all out for Workday modules…Core HCM, Advanced Comp, Talent Optimization, Recruiting, Learning (full Sana and Extended Enterprise), Help, FINS and Adaptive…might be a shorter list of what we don’t have.\n\nTo be frank, our implementation has been rough around almost every corner. Some issues have been a result of poor guidance and mistakes made by implementation partner, some issues have absolutely been self inflicted by various teams with internal misalignment, scope creep, and changing requirements. Our Go-Live had already been pushed by one month, but recently the decision was made to delay go-live for Payroll (US included), Time Tracking, and Absence.\n\nWe still intend to go live with all other aforementioned HCM modules and FINS (Adaptive on its own timeline). Open Enrollment takes place 1-2 weeks after we’re live.\n\nAnyone have recommendations or considerations for impacts we should be mindful of now that PATT is phase x?\n\nUpdate: PATT modules are officially targeted for 1/1 globally. (We’re in 30 ish countries).\n\nPayroll will still run through our legacy system, but the team is planning on dual maintenance through end of year. Legacy benefits platform is sunsetting at end of year, so the plan is still to go live with other pieces of HCM on 11/1 and OE launches on 11/9.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/implementation_delays_and_considerations/"
+            },
+            {
+              "author": "MoRegrets",
+              "id": "t1_pepywb9",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "If you take a delay, take a good one and make it worth it. Anytime you delay this close to planned go-live date it's going to take you at least a month worth of impact analysis, planning and communication to get your bearings, let alone you're probably have to design workarounds and change integrations.\n\nOne other observation, if you're going live with Fins (and Payroll too) it's less complex to go live in the beginning of the fiscal year (assuming that you have a standard FY that begins in Jan), and I'd suggest you look into going live in January so that you have more time, less risk, and fewer inflight conversions.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pepywb9/"
+            },
+            {
+              "author": "technomonopolist",
+              "id": "t1_perkfes",
+              "kind": "comment",
+              "parent_id": "t1_pepywb9",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "yea I think I heard payroll say before they prefer to go live at start of quarters and I don't know why - maybe it was specific to that client\n\nthey probably have a good reason for it",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/perkfes/"
+            },
+            {
+              "author": "MoRegrets",
+              "id": "t1_peu30b9",
+              "kind": "comment",
+              "parent_id": "t1_perkfes",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "16h ago"
+              },
+              "text": "Likely the clean cut with quarterly payroll tax reporting.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/peu30b9/"
+            },
+            {
+              "author": "qwerty_ytrewq_",
+              "id": "t1_pev5ktf",
+              "kind": "comment",
+              "parent_id": "t1_perkfes",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "13h ago"
+              },
+              "text": "Year to date is a big deal in payroll migrations",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pev5ktf/"
+            },
+            {
+              "author": "Codys_friend",
+              "id": "t1_perknip",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "Generally you want to go live on a quarter begin, or ideally a year begin, to simplify balance transfers, when implementing payroll. Pushing out a month will mean you need to account for the challenges of not cutting over on a qtr or year begin.\n\nBe prepared for some very, very long days, nights, and weekends! Even with a smooth implementation, surprises are found once live data begins flowing. This is normal. Remember you are in a marathon, not a sprint. Ensure the team get needed rest and some downtime. You don't want to exhaust the team and give them time to recharge. Once fatigue and exhaustion set in, no amount of pizza or caffeine will help. The ability to think clearly will be harmed, productivity will drop precipitously, and the ability to analyze problems and craft solutions will be dramatically reduced. Plan for this.\n\nImplementations are \"bumpy\". Expect this and deal with problems as they occur. Be deliberate and thoughtful and you'll make it through! It may be a bit unpleasant, you will get through this!",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/perknip/"
+            },
+            {
+              "author": "QueenOfEverything4",
+              "id": "t1_pervvt8",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "Make sure all of your reports are ready and running and pulling correctly. Our biggest mistake and left us miles behind until we got a good report writer. Our implementation partner really was pushing the workday delivered reports and…they did not deliver.\n\nIt’s tough and bumpy. We are about to go live with a new module as well. God speed!\n\nDelay your payroll until start of 2027! The last thing you want to mess up is paying people.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pervvt8/"
+            },
+            {
+              "author": "Clemsontigers13",
+              "id": "t1_pes6veh",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "I’d delay the whole implementation until January. Your payroll and finance team will be happy and in reality they’re the key to a good implementation.\n\nI as an employee could give 0 fs if my profile looks good. It means nothing if my first paycheck is wrong. Also, having 2 W2s is very annoying as well.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pes6veh/"
+            },
+            {
+              "author": "technomonopolist",
+              "id": "t1_peqj1qx",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "I am more on the fins side, but just find out when everyone will start entering time in workday\n\nalso Journals will probably need posted in workday for the payroll done in legacy until live in workday\n\nif you have expenses, you should still have the payment elections (expense + payroll ones) converted for the fins go live and if there are any changes you will just need to have people make changes to their payroll ones before your first payroll run - new hires should also be issued a task to set their payment elections",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/peqj1qx/"
+            },
+            {
+              "author": "WorkdayWoman",
+              "id": "t1_pes7eeg",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "1d ago"
+              },
+              "text": "Delay until Jan 1. I'm concerned about a lot, for you.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pes7eeg/"
+            },
+            {
+              "author": "EggSpecial5748",
+              "id": "t1_petpk8k",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "17h ago"
+              },
+              "text": "How are you paying people until the payroll go live? Wouldn’t that require integrations to a payroll provider?\n\nI hope your benefits module was thoroughly tested with OE kicking off that soon after go live.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/petpk8k/"
+            },
+            {
+              "author": "MoRegrets",
+              "id": "t1_peu38t5",
+              "kind": "comment",
+              "parent_id": "t1_petpk8k",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "16h ago"
+              },
+              "text": "I'd assume it's how they pay them now in their old system.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/peu38t5/"
+            },
+            {
+              "author": "EggSpecial5748",
+              "id": "t1_pevur51",
+              "kind": "comment",
+              "parent_id": "t1_peu38t5",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "12h ago"
+              },
+              "text": "Right but things like absence and benefits will be in workday so they have to have a way to get it over to their old system. Are they building integrations for the transition period? Dually maintaining?",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pevur51/"
+            },
+            {
+              "author": "MoRegrets",
+              "id": "t1_pewalwe",
+              "kind": "comment",
+              "parent_id": "t1_pevur51",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10h ago"
+              },
+              "text": "Absolutely. Thats what I imagine they need at least a month if not more to figure out.",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/pewalwe/"
+            },
+            {
+              "author": "SnideBird10",
+              "id": "t1_petr7n3",
+              "kind": "comment",
+              "parent_id": "t3_1x12jru",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "17h ago"
+              },
+              "text": "I am particularly concerned about OE. What is your backup plan to manage enrolment elections if you delay again?",
+              "url": "https://www.reddit.com/r/workday/comments/1x12jru/comment/petr7n3/"
+            }
+          ],
+          "source_type": "discussion",
+          "title": "Implementation Delays and Considerations",
+          "url": "https://www.reddit.com/r/workday/comments/1x12jru/implementation_delays_and_considerations/",
+          "source_id": "capture-2"
+        }
+      ]
+    },
+    {
+      "case_id": "case-12",
+      "captures": [
+        {
+          "capture_ref": "reddit-workday-2026-10-10T04-35-54-907Z/capture-17",
+          "collected_at": "2026-10-10T04:43:14.319Z",
+          "content_scope": "selected_passages",
+          "links_followed": [],
+          "published_date": {
+            "normalized": null,
+            "precision": "relative",
+            "raw": "10d ago"
+          },
+          "segments": [
+            {
+              "author": "qualityweeks",
+              "id": "t3_1wu6ixt",
+              "kind": "post",
+              "parent_id": null,
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "Is anyone using the Self-Service Agent (SSA) in production? How is it going with flex credits?\n\nFrom testing in Sandbox, it appears that each interaction with the agent by an employee is at least one flex credit and possibly more if complex task. \n\nAre you using more or less credits than you expected?\nIs the amount allotted to you by Workday sufficient or do you think you'll need to purchase more?",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/flex_credits_and_self_service_agent_in_prod_how/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd0qsxu",
+              "kind": "comment",
+              "parent_id": "t3_1wu6ixt",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "Hah, you and I sound like we're in the exact same place in our Workday AI \"journey.\" We have no AI features/agents turned on in Production for our employees (just us admins) and I'm trying to forecast what our consumption might look like. My testing was similar to yours in which it seemed every question I could ask cost at least 1 credit, sometimes more depending on how complex the ask was.\n\nWhat's been interesting is base tier stuff (basically anything read only, like pulling payslips, checking benefits elections, comp package, time off balances, whatever) is a flat 1 credit every single time, super predictable. Tested it through the native Workday button AND through our Workday Slack bot (which now uses Self Service Agent in its Chat tab) and got the exact same cost both ways, so at least that part isn't a mystery.\n\nWhere it gets weird is the \"advanced\" tier stuff, the rate card says 5 credits, but I actually submitted a real time off request (not just asking about it, actually naming the type/duration) 3 separate times on different days and every single time it showed 0 credits consumed. Not sure yet if that's because one of them got rejected by my manager and never actually posted, or if there's some kind of free allowance per skill before it starts charging you. Gonna test one more time with an approved request to see if that's what flips it to actually charging.\n\nI tried to have Claude build me a consumption model based on the rate and assumptions about what % of our employee base would actually be logging into our tenant and using the SSA button or using the SSA-powered chat tab in the Slack bot.. I don't think it will be that crazy. We don't have a ton of modules/SKUs enabled in our tenant and we only have a few thousand employees. We also have 500k flex credits burning a hole in our pocket and it's use it or lose it every contract year so at this point.. we just gotta turn it on and see what happens. Otherwise, we're throwing money out the window.\n\nWe're building a custom MCP right now that utilizes Workday REST API so it won't consume flex credits (until we go over our API entitlement bucket which looks like that will never happen).. I was tempted to use the new A2A connectivity to hook our MCP right into the SSA but then we consume Flex Credits directly and I do have a feeling people will be using Workday MCP in Claude a lot more than going into Workday UI and using SSA there. So.. going to hold on to that and hope our custom MCP with API calls does the job. Hoping to launch it in about a month.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd0qsxu/"
+            },
+            {
+              "author": "Throwawaywday99",
+              "id": "t1_pd0ubts",
+              "kind": "comment",
+              "parent_id": "t1_pd0qsxu",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "Speaking of MCP, how is that going for you? How are you building it? Wasn't Workday supposed ot be building an MCP for us to use?",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd0ubts/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd1aj7w",
+              "kind": "comment",
+              "parent_id": "t1_pd0ubts",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "I'll post some snippets from my other comments where I talk about it but high level.. it's going okay. It's really fun building it out in partnership with a dev resource on my team. I'm more handling the stuff on the Workday side (security and API calls to use.) But my method has basically been identifying which fields I want basic 'Employee as Self' people to be able to get through Claude (Employee ID, Sup Orgs, Position Name, Business Title, Hire Date, Length of Service, Location, etc. etc.) Things that they can definitely already see on themselves and other employees at the company in Workday themselves. And then I work with Claude (after dumping every page of the Rest API explorer from Workday themselves into it) to figure out which API calls house that data. Then I go into Postman and connect it to my Sandbox Preview API Client with the relevant Scopes opened up and make those API calls from Postman while proxied under an employee who has basic employee-as-self access and see if I get the data I expect. Then I put all the API calls in a document for my dev resource to enable as tools in our custom Workday MCP connector in Claude Sandbox and then I test it conversationally in Claude to ensure I get the answers I expect.\n\nWe're also going to enable being able to request time off through Claude as well so I did that with the same method as above. At some point we want to look into employees being able to create Workday goals in Claude. Claude knows everything about what our employees work on by being connected to so many productivity tools internally so it would be great to just be like 'Claude what did I accomplish this quarter or what am I hoping to do next quarter, update my goals or create a new goal for me.'\n\nSimultaneously I'm thinking about releasing a second Workday MCP Connector that we only share to HR Admins and it'll have stuff like Workday Query Language where you can just ask any question that might've taken the creation of a report to answer but Claude can just format the query and submit it to Workday with Workday Query Language and get the answer for you. It looks like that'll eat up a lot of API tokens.. each test I've done on that used like.. 10-15 api calls back and forth to find the right WQL data source, data fields, data filters, etc.. but it's pretty cool to see it work. I'm sure it would be much more efficient to ingest a bunch of data into a data lake and use whatever AI that data lake has to ask the same questions but.. this is the quick and dirty solution we can get set up in a few months.\n\nAlso, Based on my conversations about the official Workday MCP, it requires Extend Professional which is a separate SKU we currently don't pay for (but I really wish we did, instead of Prism Analytics which we don't use at all.)\n\nHere's some more background copied from other posts about my Claude MCP dev:\n\n\"My team is building a custom Workday Claude MCP. Starting with a first small use case of requesting PTO and letting our employees do it from Claude. Just finished several hours of testing today to ensure it respects all our time off objects eligibility and business process rules and validations and it was like pretty much perfect. Makes sense since it's all just API calls being made under the authenticated users credentials so it can't really go rogue..\n\nNext will be more WD admin solutions. We gave Claude the Workday Query Language skills and now it can just query all available data sources and answer questions that would take 30-60 minutes to build or tweak a custom report to answer.\n\nTrying to think of what else would be interesting and useful for our admins and employees.\"\n\n\"We went with user auth which takes all the security concerns and over engineering out of the equation. The big downside as you mentioned is having to reauth every 24 hours. I'm still debating whether this is a deal breaker.\n\nThe other option we're looking at is just tapping into the self service agent using A2A. I'm not sure if the authentication piece will be the same as user auth custom MCP and make you authenticate every day. And the other downside is it will consume flex credits directly instead of hitting your API entitlement bucket first with custom MCP.\n\nI hadn't thought of doing a raas report.. that's a good idea. We have done some stuff with workday query language in Claude sandbox on our custom MCP. it's pretty cool watching it figure out the right data source, filters and fields and building the query but what's a little concerning is how many calls it has to make for one question.. feel like it's going to eat a lot of our API bucket. But we'll probably release one custom MCP connector for our average worker platform and then another for our workday admins.\n\nIt's fun stuff but a lot of work getting everything setup and tested.\"",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1aj7w/"
+            },
+            {
+              "author": "Throwawaywday99",
+              "id": "t1_pd1o8ga",
+              "kind": "comment",
+              "parent_id": "t1_pd1aj7w",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Thank you for the details. I will review it. Re: Workday's MCP I remember reading it on Community that it was going to be GA for everyone and not just Extend. I will have to dig out where I found it...we don't have extend either.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1o8ga/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd1rtbj",
+              "kind": "comment",
+              "parent_id": "t1_pd1o8ga",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Here's what our AE said:\n\n\"Data Cloud\n\nEnables high-performance, read-only data access including zero-copy Iceberg technology, SQL access, and a semantic MCP layer\n\nGiven OpenGov’s use of Databricks, this is useful for direct governed access to Workday data without ETL overhead\n\nSKU: Yes, DataCloud\n\nGA status: Targeted for GA in mid-September R2 release\n\nWorkday MCP / Agent Ready Tools\n\nWorkday recently introduced Agent Ready Tools – a new class of AI APIs and connectors purpose=built to power agents and create trusted outcomes\n\nIt will provide 400+ purpose-built MCP tools so external LLMs/agents (e.g. Claude, or custom Workday agents can perform/read write actions)\n\nFor OpenGov, Extend Pro will let you keep Claude as the experience layer while leveraging Workday’s underlying security model via MCP, rather than piecing together custom integrations.\n\nSKU: Yes, Extend Professional\n\nGA status: Targeted for GA in mid-September R2 release\n\nA2A\n\nWorkday is scaling agent access via open standards like A2A, A2UI, and MCP – giving developers seamless cross-enterprise activity without compromising the experience.\n\nOur own delivered agents are planned to expose A2A and MCP endpoints targeted for later this calendar year\n\nThis means Claude could hand off Workday specific self-service tasks directly to Workday’s delivered agent framework, not just call raw tools.\n\nThis is still being engineered internally, but will keep you updated as we know more.\"\n\nAnd then when I followed up about A2A\n\n\"Our plan is to provide A2A connections to all Workday Agents, meaning both delivered agents (like the Sana Self Service Agent) and custom Workday Agents built in Extend. So the former doesn’t require Extend Professional, the latter does.\n\nSimilar to the above, the plan is to expose all Workday Agents as MCP tools and via A2A. So if you are leveraging A2A that is the protocol you would be using the Agent2Agent protocol from Google\"\n\nSo I can't really tell if like.. A2A is their new version of \"Official MCP\"? They kind of use that interchangeably. But if you want to connect to Custom Agents you've built in Workday/Sana, then you'll need Extend Pro.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1rtbj/"
+            },
+            {
+              "author": "Honest_Procedure_785",
+              "id": "t1_pd438u1",
+              "kind": "comment",
+              "parent_id": "t1_pd1aj7w",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Hello,please I was wondering how you handled data privacy when you use Claude? How can I ensure data are properly protected when using WD MCP with Claude ?",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd438u1/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pdimrcz",
+              "kind": "comment",
+              "parent_id": "t1_pd438u1",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "7d ago"
+              },
+              "text": "every session with our connector is authenticated through Okta SSO against the person's actual Workday login.. there's no shared service account or elevated credential sitting behind it. Once authenticated, all API calls run under that individual's own Workday identity and permissions, so the connector can only ever see or do what that specific person is already entitled to in Workday. Native Workday security (domain security, business process security, etc.) still fully applies. the connector doesn't add any new access. it just gives an AI-assisted way to work within the access someone already has.\n\nwe've done some testing to ensure it works as expected and respects security but honestly after a couple hours of working with it, I feel pretty confident about it.\n\nthere are downsides to this model. one being your user always has to authenticate every 24 hours, that's how long their token lasts. but i think the upsides far outweigh the cons.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pdimrcz/"
+            },
+            {
+              "author": "Honest_Procedure_785",
+              "id": "t1_pdinl0w",
+              "kind": "comment",
+              "parent_id": "t1_pdimrcz",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "7d ago"
+              },
+              "text": "Thank you so much for your reply! I really appreciate. Does your HR Team for example send data into Claude via MCP? If yes how Do you ensure Sensitive data are secured in Claude ?",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pdinl0w/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pdtfyay",
+              "kind": "comment",
+              "parent_id": "t1_pdinl0w",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "6d ago"
+              },
+              "text": "The only thing we're allowing to write into Claude is Time Off requests at the moment.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pdtfyay/"
+            },
+            {
+              "author": "Ding_Bingus",
+              "id": "t1_pddr4so",
+              "kind": "comment",
+              "parent_id": "t1_pd1aj7w",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "8d ago"
+              },
+              "text": "Why not just API the data you need out with ISUs and use a secondary environment to make webapps, security groups, etc and then blend anything else you need much easier without the ridiculous overhead of ‘no copy’ direct access?",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pddr4so/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pdfddvm",
+              "kind": "comment",
+              "parent_id": "t1_pddr4so",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "8d ago"
+              },
+              "text": "It's a fair point. It's nice to already have all the security defined in Workday and not having to worry about replicating it and maintaining it 1:1 with what's in Workday after bringing the data out of it. But there are downsides to having to ping the data source directly with API calls.. very inefficient.\n\nIs that what you do at your company? What's your setup?",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pdfddvm/"
+            },
+            {
+              "author": "SnooCrickets6399",
+              "id": "t1_pd10cjz",
+              "kind": "comment",
+              "parent_id": "t1_pd0qsxu",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "My company is also interested in the MCP with Claude route. Can we please connect? :)",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd10cjz/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd1tr4q",
+              "kind": "comment",
+              "parent_id": "t1_pd10cjz",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Send me a DM and we can connect on LinkedIn",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1tr4q/"
+            },
+            {
+              "author": "Far_Bed_4931",
+              "id": "t1_pd178ga",
+              "kind": "comment",
+              "parent_id": "t1_pd0qsxu",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "Legacy APIs will still consume against your entitlements and if you go over you'll need to purchase Flex Credits.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd178ga/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd1mv6c",
+              "kind": "comment",
+              "parent_id": "t1_pd178ga",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Yep, that was my understanding too. Entitlement Bucket first (we only use about 70% of our bucket each year) and then it starts eating Flex Credits once you go over that.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1mv6c/"
+            },
+            {
+              "author": "checkikul",
+              "id": "t1_pd0v5r0",
+              "kind": "comment",
+              "parent_id": "t1_pd0qsxu",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "500k?! With few skus and only 1000 employees?? How’d you guys swing that? My org has 20k employees and we only got a 60k allowance…",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd0v5r0/"
+            },
+            {
+              "author": "GovernorHarryLogan",
+              "id": "t1_pd0wq0d",
+              "kind": "comment",
+              "parent_id": "t1_pd0v5r0",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "750ish employees.\n\n75k credits",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd0wq0d/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd14wwl",
+              "kind": "comment",
+              "parent_id": "t1_pd0v5r0",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "Hah, I have no idea. I wasn't part of the contract negotiations this time around. We have a \"few thousand\" employees, just short of 3k. Still not very big.\n\nWow 20,000 employees and only a 60,000 Flex Credit Allowance? (You didn't mean $60,000 worth of Flex Credits did you?)\n\nMaybe I shouldn't be worrying at all then!",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd14wwl/"
+            },
+            {
+              "author": "checkikul",
+              "id": "t1_pd1xmhg",
+              "kind": "comment",
+              "parent_id": "t1_pd14wwl",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "So there’s like 2 separate things, the API entitlements and the flex credits, I do mean like just straight up 60000 flex credits and like 4.5m api entitlements.\n\nWe didn’t buy any top ups, just the credits we got from signing the UMSA, you are saying you have 500k flex credits? Not API entitlements right??",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1xmhg/"
+            },
+            {
+              "author": "Intelligent_Pitch782",
+              "id": "t1_pd1yp0k",
+              "kind": "comment",
+              "parent_id": "t1_pd1xmhg",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Yep. 500,000 flex credits (just checked our Platform Consumption Console.)",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd1yp0k/"
+            },
+            {
+              "author": "Significant_Ad_4651",
+              "id": "t1_pd7cblh",
+              "kind": "comment",
+              "parent_id": "t1_pd1xmhg",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "It’s based on company size and SKUs.  So financials and extend give the biggest multipliers.  ",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd7cblh/"
+            },
+            {
+              "author": "WD_YNWA",
+              "id": "t1_pd0u6ii",
+              "kind": "comment",
+              "parent_id": "t3_1wu6ixt",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "We just turned on SSA and Core Reporting Agent for our HR function (approx 350) users. So far the credit consumption is fairly under control, btw I have noticed Guide skill doesn’t consume credits. And that is the particular skill lot of users adopt initially. Personally I want to exhaust all credits and pilot as much as possible and learn from it. On the flip side we are burning through our platform entitlements at a much faster pace. Our focus is to understand our spend and budget in that space as a priority.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd0u6ii/"
+            },
+            {
+              "author": "Codys_friend",
+              "id": "t1_pd0uof8",
+              "kind": "comment",
+              "parent_id": "t3_1wu6ixt",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "10d ago"
+              },
+              "text": "Ah the joys of being on the bleeding edge! We're in a similar spot on our Workday AI journey: dipping our proverbial toes in the water so we can forecast the usage numbers and ultimately the cost. I have no data to offer, simply letting you know you are not alone!",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd0uof8/"
+            },
+            {
+              "author": "TuesdayTrex",
+              "id": "t1_pd2958x",
+              "kind": "comment",
+              "parent_id": "t3_1wu6ixt",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "What’s your cost per flex credit roughly? The flex credit model is a turnoff to us but I’m wondering apples to apples since our current tool is basically token-based cost",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd2958x/"
+            },
+            {
+              "author": "ItrustinZION",
+              "id": "t1_pd4nu87",
+              "kind": "comment",
+              "parent_id": "t1_pd2958x",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "Each flex credit is 10 cents",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd4nu87/"
+            },
+            {
+              "author": "Bubbly_Impact5653",
+              "id": "t1_pd35viy",
+              "kind": "comment",
+              "parent_id": "t3_1wu6ixt",
+              "published_date": {
+                "normalized": null,
+                "precision": "relative",
+                "raw": "9d ago"
+              },
+              "text": "We switched it on during the “ Free period “ in August . And we made it available for HR . They are not too keen to switch it on so far because\nIt cannot leverage documents and help outside Workday\nIt cannot answer tenant specific scenarios like the forms we have in Request framework etc .\nWe will keep trying it for a smaller population.",
+              "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/comment/pd35viy/"
+            }
+          ],
+          "source_type": "discussion",
+          "title": "Flex Credits and Self Service Agent in prod - how is it going?",
+          "url": "https://www.reddit.com/r/workday/comments/1wu6ixt/flex_credits_and_self_service_agent_in_prod_how/",
+          "source_id": "capture-17"
+        }
+      ]
+    }
+  ]
+}

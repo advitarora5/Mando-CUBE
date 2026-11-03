@@ -40,8 +40,9 @@ export function readyForContacts(score: Pick<Score, "budget_score" | "release_sc
   return score.budget_score + score.release_score + score.timing_score >= settings.ready_for_contacts_threshold;
 }
 
-// Hiring and release-planning signals expire unless seen again; go-live and other types keep their own date rules.
-export const expiringSignalTypes = ["hiring", "release_planning"] as const;
+// Every signal type expires signal_fresh_days after it was last seen, unless a collector sees it again.
+// Go-live is the exception: its score follows the go-live date bands instead.
+export const expiringSignalTypes = ["hiring", "release_planning", "known_customer", "budget_clue", "event"] as const;
 
 export function isSignalFresh(signal: { type: string; last_seen_at: string }, settings: PipelineSettings, now: Date = new Date()): boolean {
   if (!(expiringSignalTypes as readonly string[]).includes(signal.type)) return true;

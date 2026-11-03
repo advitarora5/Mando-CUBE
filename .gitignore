@@ -46,3 +46,8 @@ next-env.d.ts
 # contact enrichment run artifacts (contain personal contact data)
 enrichment_ledger.jsonl
 enrichment_report_*.md
+
+# ingestion pipeline: spend ledger, local run output and one-off enrichment artifacts
+/var/
+/enrichment_ledger.jsonl
+/enrichment_report_*.md

@@ -1,0 +1,704 @@
+{
+  "schema_version": 1,
+  "annotation_status": "Manually authored from saved source text; draft for team review",
+  "evaluation_scope": "Required facts and forbidden inferences, not exhaustive enumeration of every comment or product mention",
+  "cases": [
+    {
+      "case_id": "case-01",
+      "label": "Capital One — recent internal hiring",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Capital One",
+          "role": "end_customer",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "signal",
+          "value": "hiring; internal Workday operation",
+          "support": {
+            "capture_id": "capture-3",
+            "segment_id": "capture-3-page",
+            "verbatim_excerpt": "Integration Engineer 3, Workday - Functional (HCM)"
+          }
+        },
+        {
+          "field": "publication_date_raw",
+          "value": "1 day ago",
+          "support": {
+            "capture_id": "capture-3",
+            "segment_id": "capture-3-page",
+            "verbatim_excerpt": "Chicago, IL · 1 day ago"
+          }
+        },
+        {
+          "field": "modules",
+          "value": [
+            "HCM",
+            "Recruiting",
+            "Compensation",
+            "Payroll",
+            "Benefits"
+          ],
+          "support": {
+            "capture_id": "capture-3",
+            "segment_id": "capture-3-page",
+            "verbatim_excerpt": "Deliver solutions in Workday across HCM, Recruiting, Compensation, Payroll and Benefits"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Open procurement",
+        "Active implementation inferred from ordinary responsibilities",
+        "Calendar-specific release planning"
+      ],
+      "must_remain_unknown": [
+        "Exact publication day",
+        "Budget",
+        "Named buyer",
+        "Verified contact",
+        "Employee count"
+      ]
+    },
+    {
+      "case_id": "case-02",
+      "label": "Hays Electrical Services — explicit project, missing date",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Hays Electrical Services",
+          "role": "end_customer",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "signal",
+          "value": "active implementation described in source",
+          "support": {
+            "capture_id": "capture-14",
+            "segment_id": "capture-14-page",
+            "verbatim_excerpt": "this role starts by supporting the active implementation"
+          }
+        },
+        {
+          "field": "module",
+          "value": "HCM",
+          "support": {
+            "capture_id": "capture-14",
+            "segment_id": "capture-14-page",
+            "verbatim_excerpt": "our Workday HCM platform"
+          }
+        },
+        {
+          "field": "project_activity",
+          "value": "parallel payroll and benefits testing",
+          "support": {
+            "capture_id": "capture-14",
+            "segment_id": "capture-14-page",
+            "verbatim_excerpt": "Help prepare and validate parallel payroll and benefits testing materials"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Known go-live date",
+        "Still active today without corroboration",
+        "Payroll/Benefits product licensing inferred solely from testing materials"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Go-live date",
+        "Current project status",
+        "Employee count",
+        "Budget",
+        "Buyer/contact"
+      ]
+    },
+    {
+      "case_id": "case-03",
+      "label": "Advantage Solutions — closed vacancy",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Advantage Solutions",
+          "role": "end_customer",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "listing_status",
+          "value": "removed",
+          "support": {
+            "capture_id": "capture-6",
+            "segment_id": "capture-6-page",
+            "verbatim_excerpt": "this job was removed"
+          }
+        },
+        {
+          "field": "removal_date",
+          "value": "2026-09-18",
+          "support": {
+            "capture_id": "capture-6",
+            "segment_id": "capture-6-page",
+            "verbatim_excerpt": "Friday, Sep 18, 2026"
+          }
+        },
+        {
+          "field": "modules",
+          "value": [
+            "Payroll",
+            "Time Tracking"
+          ],
+          "support": {
+            "capture_id": "capture-6",
+            "segment_id": "capture-6-page",
+            "verbatim_excerpt": "Workday Payroll and Time Tracking Subject Matter Expert"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Current open vacancy",
+        "Removal date used as publication date",
+        "Routine release testing interpreted as an imminent purchase"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Current need",
+        "Budget",
+        "Buyer/contact"
+      ]
+    },
+    {
+      "case_id": "case-04",
+      "label": "Miami University — event date and scale units",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Miami University",
+          "role": "end_customer",
+          "strength": "explicit"
+        },
+        {
+          "name": "Avaap",
+          "role": "implementation_partner",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "completed_event",
+          "value": "HCM/FIN/Payroll go-live July 2024",
+          "support": {
+            "capture_id": "capture-14",
+            "segment_id": "capture-14-page",
+            "verbatim_excerpt": "The HCM, FIN and Payroll implementation went live successfully in July 2024"
+          }
+        },
+        {
+          "field": "scheduled_event",
+          "value": "Student deployment October 2026; current status unverified",
+          "support": {
+            "capture_id": "capture-14",
+            "segment_id": "capture-14-page",
+            "verbatim_excerpt": "Workday Student scheduled for deployment in October 2026"
+          }
+        },
+        {
+          "field": "student_count",
+          "value": 20000,
+          "support": {
+            "capture_id": "capture-14",
+            "segment_id": "capture-14-page",
+            "verbatim_excerpt": "approximately 20,000 students"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "20,000 employees",
+        "Exact October go-live day",
+        "Confirmed still upcoming deployment",
+        "Event date substituted for publication date"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Employee count",
+        "Current project status",
+        "Open procurement",
+        "Buyer/contact"
+      ]
+    },
+    {
+      "case_id": "case-05",
+      "label": "OneDigital — multiple sources and metric granularity",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "OneDigital",
+          "role": "end_customer",
+          "strength": "explicit"
+        },
+        {
+          "name": "Opkey",
+          "role": "testing_vendor",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "testing_cases_pdf",
+          "value": "330+",
+          "support": {
+            "capture_id": "capture-37",
+            "segment_id": "capture-37-page",
+            "verbatim_excerpt": "Deploy 330+ automated test cases"
+          }
+        },
+        {
+          "field": "business_process_areas_pdf",
+          "value": "10+",
+          "support": {
+            "capture_id": "capture-37",
+            "segment_id": "capture-37-page",
+            "verbatim_excerpt": "10+ business process areas"
+          }
+        },
+        {
+          "field": "testing_cases_webinar",
+          "value": "300+",
+          "support": {
+            "capture_id": "capture-38",
+            "segment_id": "capture-38-page",
+            "verbatim_excerpt": "300+ Workday test cases"
+          }
+        },
+        {
+          "field": "modules_covered_webinar",
+          "value": 13,
+          "support": {
+            "capture_id": "capture-38",
+            "segment_id": "capture-38-page",
+            "verbatim_excerpt": "13 Workday modules"
+          }
+        },
+        {
+          "field": "webinar_event_date",
+          "value": "2026-05-27",
+          "support": {
+            "capture_id": "capture-38",
+            "segment_id": "capture-38-page",
+            "verbatim_excerpt": "May 27, 2026"
+          }
+        },
+        {
+          "field": "workforce_lower_bound",
+          "value": 5000,
+          "support": {
+            "capture_id": "capture-38",
+            "segment_id": "capture-38-page",
+            "verbatim_excerpt": "more than 5,000 employees"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Three distinct companies",
+        "10+ process areas equated to 13 modules",
+        "330+ and 300+ treated as contradictory exact counts",
+        "Webinar date used as publication date",
+        "Existing automation treated as an unmet need"
+      ],
+      "must_remain_unknown": [
+        "Publication dates",
+        "Current need",
+        "Budget",
+        "Verified buyer/contact"
+      ]
+    },
+    {
+      "case_id": "case-06",
+      "label": "Modaxo and Volaris Group — legal-entity separation",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Modaxo",
+          "role": "end_customer",
+          "strength": "explicit"
+        },
+        {
+          "name": "Volaris Group",
+          "role": "parent",
+          "strength": "parent_context"
+        },
+        {
+          "name": "Kognitiv",
+          "role": "services_partner",
+          "strength": "explicit"
+        },
+        {
+          "name": "CSI",
+          "role": "corporate_relationship_reference",
+          "strength": "unresolved"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "relationship",
+          "value": "Modaxo parent is Volaris Group",
+          "support": {
+            "capture_id": "capture-24",
+            "segment_id": "capture-24-page",
+            "verbatim_excerpt": "its parent organization, Volaris Group"
+          }
+        },
+        {
+          "field": "project_outcome",
+          "value": "separate tenant completed; stabilization described",
+          "support": {
+            "capture_id": "capture-24",
+            "segment_id": "capture-24-page",
+            "verbatim_excerpt": "successful payroll and integration processing and no system downtime"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Merge Modaxo and Volaris Group",
+        "Infer CSI product usage from corporate relationship",
+        "Count a completed tenant split as current implementation"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Completion date",
+        "CSI exact entity/product usage",
+        "Current need"
+      ]
+    },
+    {
+      "case_id": "case-07",
+      "label": "Kognitiv customer index — multiple subjects",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Farmer Focus",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "TierPoint",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "Bronson Healthcare",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "Staffbase",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "Modaxo",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "SimplePractice",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "Malwarebytes",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "TaxAct",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "name_variant",
+          "value": [
+            "Farmers Focus",
+            "Farmer Focus"
+          ],
+          "support": {
+            "capture_id": "capture-21",
+            "segment_id": "capture-21-page",
+            "verbatim_excerpt": "Farmers Focus\nDiscover how Kognitiv helped Farmer Focus"
+          }
+        },
+        {
+          "field": "Bronson Healthcare activity",
+          "value": "benefits/COBRA optimization",
+          "support": {
+            "capture_id": "capture-21",
+            "segment_id": "capture-21-page",
+            "verbatim_excerpt": "Bronson Healthcare save ~300 hours annually"
+          }
+        },
+        {
+          "field": "Staffbase activity",
+          "value": "Workday optimization",
+          "support": {
+            "capture_id": "capture-21",
+            "segment_id": "capture-21-page",
+            "verbatim_excerpt": "Staffbase transformed its finance function with Kognitiv’s 18-month Workday optimization strategy"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Transfer one customer’s savings or modules to another",
+        "Treat Kognitiv as the end customer",
+        "Two TaxAct index entries treated as two companies",
+        "Farmer Focus spelling treated as externally verified"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Current buying intent",
+        "Current-role contacts",
+        "Verified name spelling for Farmer Focus"
+      ]
+    },
+    {
+      "case_id": "case-08",
+      "label": "KPMG index — explicit versus contextual attribution",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Tyson Foods",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "U.S. Anesthesia Partners",
+          "role": "end_customer",
+          "strength": "explicit_index"
+        },
+        {
+          "name": "Brown & Brown",
+          "role": "candidate",
+          "strength": "contextual"
+        },
+        {
+          "name": "KPMG",
+          "role": "implementation_partner",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "Tyson Foods product_link",
+          "value": "Workday",
+          "support": {
+            "capture_id": "capture-40",
+            "segment_id": "capture-40-page",
+            "verbatim_excerpt": "Tyson Foods taps the power of Workday"
+          }
+        },
+        {
+          "field": "USAP product_link",
+          "value": "Workday",
+          "support": {
+            "capture_id": "capture-40",
+            "segment_id": "capture-40-page",
+            "verbatim_excerpt": "Implementing Workday at U.S. Anesthesia Partners"
+          }
+        },
+        {
+          "field": "Brown & Brown evidence",
+          "value": "HR/finance/IT transformation in Workday index; teaser does not name product",
+          "support": {
+            "capture_id": "capture-40",
+            "segment_id": "capture-40-page",
+            "verbatim_excerpt": "Brown & Brown insurance accelerates HR, finance, and IT transformation"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Brown & Brown has directly confirmed Workday usage from teaser alone",
+        "Apply all index statements to all customers",
+        "KPMG is the prospect in these stories"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Brown & Brown exact products",
+        "Current need"
+      ]
+    },
+    {
+      "case_id": "case-09",
+      "label": "Tyson Foods — completed historical implementation",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "Tyson Foods, Inc.",
+          "role": "end_customer",
+          "strength": "explicit"
+        },
+        {
+          "name": "KPMG",
+          "role": "implementation_partner",
+          "strength": "explicit"
+        },
+        {
+          "name": "ServiceNow",
+          "role": "technology_vendor",
+          "strength": "explicit"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "completion_event",
+          "value": "September 2024",
+          "support": {
+            "capture_id": "capture-42",
+            "segment_id": "capture-42-page",
+            "verbatim_excerpt": "The final deployment was completed in September 2024"
+          }
+        },
+        {
+          "field": "product",
+          "value": "Workday HCM",
+          "support": {
+            "capture_id": "capture-42",
+            "segment_id": "capture-42-page",
+            "verbatim_excerpt": "core HCM platform"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Currently implementing because roadmap language exists",
+        "Exact completion day",
+        "September 2024 used as publication date"
+      ],
+      "must_remain_unknown": [
+        "Publication date",
+        "Current need",
+        "Current workforce count independently verified"
+      ]
+    },
+    {
+      "case_id": "case-10",
+      "label": "MMD Services — unnamed staffing client",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "MMD Services",
+          "role": "staffing_provider",
+          "strength": "explicit"
+        },
+        {
+          "name": null,
+          "role": "end_customer",
+          "strength": "unknown"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "anonymous_customer_activity",
+          "value": "Workday HCM optimization",
+          "support": {
+            "capture_id": "capture-2",
+            "segment_id": "capture-2-page",
+            "verbatim_excerpt": "optimizing the organization’s Workday HCM landscape"
+          }
+        },
+        {
+          "field": "publication_date_raw",
+          "value": "3 weeks ago",
+          "support": {
+            "capture_id": "capture-2",
+            "segment_id": "capture-2-page",
+            "verbatim_excerpt": "Greater Chicago Area · 3 weeks ago"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "MMD Services is proven internal Workday customer",
+        "Guess client identity from geography or industry"
+      ],
+      "must_remain_unknown": [
+        "Client name",
+        "Exact publication day",
+        "Buyer/contact",
+        "Budget"
+      ]
+    },
+    {
+      "case_id": "case-11",
+      "label": "Reddit — anonymous delayed multi-module rollout",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": null,
+          "role": "end_customer",
+          "strength": "unknown"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "signal",
+          "value": "anonymous delayed multi-module implementation; payroll/time/absence deferred",
+          "support": {
+            "capture_id": "capture-2",
+            "segment_id": "t3_1x12jru",
+            "verbatim_excerpt": "delay go-live for Payroll (US included), Time Tracking, and Absence"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Guess employer from countries/modules",
+        "Assign an exact year to 11/1, 11/9 or 1/1",
+        "Treat all commenters as same employer"
+      ],
+      "must_remain_unknown": [
+        "Company name",
+        "Exact publication day",
+        "Years of partial event dates",
+        "Buyer/contact",
+        "Budget"
+      ]
+    },
+    {
+      "case_id": "case-12",
+      "label": "Reddit — tentative OpenGov attribution",
+      "review_status": "draft_for_team_review",
+      "identities": [
+        {
+          "name": "OpenGov",
+          "role": "candidate",
+          "strength": "tentative_quoted_comment"
+        }
+      ],
+      "required_claims": [
+        {
+          "field": "attribution",
+          "value": "quoted alleged account-executive comment names OpenGov; tentative",
+          "support": {
+            "capture_id": "capture-17",
+            "segment_id": "t1_pd1rtbj",
+            "verbatim_excerpt": "Given OpenGov’s use of Databricks"
+          }
+        }
+      ],
+      "must_not_assert": [
+        "Confirmed commenter employer",
+        "Confirmed procurement",
+        "Feature SKU discussion establishes deployed products",
+        "Vendor roadmap date is company go-live date"
+      ],
+      "must_remain_unknown": [
+        "Verified employer identity",
+        "Deployed modules",
+        "Current buying need",
+        "Buyer/contact"
+      ]
+    }
+  ]
+}

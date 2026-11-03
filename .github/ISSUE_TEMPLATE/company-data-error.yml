@@ -1,0 +1,102 @@
+name: Company data error
+description: Record incorrect or missing company information from a pipeline source.
+title: "[Data quality] Company name - error summary"
+labels: [data-quality]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Add one independent finding per report. Search the shared log first to avoid reporting the same bad field twice.
+        Shared log: https://github.com/advitarora5/Mando-CUBE/issues?q=is%3Aissue%20label%3Adata-quality
+        Do not include passwords, API keys, personal contact details or raw private provider responses.
+  - type: input
+    id: company
+    attributes:
+      label: Company
+      description: Use the dashboard name, or the candidate name if it has not been saved.
+    validations:
+      required: true
+  - type: input
+    id: company-record
+    attributes:
+      label: Dashboard link or company ID
+      description: Paste the company page URL or UUID. For an unsaved candidate, enter its capture ID.
+    validations:
+      required: true
+  - type: dropdown
+    id: error-type
+    attributes:
+      label: Error type
+      description: Use the same category for the same problem so repeated errors can be counted.
+      options:
+        - Workday use not supported by evidence
+        - Evidence belongs to a different company
+        - Company name missing or incorrect
+        - Website missing
+        - Website incorrect
+        - Source link missing
+        - Source link broken or inaccessible
+        - Employee count missing or incorrect
+        - Industry missing or incorrect
+        - Workday signal date missing or incorrect
+        - Duplicate company
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: source-family
+    attributes:
+      label: Original source family
+      options:
+        - Reddit r/workday
+        - Workday career site
+        - Job board or employer listing
+        - Workday or implementation partner website
+        - SEC name discovery / Workday resolver
+        - CSV or manual import
+        - Other
+        - Unknown - needs tracing
+    validations:
+      required: true
+  - type: textarea
+    id: original-source
+    attributes:
+      label: Original source and pipeline reference
+      description: Include the original source URL and source ID, capture ID or run link when available. If unavailable, say what needs tracing.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What was wrong
+      description: Give the field and the exact incorrect or missing value shown. Explain why the source does not support it.
+    validations:
+      required: true
+  - type: textarea
+    id: verified-value
+    attributes:
+      label: Correct value and verification evidence
+      description: Give the correct value, supporting URL, date checked and a short quote or explanation. Use "not available" when research cannot establish the value. An inaccessible page alone does not prove a false Workday claim.
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Review status
+      options:
+        - Needs review
+        - Confirmed - record correction pending
+        - Record corrected - recurrence check pending
+        - Pipeline fix pending
+        - Monitoring a pipeline fix
+        - Resolved
+        - Not an error
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Correction and follow-up
+      description: State who checked the report, what was changed and when, and who owns the next action. Link related reports and the pipeline fix issue/PR. For duplicate companies, coordinate with the duplicate-cleanup owner before merging.
+    validations:
+      required: true

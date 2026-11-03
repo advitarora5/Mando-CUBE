@@ -1,4 +1,4 @@
-export type Snapshot = { week_start: string; company_id: string; rank: number; total?: number | null };
+export type Snapshot = { week_start: string; company_id: string; rank: number; total?: number | null; score_id?: string | null };
 
 export type Movement =
   | { kind: "new" }

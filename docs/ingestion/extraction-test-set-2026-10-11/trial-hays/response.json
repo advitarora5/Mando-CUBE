@@ -1,0 +1,17 @@
+{
+  "model": "llama3.1:8b",
+  "created_at": "2026-10-11T16:54:41.349525Z",
+  "message": {
+    "role": "assistant",
+    "content": "{\n  \"companies\": [\n    {\n      \"name\": \"Hays Electrical Services\",\n      \"role\": \"Employer\",\n      \"Workday products explicitly named\": [\"Workday HCM platform\", \"Workday System\"],\n      \"signals\": [\n        {\n          \"description\": \"Seeking Workday System Analyst\",\n          \"status\": \"Active\",\n          \"verified\": true\n        }\n      ],\n      \"publication_date\": null,\n      \"project_dates\": {\n        \"start\": null,\n        \"end\": null\n      },\n      \"employee_count\": null,\n      \"named_contacts\": null,\n      \"uncertainties\": null,\n      \"evidence\": [\n        {\n          \"capture_ref\": \"job-boards-2026-10-10T05-16-21-164Z/capture-14\",\n          \"segment_id\": \"capture-14-page\",\n          \"exact short quote\": \"Hays Electrical Services is seeking a Workday System Analyst to support both the implementation and ongoing optimization of our Workday HCM platform.\"\n        }\n      ]\n    }\n  ]\n}"
+  },
+  "done": true,
+  "done_reason": "stop",
+  "total_duration": 11772471875,
+  "load_duration": 1078348792,
+  "prompt_eval_count": 625,
+  "prompt_eval_cached_count": 0,
+  "prompt_eval_duration": 1519860000,
+  "eval_count": 224,
+  "eval_duration": 9166784000
+}

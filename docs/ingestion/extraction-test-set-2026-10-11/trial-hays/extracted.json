@@ -1,0 +1,34 @@
+{
+  "companies": [
+    {
+      "name": "Hays Electrical Services",
+      "role": "Employer",
+      "Workday products explicitly named": [
+        "Workday HCM platform",
+        "Workday System"
+      ],
+      "signals": [
+        {
+          "description": "Seeking Workday System Analyst",
+          "status": "Active",
+          "verified": true
+        }
+      ],
+      "publication_date": null,
+      "project_dates": {
+        "start": null,
+        "end": null
+      },
+      "employee_count": null,
+      "named_contacts": null,
+      "uncertainties": null,
+      "evidence": [
+        {
+          "capture_ref": "job-boards-2026-10-10T05-16-21-164Z/capture-14",
+          "segment_id": "capture-14-page",
+          "exact short quote": "Hays Electrical Services is seeking a Workday System Analyst to support both the implementation and ongoing optimization of our Workday HCM platform."
+        }
+      ]
+    }
+  ]
+}

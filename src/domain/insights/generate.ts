@@ -12,12 +12,12 @@ export function buildPrompt(c: Input): string {
   const evidence = ["authority", "reachability", "budget", "release", "timing"]
     .map((k) => `- ${k} (${c.score[`${k}_score`]}): ${c.score[`${k}_evidence`] || "none"}`).join("\n");
   const people = c.contacts.map((p) => `- ${p.name}, ${p.title ?? "unknown title"}`).join("\n") || "- none";
-  return `You help a sales team selling to Workday customers. Use ONLY the facts below; never invent facts. If evidence is thin, say so. Use the days-ago figure given; never compute dates yourself.
+  return `You help a sales team selling to Workday customers. Use ONLY the facts below; never invent facts. If evidence is thin, say so. Use the days-ago figure given; never compute dates yourself. A go-live is known ONLY if the "Workday signal" line gives a date; otherwise never say the company went live. Days in the release evidence are days UNTIL that release, never days since anything. If the evidence shows no dated trigger, say so plainly instead of inventing one.
 Company: ${c.name} | industry: ${c.industry ?? "unknown"} | employees: ${c.employee_count ?? "unknown"} | Workday signal: ${c.workday_signal_date ? `${c.workday_signal_date} (${Math.floor((Date.now() - Date.parse(c.workday_signal_date)) / 86400000)} days ago)` : "unknown"}
 Contacts:\n${people}
 Scored evidence:\n${evidence}
 
-Reply with JSON only: {"persona": "<the buyer role and what it owns, max 15 words; no personal names>", "level": "<one of: ${levels.join(", ")}>", "why_now": "<1-2 natural sentences stating the TRIGGER, opening with the fact itself (e.g. "Went live on Workday N days ago..."): what happened (go-live, release, hiring, budget) and why that makes this the window to buy. A reason, never an instruction: do not start with "Reach out" or mention contacting anyone. Cite facts from the evidence, not score numbers.>"}`;
+Reply with JSON only: {"persona": "<the buyer role and what it owns, max 15 words; no personal names>", "level": "<one of: ${levels.join(", ")}>", "why_now": "<1-2 natural sentences stating the TRIGGER, opening with the fact itself, using only dated or sourced facts from the evidence: what happened (go-live, release, hiring, budget) and why that makes this the window to buy. A reason, never an instruction: do not start with "Reach out" or mention contacting anyone. Cite facts from the evidence, not score numbers.>"}`;
 }
 
 export function parseInsights(text: string): Generated {
