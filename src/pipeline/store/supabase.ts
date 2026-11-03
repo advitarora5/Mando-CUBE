@@ -6,7 +6,7 @@ import type { ScoreRow } from "../../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
   CaptureRow, CompanyRow, ContactRow, ExtractionRecord, PipelineStore, RawItem, ReviewItem, RunCounts, RunStatus,
-  SignalInput, SignalRow, SourceRow, StoredScore, WorkdaySite,
+  SignalInput, SignalRow, SourceRow, StoredScore, WorkdaySite, ResolverAttempt, ResolverCutoffs, WebsiteResolution, WebsiteCapture,
 } from "../types.ts";
 
 export function assertAllowedTarget(url: string, allowRemote: string | undefined): string {
@@ -25,8 +25,10 @@ const SCORE_FIELDS = "id, company_id, assessed_at, rubric_version, tier, authori
 export class SupabaseStore implements PipelineStore {
   readonly kind = "supabase" as const;
   readonly db: SupabaseClient;
+  readonly databaseUrl: string;
   constructor(url: string, key: string, allowRemote?: string) {
     assertAllowedTarget(url, allowRemote);
+    this.databaseUrl = new URL(url).origin;
     this.db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   }
 
@@ -127,6 +129,30 @@ export class SupabaseStore implements PipelineStore {
     if (res.error?.code === "23505") return this.addReviewItem(item);
     return { id: (this.check(res, "add review item") as { id: string }).id, inserted: true };
   }
+  async signalsForReview(itemId: string) {
+    return this.all<SignalRow>(() => this.db.from("signals").select("*").eq("review_item_id", itemId).is("company_id", null).order("id"), "review signals");
+  }
+  async websiteEvidenceCaptures(name: string, limit: number): Promise<WebsiteCapture[]> {
+    const rows = this.check(await this.db.from("raw_captures").select("*, signals(last_seen_at)")
+      .eq("source_id", "workday-career-sites").eq("meta->>kind", "workday_job").eq("meta->>normalized_name", name).eq("http_status", 200)
+      .order("fetched_at", { ascending: false }).order("id").limit(limit), "website evidence captures") as (WebsiteCapture & { signals: { last_seen_at: string }[] })[];
+    return rows.map(({ signals, ...capture }) => ({ ...capture, last_seen_at: signals.reduce((latest, s) => s.last_seen_at > latest ? s.last_seen_at : latest, capture.fetched_at) }));
+  }
+  async fillReviewWebsite(id: string, domain: string) {
+    const rows = this.check(await this.db.from("review_queue").update({ candidate_domain: domain }).eq("id", id).eq("status", "pending").is("candidate_domain", null).select("id"), "fill review website") as { id: string }[];
+    return rows.length > 0;
+  }
+  async websiteResolution(name: string) {
+    return this.check(await this.db.from("website_resolutions").select("*").eq("normalized_name", name).maybeSingle(), "website resolution") as WebsiteResolution | null;
+  }
+  async saveWebsiteResolution(value: WebsiteResolution) { this.check(await this.db.from("website_resolutions").upsert(value), "save website resolution"); }
+  async updatePendingReview(id: string, patch: { candidate_domain: string | null; reason: ReviewItem["reason"]; suggested_company_id: string | null; candidate_name?: string }) {
+    const rows = this.check(await this.db.from("review_queue").update(patch).eq("id", id).eq("status", "pending").neq("reason", "similar_name").select("id"), "update pending review") as { id: string }[];
+    if (!rows.length) throw Error("review is no longer eligible");
+  }
+  async admitReview(id: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null) {
+    return this.check(await this.db.rpc("pipeline_admit_review", { p_item: id, p_domain: domain, p_source: source, p_existing_company: existingCompanyId, p_run_id: runId }), "admit review") as string;
+  }
   async reviewItems(status?: ReviewItem["status"]) {
     return this.all<ReviewItem>(() => {
       const query = this.db.from("review_queue").select("*").order("created_at", { ascending: false }).order("id");
@@ -163,8 +189,18 @@ export class SupabaseStore implements PipelineStore {
     for (let i = 0; i < names.length; i += 200) rows.push(...(this.check(await this.db.from("workday_resolver_attempts").select("normalized_name").in("normalized_name", names.slice(i, i + 200)), "resolver attempts") as { normalized_name: string }[]));
     return new Set(rows.map(r => r.normalized_name));
   }
-  async saveResolverAttempt(a: { normalized_name: string; company_name: string; found: boolean; probes: number }) {
-    this.check(await this.db.from("workday_resolver_attempts").upsert({ ...a, tried_at: new Date().toISOString() }), "save attempt");
+  async dueResolverAttempts(cutoffs: ResolverCutoffs, limit: number) {
+    if (limit <= 0) return [];
+    const results = await Promise.all([true, false].map(found => this.db.from("workday_resolver_attempts")
+      .select("normalized_name, company_name, found, probes, tried_at").eq("found", found)
+      .lte("tried_at", found ? cutoffs.foundBefore : cutoffs.missBefore)
+      .order("tried_at").order("normalized_name").limit(limit)));
+    return results.flatMap(r => this.check(r, "due resolver attempts") as ResolverAttempt[])
+      .sort((a, b) => Number(b.found) - Number(a.found) || a.tried_at.localeCompare(b.tried_at) || a.normalized_name.localeCompare(b.normalized_name))
+      .slice(0, limit);
+  }
+  async saveResolverAttempt(a: Omit<ResolverAttempt, "tried_at"> & { tried_at?: string }) {
+    this.check(await this.db.from("workday_resolver_attempts").upsert({ ...a, tried_at: a.tried_at ?? new Date().toISOString() }), "save attempt");
   }
 
   async contactsForCompany(companyId: string) {

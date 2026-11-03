@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { contentFingerprint } from "../../domain/ingestion/fingerprint.ts";
 import { PoliteHttp, STOPPING_FAILURES } from "../http.ts";
 import type { Collector, CollectLimits, CollectResult, PipelineContext, RawItem, SourceRow } from "../types.ts";
+import { WorkdayTenantCrawl, WorkdayTenantWayback } from "./crawl.ts";
 import { WorkdayJobs, WorkdayResolver } from "./workday.ts";
 
 const empty = (): CollectResult => ({ items: [], requests: 0, blocked: null, errors: [], spend_usd: 0 });
@@ -101,6 +102,8 @@ export class TregWorkdayUsers implements Collector {
 export const collectors: Record<string, Collector> = {
   sec_company_list: new SecCompanyList(),
   workday_site_resolver: new WorkdayResolver(),
+  workday_tenant_crawl: new WorkdayTenantCrawl(),
+  workday_tenant_wayback: new WorkdayTenantWayback(),
   workday_career_site: new WorkdayJobs(),
   treg_reddit: new TregReddit(),
   treg_tech_lookup: new TregWorkdayUsers(),

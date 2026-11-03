@@ -2,12 +2,15 @@
 // Failures are counted and logged per item; a stage never throws out of a run.
 import { companyAliases } from "../data/company-aliases.ts";
 import { decideMatch, TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
-import { isSimilarName, nameSimilarity, normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
+import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
-import { mayScore } from "../domain/ingestion/settings.ts";
+import { financialsFor } from "./financials.ts";
+import { isSignalFresh, mayScore } from "../domain/ingestion/settings.ts";
 import { categories } from "../domain/contracts/company.ts";
+import { resolveWebsite, WebsiteHttp, WEBSITE_LIMIT, websiteSignature, loadEmployerLinks, confirmedName } from "./website.ts";
 import { collectors } from "./collectors/sources.ts";
 import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
+import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
 export type StageResult = { counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
@@ -104,22 +107,6 @@ export async function extractStage(ctx: PipelineContext, opts: { limit: number; 
 
 // ---------- match ----------
 
-type DomainLookup = { domain: string | null; confirmed: boolean; name: string | null };
-
-// Name -> website through treg's free domain finder. Confirmed only when the returned company name matches.
-export async function resolveDomain(ctx: PipelineContext, name: string): Promise<DomainLookup> {
-  if (!ctx.treg) return { domain: null, confirmed: false, name: null };
-  const query = name.replace(/\s*\/[A-Z]{2}\/?\s*$/, "").trim();
-  const res = await ctx.treg.call("hunter.x.domain-finder", { query: { company: query, limit: 3 }, headers: { "X-Treg-Route-Max-Cost": "0" } });
-  if (res.cost_usd > 0) await ctx.spend.record({ provider: "treg", endpoint: "hunter.x.domain-finder", step: "domain", subject: name, idempotency_key: "", worst_case_usd: 0, cost_usd: res.cost_usd, outcome: "unexpected charge on a free endpoint" });
-  if (!res.ok) return { domain: null, confirmed: false, name: null };
-  const rows = ((res.body as { data?: { domain?: string; company_name?: string }[] })?.data ?? []).filter(r => r.domain);
-  const target = normalizeName(name);
-  const best = rows.find(r => normalizeName(r.company_name) === target) ?? rows.find(r => nameSimilarity(r.company_name ?? "", name) >= 0.85);
-  if (best) return { domain: normalizeDomain(best.domain), confirmed: true, name: best.company_name ?? null };
-  return { domain: normalizeDomain(rows[0]?.domain), confirmed: false, name: rows[0]?.company_name ?? null };
-}
-
 // Display name: SEC titles arrive in capitals ("MARSH & MCLENNAN COMPANIES, INC."); prefer the resolver's spelling.
 export function displayName(name: string, resolved: string | null): string {
   if (resolved && normalizeName(resolved) && isSimilarName(resolved, name)) return resolved;
@@ -134,59 +121,118 @@ export function displayName(name: string, resolved: string | null): string {
   }).join("");
 }
 
-export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean } = {}): Promise<StageResult> {
+export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean; localIdentity?: LocalIdentityAdmission } = {}): Promise<StageResult> {
+  if (opts.localIdentity) assertLocalAdmissionStore(ctx);
   const r = result();
   const settings = await ctx.store.settings();
-  const unassigned = (await ctx.store.unassignedSignals()).filter(s => s.company_name);
+  const allReviews = await ctx.store.reviewItems();
+  const reviews = new Map(allReviews.filter(item => item.status === "pending").map(item => [item.normalized_name, item]));
+  const resolved = new Map(allReviews.filter(item => item.status !== "pending").map(item => [item.normalized_name, item]));
   const groups = new Map<string, SignalRow[]>();
-  for (const s of unassigned) {
-    const key = normalizeName(s.company_name);
-    if (key) groups.set(key, [...(groups.get(key) ?? []), s]);
+  for (const signal of (await ctx.store.unassignedSignals()).filter(s => s.company_name)) {
+    const key = normalizeName(signal.company_name);
+    if (key) groups.set(key, [...(groups.get(key) ?? []), signal]);
   }
+  // Reviews own their signals, so unassignedSignals alone cannot discover recoverable candidates.
+  for (const item of reviews.values()) {
+    const signals = await ctx.store.signalsForReview(item.id);
+    groups.set(item.normalized_name, [...(groups.get(item.normalized_name) ?? []), ...signals]);
+  }
+  if (opts.localIdentity) for (const name of groups.keys()) if (!opts.localIdentity.names.has(name)) groups.delete(name);
   bump(r, "candidates", groups.size);
-  let created = 0;
+  let created = 0, lookups = 0;
+  const deadline = Date.now() + (opts.localIdentity ? 30 : 5) * 60 * 1000;
+  const initialSpend = ctx.spend.spent("treg");
   const known = await ctx.store.companies();
-  const pending = new Map((await ctx.store.reviewItems("pending")).map(item => [item.normalized_name, item.id]));
+  const sites = await ctx.store.workdaySites(true);
+  const http = new WebsiteHttp(ctx);
   for (const [normalized, signals] of groups) {
+    if (!signals.length) continue;
+    if (Date.now() >= deadline) { bump(r, "website_deferred_time_cap"); break; }
     try {
       const name = signals[0].company_name!;
-      // A person is already deciding about this name: new evidence joins that review item instead of a new decision.
-      const waiting = pending.get(normalized);
-      if (waiting && !opts.dryRun) {
-        await ctx.store.assignSignals(signals.map(s => s.id), { review_item_id: waiting });
-        bump(r, "joined_pending_review");
+      const waiting = reviews.get(normalized);
+      const done = resolved.get(normalized);
+      const ids = signals.map(s => s.id);
+      if (done && !waiting) {
+        if (!opts.dryRun) {
+          const target = done.resolved_company_id ? { company_id: done.resolved_company_id } : { review_item_id: done.id };
+          await ctx.store.assignSignals(ids, target);
+          await ctx.store.linkWorkdaySites(normalized, target);
+        }
+        bump(r, done.status === "rejected" ? "kept_rejected" : "joined_resolved_review");
         continue;
       }
-      const lookup = await resolveDomain(ctx, name);
-      const best = Math.max(...signals.map(s => s.confidence));
-      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.confirmed, best_confidence: best }, known, { canCreate: created < settings.max_new_companies_per_run }, companyAliases);
-      const ids = signals.map(s => s.id);
+      const candidateSites = sites.filter(site => site.normalized_name === normalized);
+      const employerLinks = await loadEmployerLinks(ctx, name, candidateSites);
+      const cached = await ctx.store.websiteResolution(normalized);
+      const due = !!opts.localIdentity || !cached || cached.input_signature !== websiteSignature(candidateSites, employerLinks) || Date.parse(cached.next_check_at) <= ctx.now().getTime();
+      if (due && lookups >= WEBSITE_LIMIT) { bump(r, "website_deferred_run_cap"); continue; }
+      if (due) lookups++;
+      const lookup = opts.localIdentity
+        ? await opts.localIdentity.resolve(ctx, name, candidateSites, http, employerLinks)
+        : await resolveWebsite(ctx, name, candidateSites, http, !!opts.dryRun, employerLinks);
+      if (opts.localIdentity) bump(r, lookup.status === "confirmed" ? "identity_confirmed" : "identity_held");
+      bump(r, due ? "website_checked" : "website_cached");
+      if (lookup.status === "error") {
+        bump(r, "error_website"); r.errors.push(`website ${normalized}: ${lookup.reason}`);
+        if (/treg HTTP (401|402|403|429)|zero charge/i.test(lookup.reason)) { r.blocked = lookup.reason; break; }
+      }
+      // Verification can fill an empty website on human-only reviews, but never resolve them or
+      // overwrite a person's website choice. Rejected/resolved reviews were handled above.
+      if (waiting?.reason === "similar_name") {
+        if (!opts.dryRun) {
+          await ctx.store.assignSignals(ids, { review_item_id: waiting.id });
+          await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id });
+          if (lookup.status === "confirmed" && await ctx.store.fillReviewWebsite(waiting.id, lookup.domain!)) bump(r, "review_websites_confirmed");
+        }
+        bump(r, "joined_pending_review"); continue;
+      }
+      const best = Math.max(0, ...signals.filter(s => isSignalFresh(s, settings, ctx.now())).map(s => s.confidence));
+      // A slug-derived name (Common Crawl tenant) is replaced by the name the confirmed website uses.
+      const pageName = candidateSites.some(s => s.match_kind === "first_word") ? confirmedName(lookup) : null;
+      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", best_confidence: best }, known,
+        { canCreate: created < settings.max_new_companies_per_run, identityVerified: !!opts.localIdentity && lookup.status === "confirmed" }, companyAliases);
+
       if (opts.dryRun) { bump(r, `would_${decision.action}`); continue; }
       if (decision.action === "skip") { bump(r, "excluded"); continue; }
-      if (decision.action === "attach") {
+      const source = signals.find(s => s.type === "known_customer" && /^https:\/\//.test(s.source_url))?.source_url ?? signals.find(s => /^https:\/\//.test(s.source_url))?.source_url;
+      if ((decision.action === "create" || decision.action === "attach") && !source) throw Error("company admission requires an HTTPS evidence source");
+      if (waiting) {
+        // New signals join before the RPC; on failure the pending review retains them for retry.
+        await ctx.store.assignSignals(ids, { review_item_id: waiting.id });
+        await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id });
+        if (decision.action === "create" || decision.action === "attach") {
+          if (pageName && decision.action === "create") await ctx.store.updatePendingReview(waiting.id, { candidate_name: pageName, candidate_domain: waiting.candidate_domain, reason: waiting.reason, suggested_company_id: waiting.suggested_company_id });
+          const id = await ctx.store.admitReview(waiting.id, lookup.domain!, source!, decision.action === "attach" ? decision.company_id : null, ctx.runId);
+          if (decision.action === "create") { known.push({ id, name: pageName ?? waiting.candidate_name, domain: lookup.domain, employee_count: waiting.employee_count, pipeline: true }); created++; }
+          bump(r, decision.action === "create" ? "new_companies" : "attached_existing");
+          bump(r, "recovered_reviews");
+        } else {
+          await ctx.store.updatePendingReview(waiting.id, { candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, reason: decision.reason, suggested_company_id: decision.suggested_company_id });
+          bump(r, "joined_pending_review");
+        }
+      } else if (decision.action === "attach") {
         await ctx.store.assignSignals(ids, { company_id: decision.company_id });
         await ctx.store.linkWorkdaySites(normalized, { company_id: decision.company_id });
         bump(r, "attached_existing");
       } else if (decision.action === "create") {
-        const companyName = displayName(name, lookup.name);
-        const id = await ctx.store.createPipelineCompany({ name: companyName, domain: lookup.domain, employee_count: null, source: signals.find(s => s.type === "known_customer")?.source_url ?? signals[0].source_url }, ctx.runId, { signal_ids: ids, normalized_name: normalized });
+        const companyName = pageName ?? displayName(name, null);
+        const id = await ctx.store.createPipelineCompany({ name: companyName, domain: lookup.domain, employee_count: null, source: source! }, ctx.runId, { signal_ids: ids, normalized_name: normalized });
         known.push({ id, name: companyName, domain: lookup.domain, employee_count: null, pipeline: true });
-        created++;
-        bump(r, "new_companies");
+        created++; bump(r, "new_companies");
       } else {
-        // Only a confirmed website is stored: approving an item must never create a company with a wrong guess.
-        const item = await ctx.store.addReviewItem({ candidate_name: displayName(name, lookup.name), normalized_name: normalized, candidate_domain: lookup.confirmed ? lookup.domain : null, employee_count: null, suggested_company_id: decision.suggested_company_id, reason: decision.reason });
+        const item = await ctx.store.addReviewItem({ candidate_name: pageName ?? displayName(name, null), normalized_name: normalized, candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, employee_count: null, suggested_company_id: decision.suggested_company_id, reason: decision.reason });
         await ctx.store.assignSignals(ids, { review_item_id: item.id });
         await ctx.store.linkWorkdaySites(normalized, { review_item_id: item.id });
         bump(r, item.inserted ? `review_${decision.reason}` : "review_existing");
       }
       if (lookup.domain) bump(r, "with_website");
       if (best >= TRUSTED_CONFIDENCE) bump(r, "trusted_candidates");
-    } catch (error) {
-      bump(r, "error_match");
-      r.errors.push(`match ${normalized}: ${message(error)}`);
-    }
+    } catch (error) { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
   }
+  r.requests = http.requests;
+  r.treg_spend_usd = ctx.spend.spent("treg") - initialSpend;
   return r;
 }
 
@@ -218,7 +264,9 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       // A company with no evidence yet still gets a row, so the dashboard shows "Needs evidence" instead of nothing.
       if (!signals.length && !contacts.length) bump(r, "no_evidence");
       // The employee count has no source link on the company row, so the +3 size bonus is not awarded automatically.
-      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null });
+      // ponytail: SEC facts are refetched on every score pass (once per company per run); cache them in a table if that gets slow.
+      const financials = await financialsFor(ctx, company.name);
+      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const latest = await ctx.store.latestScore(company.id);
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;

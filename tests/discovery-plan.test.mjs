@@ -33,7 +33,7 @@ test('source failures preserve other collection attempts and remain visible in f
     calls.push(opts);
     return { jobs: [{ status: opts.source === 'workday-tenant-crawl' ? 'failed' : 'succeeded' }] };
   }, discoveryPlan());
-  assert.equal(calls.length, 8);
+  assert.equal(calls.length, 9);
   assert.equal(result.status, 'needs_attention');
 });
 test('processing failure stops dependent matching and scoring', async () => {

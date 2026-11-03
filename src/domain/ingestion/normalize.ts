@@ -11,7 +11,7 @@ export function normalizeName(name: string | null | undefined): string {
   const words = (name ?? "")
     .normalize("NFKD").replace(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/\/[a-z]{2}\/?/g, " ") // SEC state tags such as "/DE/" or "/ON/"
+    .replace(/\/[a-z]{2,3}\/?\s*$/g, " ") // Complete trailing SEC tags: /DE/, /CAN/, /ADR. Never leave a partial suffix.
     .replace(/&/g, " and ")
     .replace(/['’`]/g, "")
     .replace(/[^a-z0-9]+/g, " ")

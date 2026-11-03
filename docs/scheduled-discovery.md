@@ -1,7 +1,7 @@
 # Scheduled discovery skeleton
 
-Task 1 coordinates existing discovery and ingestion. This first PR does not integrate
-refined-pipeline, activate schedules, apply migrations or enable contact research.
+Task 1 coordinates existing discovery and ingestion. The local feature branch now integrates
+refined-pipeline with main, but does not activate schedules, apply migrations or enable contact research.
 The dashboard remains on Vercel. GitHub Actions is the proposed background runner.
 
 ## Try the skeleton
@@ -28,10 +28,13 @@ This writes to a separately prepared local Supabase database and fetches public 
 It does not create that database or run migrations. A remote database target is rejected.
 All five source configurations must exist and be enabled before collection begins:
 SEC list, Workday resolver, Common Crawl, Wayback, and Workday job collection.
-Main currently lacks the Common Crawl and Wayback implementation. Do not add empty
-source entries merely to pass preflight; integrate and validate the actual collectors.
+The feature branch includes the Common Crawl and Wayback implementation. A database
+must still have the appropriate schema and source configuration from the existing migrations.
+Do not add empty source entries merely to pass preflight.
 
-The sequence collects all sources, then extracts, matches/admit-or-holds, and scores.
+The sequence collects discovery sources, extracts their discovered sites, collects jobs,
+then extracts postings, matches/admit-or-holds, and scores. The first extraction is necessary
+so newly discovered sites can be collected during the same invocation.
 Existing matching and storage own deduplication; no second admission implementation is added.
 One collector failure does not suppress other collectors. The final status remains
 needs_attention even if processing saved partial results. Failed or partial processing

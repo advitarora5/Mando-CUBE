@@ -8,7 +8,8 @@ export function discoveryPlan(limit = 10) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw Error('limit must be an integer from 1 to 100');
   return {
     version: 1, limit, paid_services: false,
-    steps: [...DISCOVERY_SOURCES.map(source => ({ plan: 'collect', source })),
+    steps: [...DISCOVERY_SOURCES.slice(0, -1).map(source => ({ plan: 'collect', source })),
+      { plan: 'extract' }, { plan: 'collect', source: 'workday-career-sites' },
       ...['extract', 'match', 'score'].map(plan => ({ plan }))],
   };
 }

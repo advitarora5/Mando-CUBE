@@ -14,6 +14,7 @@ treg r/workday (insight feed) ───┘   (append-only)  (structured + model)
 ```bash
 npm ci
 npx supabase start                    # local, isolated database (Docker). First start pulls images.
+npx supabase db push --local          # apply new pipeline migrations to an existing local database
 cp .env.example .env.pipeline.local   # then fill the PIPELINE_* values below (file is gitignored)
 ollama pull qwen2.5:7b                # default local model
 npm test && npm run test:integration
@@ -28,7 +29,8 @@ npm test && npm run test:integration
 | `PIPELINE_LLM` | `ollama` (default) \| `openai` \| `gemini` \| `none`. |
 | `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_NUM_CTX` | Local model (default `qwen2.5:7b`, context 6144). |
 | `PIPELINE_ALLOW_PAID_LLM`, `PIPELINE_LLM_BUDGET_USD`, `OPENAI_API_KEY`, `GEMINI_API_KEY` | Paid models. Off unless `PIPELINE_ALLOW_PAID_LLM=1` **and** a budget > 0. Ask before enabling. |
-| `TREG_TOKEN` | treg per-org agent token (CI). Locally, when empty, the signed-in `treg` CLI is used. |
+| `TREG_TOKEN` | Existing treg credential. When empty, the signed-in `treg` CLI is used unless disabled. |
+| `TREG_ORG` / `TREG_DISABLE_CLI` | Organization slug (our local setup uses `cube`); set `TREG_DISABLE_CLI=1` to prevent implicit CLI fallback. |
 | `TREG_BUDGET_USD` | Session cap for paid treg calls (default 0.50). `--max-spend` lowers it per run, never raises it. |
 | `PIPELINE_CONTACT` | Contact address in every collector User-Agent. SEC answers 403 without one. |
 | `PIPELINE_SEC_FILE` | Optional local copy of `company_tickers.json`, used only when `PIPELINE_CONTACT` is empty. |
@@ -60,6 +62,175 @@ Apply repository migrations through the normal release process before relying on
 `--limit` is items per source (for the resolver: Workday sites to find; it tries up to six names per site).
 `--no-llm` and `--no-treg` switch those off for one run.
 
+Discovery selects unattempted company names in SEC list order. Attempt history is checked in
+pages of up to 200 names until the requested batch is filled or the list is exhausted, so later
+runs advance beyond previously probed names even deep into the list.
+
+The resolver interleaves new names with due rechecks. Successful discoveries become eligible
+after **7 days**, completed misses after **30 days**. Known-site refresh takes priority over
+miss retries; within each group the oldest attempt goes first. These are eligibility intervals:
+actual execution depends on the schedule and request/item limits. At scale, allocate enough
+capacity to revisit known sites before their 14-day evidence lifetime ends. Rechecks count toward
+the resolver's existing limit, so not every returned site will be newly discovered.
+
+Known hosts are checked directly before tenant guesses. Unchanged robots captures refresh the
+existing signals' `last_seen_at` without duplicating them. Failed or vanished sites do not renew
+evidence. Network/server failures and searches cut short by the request cap do not become
+completed misses or reset an existing retry clock; they remain eligible on the next run. The
+existing HTTP retry/backoff and source-stop rules still apply. Dry runs do not save attempt times.
+This uses the existing `found` / `tried_at` columns; no database migration is required.
+
+## Website confirmation and review recovery
+
+### Local AI admission experiment
+
+`npm run pipeline:admission:local -- --input candidates.json --output var/new-admission-run`
+is a separate manual experiment. It refuses remote database/model endpoints and remote
+overrides. It uses local Supabase and local Ollama `qwen2.5:7b`; it never runs scoring,
+contact research or paid APIs. Normal pipeline commands and scheduled admission retain
+their existing rules. No migration or source-setting change is needed.
+
+Input is an array such as `[{"name":"Example Inc","corporate_urls":["https://example.com/"]}]`
+(corporate URLs optional), or a saved SEC-object subset with `title` fields. Maximum 25
+names. Discovery names must exist in the saved SEC snapshot. The experiment scopes
+discovery/collection to that list, enables corporate-careers discovery only for this run,
+and retains captures and signals. `--admission-only` instead evaluates already collected
+candidates. Extraction is structured; Qwen is used for identity only.
+For a frozen comparison, combine `--admission-only --packets packets.json` to use the
+exact previously collected identity evidence without refreshing the paired pages/jobs.
+Packets must match the selected name and each exact site, and remain within the normal
+fourteen-day evidence window. This does not restore the database baseline for you.
+`--reuse-results previous-results.json` can reuse valid answers with `--packets`; the
+normal signature, model digest and freshness checks still apply. Model calls and reused
+answers are counted separately in `identity-call-counts.json`.
+
+AI-confirmed corporate identity replaces both direct-link proof and the 0.9 admission
+gate in this path; original signal confidence is preserved. Up to three corporate URLs
+and three exact sites are evaluated per candidate, within `--max-checks` (default 50,
+maximum 100) and the matching time/request caps. Every observed enabled sibling site
+must pass for one unambiguous corporate domain; disabled siblings or more than three
+sites require manual review because existing admission RPCs link sites by company name.
+Duplicate/merge review, prior human resolutions and the new-company cap still apply.
+Negative/uncertain verdicts, absent evidence, failures and exhausted checks remain held.
+AI confirmation is never written to the normal direct-link cache.
+
+The new output directory records selected names, a baseline, stage reports, frozen
+identity packets, full verdicts/explanations, candidate outcomes and retained signals.
+Missing-site discoveries and missing model input are counted separately. Legacy review
+reason `no_website` also covers AI identity holds; use `identity-outcomes.json` for the
+specific explanation. These outputs do not measure accuracy until independent reference
+labels are supplied. Snapshot the local database before the controlled old/new comparison;
+reuse the same frozen packets for policy comparison, and label a fresh evaluation batch
+before revealing model verdicts. Evidence still expires after fourteen days.
+
+### Discovery recovery (local experiment)
+
+The resolver accepts exact tenant/pod sitemap URLs on both `myworkdayjobs.com`
+and `wdN.myworkdaysite.com/recruiting/tenant/site/`. Full-name guessing tries
+seven configured common pods by default, including observed `wd503`; first-word
+guessing still tries three. Existing request caps apply. Complete trailing SEC
+tags such as `/CAN/` are removed before generating names, without leaving a fragment.
+
+Primary-site selection uses the tenant brand before the shortest career-like name. For
+example, `shell` prefers `ShellCareers` over `NOVCareers`. The job collector can recover
+observed alternatives from a saved robots capture, including databases that only stored
+an older primary choice. It tries at most three sites per tenant. A successful unfiltered
+empty job response allows trying the next site; zero keyword hits on an otherwise live
+site do not. Access errors and challenges stop that tenant rather than triggering fallback.
+
+The resolver has an **opt-in** `sources.config.corporate_discovery: true` path after
+name-derived tenant guesses miss. It starts with `corporate_websites[normalized_name]`
+(a URL or URL array), existing company/review domains, then a compact full-name `.com`
+hypothesis. These URLs are candidates, not ownership evidence. Without a configured
+lookup service, this remains a limited domain-discovery strategy.
+
+Each homepage must independently identify the complete normalized company name. The
+resolver follows same-company careers links and can check conventional `careers.` / `jobs.`
+subdomains and `/careers`; every resulting page must also independently identify the
+company. Only HTTPS links to an exact `tenant.wdN.myworkdayjobs.com` host and site are
+extracted. Comments, script-only anchors, malformed paths and off-domain careers redirects
+cannot supply a site. Corporate HTTP uses the existing DNS, robots, redirect, body and
+timeout guards. It has a maximum of twelve requests per company, included in the resolver's
+overall request cap; at most two candidate roots and three careers URLs per root are tried.
+Access/transport failures are retryable, not completed discovery misses.
+
+Successful HTML is retained unchanged as a `corporate_careers` raw capture. Extraction
+rechecks its page identity and exact anchor, creates a `careers_link` site and a **0.6**
+discovery signal, and retains the verbatim source anchor. This does not confirm the
+corporate website, change the admission threshold or connect the shadow identity checker
+to admission. A fresh trusted signal and the existing website confirmation are still required.
+
+Do not enable this experiment on scheduled or shared runs without reviewing a local
+comparison first. The saved twenty-name batch is useful for a before/after discovery
+comparison, not a fresh identity holdout.
+
+Apply the website migrations through `202610250002_employer_website_confirmation.sql` to the local database before running this version.
+The migration adds `website_resolutions` with service-role-only access and an atomic review-admission
+RPC. Production rollout is a separate step: the Supabase integration may deploy migrations merged to main.
+
+Website resolution first checks distinct domains explicitly linked from saved Workday postings,
+even if no lookup provider suggests them. A domain must independently identify the company;
+posting links alone are insufficient. At most five source domains are checked per candidate;
+additional source domains leave the result unresolved for review. A unique complete confirmation
+does not require Hunter or TinyFish to be configured or called.
+
+If no source domain confirms, Treg's free `hunter.x.domain-finder` supplies up to three candidates per query. If a legal-name query returns no usable exact-name candidates, one retry uses the complete normalized name (for example, `ASML HOLDING NV` → `asml`). Both query results are saved; unrelated names remain unconfirmed. Both maximum route cost and waterfall
+are set to zero, and successful HTTP/CLI responses must explicitly report a zero charge. There is no paid
+website-lookup fallback. If none of those candidates passes confirmation, one `tinyfish.web.search`
+request searches the full company name plus “official corporate website careers.” This is a different
+provider accessed through the existing Treg transport. It also requires an explicit zero charge and
+disables paid fallback. At most ten search rows are inspected and three safe distinct hostnames
+checked; explicit parent hostnames are preferred over their subdomains only when both occur in the
+results. Search queries, selected URLs and titles are retained as candidate provenance. Titles and
+snippets are not confirmation evidence. This path does not use the contact-enrichment budget or an LLM.
+
+A website is confirmed only when:
+
+1. For Hunter candidates, the provider name exactly matches the normalized candidate name (legal suffixes are ignored). Posting links and search results supply candidates independently of Hunter and must pass the following checks.
+2. Its homepage identifies that same company in its title, site-name metadata, structured `Organization` or `Corporation` data, or an explicit copyright element naming the complete legal owner. Arbitrary body mentions and first-word brand guesses are insufficient.
+3. Either its homepage/careers pages link to the observed enabled Workday **tenant and site**, or a stored job from that exact tenant/site explicitly links to the candidate website through `hiringOrganization.url` or an anchor in `jobPostingInfo.jobDescription`. The candidate homepage must still identify the company independently.
+4. Corroboration resolves to one canonical hostname. Source domains are checked before provider lookups. Multiple corroborated websites stay unresolved. A competing candidate that independently identifies the company but cannot finish its ownership checks also prevents confirmation. Failures before company identity is established remain in the saved evidence but do not veto another candidate's complete proof. With no complete proof, access failures remain errors with retries. Weak signals remain pending even when the website is confirmed; this does not upgrade discovery confidence or change the admission threshold.
+
+HTTPS page and robots.txt redirects are limited to three hops and checked individually. Rules obtained through a robots redirect apply to the original origin; page redirects check the destination rules too. Loops, unsafe targets and genuine challenges remain failures. Fetches have
+time/size/request limits and reject IP/private-network targets. HTML is capped at 2 MiB, robots at 512 KiB. Up to three careers pages are followed, prioritizing the landing page and its job-search links over saved jobs or unrelated news. A normal reCAPTCHA form script is not treated as an access challenge. No browser rendering or access-control bypass
+is attempted. A homepage's HTTP 200, matching name alone or arbitrary body mention is insufficient.
+Aliases that redirect to the same verified hostname collapse together. A parent/subdomain relationship to an
+existing company goes to human review rather than creating another company or guessing a root domain.
+
+Employer-link evidence comes only from HTTP-200 job captures on an enabled, exact Workday host and CXS tenant/site path, with matching collector metadata. At most 20 recent captures per company are inspected. Evidence must have been fetched or seen through its signals within 14 days. Shared document/social/ATS domains, comments, script-only links and unsafe URLs cannot confirm ownership. A benefits link on a third-party domain does not pass unless that website independently identifies the candidate company; known shared hosting platforms are excluded entirely. A link on the company's own domain (such as NVIDIA benefits on `nvidia.com`) can corroborate that domain. Workday discovery confidence is not upgraded by website confirmation.
+
+`website_resolutions` retains queries, candidate domains/names, employer URLs with capture IDs/field names, identity text, proof-page and Workday URLs,
+reasons, timestamps and the input signature. Confirmations are reusable for 30 days; unresolved results
+retry after 7 days; transport/check errors retry after 1 day. New eligible employer-link evidence or a changed set of observed Workday sites
+invalidates the cache immediately; verifier version changes also invalidate older results. These intervals differ from the Workday discovery retry intervals above.
+At most 50 due candidates are evaluated per matching stage; website HTTP has a 300-request cap and the
+stage stops starting candidates after five minutes. Deferred work stays queued. Each request has a ten-second
+timeout; Treg lookup has a fifteen-second timeout. In-flight work may finish after the stage time threshold.
+
+Matching revisits pending `no_website`, `untrusted_signal` and `over_run_cap` reviews even without new
+unassigned signals. A fresh trusted signal, confirmed website, HTTPS evidence URL and room under the cap
+allow creation. Existing confirmed domain matches attach to the existing company. Recovered admission locks
+the pending review and creates/resolves/attaches in a single transaction; failure leaves it pending for retry.
+New signals/sites join that review before admission. Rejected decisions remain rejected; `similar_name`
+reviews remain human decisions. Confirmation may fill their empty website field, but cannot resolve them or overwrite an existing website choice. Cap-limited reviews can recover on the next run using cached confirmation.
+Expired signals cannot unlock company creation until fresh evidence arrives.
+
+Website/provider errors appear in matching stage errors and therefore the CLI failure signal. Provider
+401/402/403/429 and nonzero/unknown charge responses stop further lookups for that stage. Other candidates
+can continue after an individual website failure. Ordinary unresolved/ambiguous results remain review work.
+
+This deliberately favors precision. Short brand aliases, JavaScript-only pages,
+third-party careers portals outside the company domain, inaccessible pages and companies without either form of observable Workday corroboration may
+require manual review. A small live local batch must measure coverage before production or scheduling.
+Other input sources can reuse the lookup; automatic confirmation currently requires an observed Workday site.
+
+Inspect the evidence with:
+
+```sql
+select company_name, status, domain, reason, next_check_at, evidence
+from website_resolutions order by checked_at desc;
+```
+
 ## 3. Stages and rules
 
 | Stage | What it does | Rules |
@@ -68,7 +239,7 @@ Apply repository migrations through the normal release process before relying on
 | Raw store | `raw_captures` | Body exactly as received + SHA-256 fingerprint (volatile fields such as "Posted 3 Days Ago" excluded). Unchanged items are skipped and only refresh their signals' `last_seen_at`. Immutable (trigger). `pending_captures` is the work queue. |
 | Extract | `src/pipeline/extract.ts` | Structured fields read directly (titles, dates, URLs, Workday tenant). The model reads only messy text into the fixed schema (`src/domain/ingestion/extraction-schema.ts`), temperature 0, JSON-schema constrained, retry once, then dead-letter. Quotes must be verbatim (else the signal is dropped); company, products, timing words, dates and project type must be supported by the text (else cleared and counted as hallucinations). Model down = captures stay queued. |
 | Signals | `signals` | go_live, hiring, release_planning, known_customer, budget_clue, event; link, date, quote, confidence. Every type expires 14 days after last seen, except go-live (date bands). |
-| Match | `src/domain/ingestion/matching.ts` | Exact website match merges. Similar name -> review (`similar_name`, with suggestion). New company + confirmed website + trusted signal (≥0.9) -> created with `origin = pipeline` (atomic SQL function). Else review (`no_website`, `untrusted_signal`, `over_run_cap`). Workday itself is excluded. Size never blocks ("size unknown" when missing). |
+| Match | `src/domain/ingestion/matching.ts` | Confirmed exact website match merges. An unconfirmed website suggestion cannot assign signals to an existing company. Similar name -> review (`similar_name`, with suggestion). New company + confirmed website + trusted signal (≥0.9) -> created with `origin = pipeline` (atomic SQL function). Else review (`no_website`, `untrusted_signal`, `over_run_cap`). Workday itself is excluded. Size never blocks ("size unknown" when missing). |
 | Score | `src/domain/ingestion/pipeline-score.ts` on the shared `buildAssessment` / `evaluateTier` | Only companies in scope (`scoring_scope = pipeline_only` -> pipeline companies only; matched existing companies only receive signals). No evidence = "Assessment status: unknown. Needs evidence: ..." (shown as Not Enough Evidence, never a silent 0). A row is appended when numbers, tier or sources change, and at least every 14 days. |
 | Enrich | `src/pipeline/enrich.ts` | Only companies with Budget + Release + Timing ≥ `ready_for_contacts_threshold` (25). Free people search first; then one verified work-email lookup per contact within the treg cap. Never pays for LinkedIn; "valid" only = verified; risky stored unverified; invalid not stored; never guesses; same contact + step never paid twice. No budget -> `enrichment_requests.status = skipped_budget`, Authority/Reachability stay "Needs evidence", the run continues. |
 
@@ -100,6 +271,14 @@ select * from review_queue where status = 'pending' order by created_at desc;
 `npm run pipeline -- health` prints the same. A run's `status`: `succeeded`, `partial` (some items failed), `blocked`
 (source stopped: 403, CAPTCHA, rate limit or treg 402), `failed` (nothing worked). The runner also logs
 `ALERT: source ... last 3 runs` lines. Spend: `var/spend-ledger.jsonl` (gitignored) and `paid_calls`.
+
+For `pipeline run`, the CLI exits **0** when every executed stage succeeds and **1** if any stage is
+`partial`, `failed`, or `blocked`. Later stages still run, and the JSON report includes an overall
+`status` (`succeeded` or `failed`) plus each stage's `blocked` reason and `errors`. Standard error
+also lists unsuccessful stages, so GitHub Actions marks the command as failed. Every executed
+stage participates in this result; disabled sources do not run. Clean empty results, candidates
+awaiting review, and ordinary contact-budget skips remain successful. Logged source alerts alone
+do not change the exit code. This does not enable any schedules.
 
 ## 5. Add a source
 
