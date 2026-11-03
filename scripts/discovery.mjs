@@ -13,14 +13,21 @@ const save = summary => {
 
 const args = process.argv.slice(2);
 try {
-  let limit = 10, execute = false, approved = false;
+  let limit = 10, execute = false, approved = false, localAi = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--execute-local') execute = true;
     else if (args[i] === '--execute-approved') { execute = true; approved = true; }
+    else if (args[i] === '--local-ai') localAi = true;
     else if (args[i] === '--limit') limit = Number(args[++i]);
     else throw Error(`Unknown argument: ${args[i]}`);
   }
   const plan = discoveryPlan(limit);
+  let identityConfig = null, prepareLocalDiscoveryIdentity;
+  if (localAi) {
+    const identity = await import('./discovery-local-identity.mjs');
+    identityConfig = identity.assertLocalIdentityMode({ execute, approved }, process.env);
+    prepareLocalDiscoveryIdentity = identity.prepareLocalDiscoveryIdentity;
+  }
   let summary = { status: 'prepared', ...plan };
   if (execute) {
     if (args.includes('--execute-local') && approved) throw Error('Choose one database mode');
@@ -30,6 +37,7 @@ try {
     const { runPipeline } = await import('../src/pipeline/runner.ts');
     const ctx = await contextFromEnv({ ...process.env, PIPELINE_ALLOW_REMOTE: approved ? process.env.PIPELINE_ALLOW_REMOTE : '', TREG_BUDGET_USD: '0', PIPELINE_LLM_BUDGET_USD: '0' },
       { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
+    if (identityConfig) await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true);
     const maxNew = Number(process.env.DISCOVERY_MAX_NEW || 3), maxRequests = Number(process.env.DISCOVERY_MAX_REQUESTS || 20);
     if (![maxNew, maxRequests].every(n => Number.isInteger(n) && n >= 1 && n <= 100)) throw Error('Invalid run bounds');
     const settings = ctx.store.settings.bind(ctx.store), sources = ctx.store.sources.bind(ctx.store);
@@ -44,10 +52,11 @@ try {
     // Discovery scores only companies touched by matching. Periodic full rescoring
     // remains the responsibility of the existing daily/rescore plans.
     const prepareScoreScope = discoveryScoreScope(ctx.store);
-    summary = { ...plan, status: 'running', jobs: [] };
+    summary = { ...plan, local_ai: localAi, status: 'running', jobs: [] };
     save(summary);
     const result = await executeDiscovery(ctx, async (...options) => {
       prepareScoreScope(options[1].plan);
+      if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig);
       const report = options[1].plan === 'collect'
         ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]))
         : await runPipeline(...options);
@@ -56,7 +65,7 @@ try {
       return report;
     }, plan);
     // Persist counts and statuses only; raw errors/provider payloads may contain private data.
-    summary = { ...plan, status: result.status, jobs: result.reports.flatMap(r => r.jobs.map(summarizeJob)) };
+    summary = { ...plan, local_ai: localAi, status: result.status, jobs: result.reports.flatMap(r => r.jobs.map(summarizeJob)) };
     if (result.status !== 'succeeded') process.exitCode = 1;
   }
   save(summary);

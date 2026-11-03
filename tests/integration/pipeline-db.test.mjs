@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
 import { runPipeline } from '../../src/pipeline/runner.ts';
+import { discoveryScoreScope } from '../../scripts/discovery-score-scope.mjs';
 import { makeCtx, clock, worldFetch, worldTreg, groundedModel, randomNames, worldTenant } from '../ingestion/helpers.mjs';
 
 const url = process.env.PIPELINE_SUPABASE_URL, key = process.env.PIPELINE_SUPABASE_KEY;
@@ -27,6 +28,62 @@ const count = async table => (await db.from(table).select('id', { count: 'exact'
 // (regression: real sites in a shared local database used to stay disabled after the tests).
 const disabled = [];
 const testTenants = [];
+
+test('local AI runner admits and scores a confirmed candidate, holds a mismatch and remains duplicate-safe', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const names = randomNames(2, seed + 9973);
+  const created = [], rows = [];
+  try {
+    for (const name of names) {
+      const normalized = normalizeName(name), tenant = worldTenant(name);
+      const source = `https://${tenant}.wd5.myworkdayjobs.com/robots.txt`;
+      const capture = await store.saveCapture({ source: 'workday-site-resolver', url: source, fetched_at: new Date().toISOString(), http_status: 200,
+        content_type: 'text/plain', raw: `Fictional identity-runner fixture ${name}`, fingerprint: randomUUID().replaceAll('-', '').repeat(2), meta: { kind: 'website_test' } }, null);
+      await store.saveExtraction({ capture_id: capture.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+      const review = await store.addReviewItem({ candidate_name: name, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: 'no_website' });
+      rows.push({ review, normalized, name });
+      const signal = await store.upsertSignal({ company_id: null, review_item_id: review.id, capture_id: capture.id, extraction_id: null, type: 'known_customer', signal_date: null,
+        source_url: source, quote: `Fictional employer evidence for ${name}`, confidence: 0.6, company_name: name, products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: new Date().toISOString() });
+      rows.at(-1).signal = signal;
+    }
+    const ctx = makeCtx({ store, now: () => new Date(), fetch: async () => { throw Error('No provider calls are allowed in this regression'); } });
+    ctx.contact = '';
+    const scope = discoveryScoreScope(store);
+    const localIdentity = { names: new Set(rows.map(row => row.normalized)), resolve: async (_ctx, name) => {
+      const confirmed = name === names[0];
+      return { normalized_name: normalizeName(name), company_name: name, domain: confirmed ? domainOf(name) : null,
+        status: confirmed ? 'confirmed' : 'unresolved', reason: confirmed ? 'fictional identity match' : 'fictional identity mismatch',
+        input_signature: 'fictional-local-policy', checked_at: new Date().toISOString(), next_check_at: new Date().toISOString(), evidence: { candidates: [], checks: [] } };
+    } };
+    const options = { limit: 2, dryRun: false, trigger: 'manual' };
+    scope('match');
+    const matched = await runPipeline(ctx, { ...options, plan: 'match', localIdentity });
+    assert.deepEqual(matched.jobs[0].errors, []);
+    assert.equal(matched.jobs[0].counts.new_companies, 1);
+    const reviews = await store.reviewItems();
+    const accepted = reviews.find(review => review.id === rows[0].review.id);
+    if (accepted.resolved_company_id) created.push(accepted.resolved_company_id);
+    assert.equal(accepted.status, 'approved');
+    assert.equal(reviews.find(review => review.id === rows[1].review.id).status, 'pending');
+    scope('score');
+    const scored = await runPipeline(ctx, { ...options, plan: 'score' });
+    assert.deepEqual(scored.jobs[0].errors, []);
+    assert.ok(await store.latestScore(accepted.resolved_company_id));
+    scope('match');
+    const again = await runPipeline(ctx, { ...options, plan: 'match', localIdentity });
+    assert.equal(again.jobs[0].counts.new_companies || 0, 0);
+    assert.equal((await db.from('companies').select('id').eq('domain', domainOf(names[0]))).data.length, 1);
+  } finally {
+    // Discover any committed admission even if an assertion failed before recording it.
+    for (const row of rows) {
+      const res = await db.from('review_queue').select('resolved_company_id').eq('id', row.review.id).single();
+      if (res.data?.resolved_company_id) created.push(res.data.resolved_company_id);
+      if (row.signal) await db.from('signals').delete().eq('id', row.signal.id);
+      await db.from('review_queue').delete().eq('id', row.review.id);
+    }
+    for (const id of new Set(created)) await db.from('companies').delete().eq('id', id);
+  }
+});
 after(async () => {
   if (disabled.length) await db.from('workday_sites').update({ enabled: true }).in('id', disabled);
   // The fictional tenants must never be crawled by a real run.

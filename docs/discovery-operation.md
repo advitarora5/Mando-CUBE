@@ -35,6 +35,32 @@ the existing daily/rescore plans remain responsible for periodic full rescoring.
 
 ## Overlap and interruption
 
+### Optional local Ollama pilot
+
+`node --env-file=.env.pipeline.local scripts/discovery-execute-local.mjs --local-ai`
+opts into the existing local identity-admission policy. Both the database and model
+must use explicit loopback endpoints; the model is pinned to `qwen2.5:7b`. No production
+or GitHub-hosted AI mode is provided. The model is checked before collection writes.
+The normal execution command remains model-free.
+
+This pilot selects at most one candidate, excludes human-only/rejected decisions
+and disabled sibling sites, and allows at most three model checks across the selected
+candidate's possible corporate domains/sites. Missing evidence, errors, contradictory
+sites and exhausted checks remain held. It does not relax the checker or change
+stored signal confidence. All enabled sibling sites must be verified by the existing
+policy before admission. A human-only similar-name review is not automatically resolved.
+
+The local AI supervisor has a ten-minute overall deadline and an admission cap of
+one; individual collection budgets remain 25 seconds. This longer deadline is local
+only. Slow model calls may exhaust the window. Scoring follows matching and stays
+limited to touched companies. Inspect actual admission/assessment counts; a completed
+run or an empty scoring stage does not establish growth.
+
+Identity evidence/results are stored under the run's `identity/` directory for local
+inspection. They are not part of the GitHub summary artifact pattern. Only safe job
+counts and statuses go into `summary.json`. Use a two-case fictional live-model smoke
+test only as a connectivity/behavior check, not an estimate of real-company accuracy.
+
 An exclusive var/discovery/execution.lock prevents concurrent supervised processes on
 the same machine. An existing lock is never automatically stolen. If the supervisor
 itself is killed, verify that its worker is no longer running before manually removing

@@ -3,9 +3,10 @@
 import { collectStage, extractStage, matchStage, scoreStage, type StageResult } from "./stages.ts";
 import { enrichStage } from "./enrich.ts";
 import type { PipelineContext, RunStatus, SourceRow } from "./types.ts";
+import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 
 export type Plan = "daily" | "weekly" | "rescore" | "all" | "collect" | "extract" | "match" | "score" | "enrich";
-export type RunOptions = { plan: Plan; source?: string; limit: number; dryRun: boolean; trigger: "schedule" | "manual" | "import_button"; enrichCompanies?: number };
+export type RunOptions = { plan: Plan; source?: string; limit: number; dryRun: boolean; trigger: "schedule" | "manual" | "import_button"; enrichCompanies?: number; localIdentity?: LocalIdentityAdmission };
 export type JobReport = { job: string; source_id: string | null; status: RunStatus; ms: number } & StageResult;
 export type RunReport = { jobs: JobReport[]; alerts: string[]; ms: number; treg_spend_usd: number; llm_spend_usd: number };
 
@@ -52,6 +53,7 @@ async function checkAlerts(ctx: PipelineContext, report: RunReport, sourceId: st
 }
 
 export async function runPipeline(ctx: PipelineContext, opts: RunOptions): Promise<RunReport> {
+  if (opts.localIdentity) assertLocalAdmissionStore(ctx);
   const report: RunReport = { jobs: [], alerts: [], ms: 0, treg_spend_usd: 0, llm_spend_usd: 0 };
   const started = Date.now();
   // A run that crashed stays "running" forever; close those (older than 6 hours) so health shows the truth.
@@ -66,7 +68,7 @@ export async function runPipeline(ctx: PipelineContext, opts: RunOptions): Promi
     if (!opts.dryRun) await checkAlerts(ctx, report, source.id);
   };
   const extract = () => job(ctx, report, "extract", null, opts.trigger, () => extractStage(ctx, { limit: Math.max(opts.limit * 10, 200) }));
-  const match = () => job(ctx, report, "match", null, opts.trigger, () => matchStage(ctx, { dryRun: opts.dryRun }));
+  const match = () => job(ctx, report, "match", null, opts.trigger, () => matchStage(ctx, { dryRun: opts.dryRun, localIdentity: opts.localIdentity }));
   const score = () => job(ctx, report, "score", null, opts.trigger, () => scoreStage(ctx));
   const enrich = () => job(ctx, report, "enrich", null, opts.trigger, () => enrichStage(ctx, { maxCompanies: opts.enrichCompanies ?? opts.limit, dryRun: opts.dryRun }));
   // Each plan collects only sources of its frequency, so a weekly paid feed never runs daily.

@@ -1,4 +1,4 @@
-// Experimental admission policy. Only the dedicated local CLI creates this capability.
+// Experimental admission policy. Explicit local admission/discovery entry points create this capability.
 // It never writes website_resolutions: AI proof must not populate the direct-link cache.
 import { SupabaseStore } from "./store/supabase.ts";
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
