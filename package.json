@@ -13,6 +13,7 @@
     "insights": "node --env-file=.env.local scripts/generate-insights.mjs",
     "drafts": "node --env-file=.env.local scripts/generate-drafts.mjs",
     "score:save": "node --env-file=.env.local scripts/save-assessments.mjs",
+    "contacts:research": "node --env-file=.env.local scripts/run-contact-research.mjs",
     "companies:duplicates": "node --env-file=.env.local scripts/find-duplicate-companies.mjs",
     "companies:merge": "node --env-file=.env.local scripts/merge-companies.mjs",
     "test": "node --test tests/*.test.mjs tests/ingestion/*.test.mjs",

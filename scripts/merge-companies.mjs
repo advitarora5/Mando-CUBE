@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { isSimilarName } from "../src/domain/ingestion/normalize.ts";
 
 // Merges a duplicate company into the company being kept, using the merge_companies database function
-// (supabase/migrations/202610270001_merge_companies.sql). Preview by default: the merge runs in full and is
+// (supabase/migrations/202610270002_merge_companies.sql). Preview by default: the merge runs in full and is
 // rolled back, so any problem shows up before anything changes. --apply commits it.
 //   npm run companies:merge -- --keep <company id> --drop <company id> [--apply]
 const args = process.argv.slice(2);
@@ -28,7 +28,7 @@ console.log(`Merge: ${merged.name}${merged.domain ? ` (${merged.domain})` : ""} 
 const { data, error } = await db.rpc("merge_companies", { p_keep: keep, p_drop: drop, p_apply: apply });
 const preview = error?.message.startsWith("MERGE PREVIEW ") ? JSON.parse(error.message.slice("MERGE PREVIEW ".length)) : null;
 if (error && !preview) {
-  if (error.code === "PGRST202") throw new Error("The merge function is not in this database yet. Apply supabase/migrations/202610270001_merge_companies.sql first.");
+  if (error.code === "PGRST202") throw new Error("The merge function is not in this database yet. Apply supabase/migrations/202610270002_merge_companies.sql first.");
   throw new Error(`Merge stopped, nothing changed: ${error.message}`);
 }
 const report = preview ?? data;
