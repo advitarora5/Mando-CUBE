@@ -28,6 +28,10 @@ export const identityCaseSchema = z.object({
   site: z.object({ tenant: z.string().regex(/^[a-z0-9-]+$/), pod: z.string().regex(/^wd\d+$/), site: z.string().regex(/^[A-Za-z0-9_-]+$/) }).strict(),
   review_id: z.string().nullable(), prepared_at: z.iso.datetime({ offset: true }),
   sources: z.array(sourceSchema).max(4), errors: z.array(z.string()),
+  // Evidence-collection log of the optional corporate-page fallback. Not shown to the model and not in the signature.
+  corporate_fallback: z.array(z.object({
+    url: z.string(), provenance: z.enum(["corporate_link", "sec_filing", "sec_issuer_record"]), via: z.string(), error: z.string().nullable(),
+  }).strict()).max(20).optional(),
 }).strict();
 export type IdentityCase = z.infer<typeof identityCaseSchema>;
 export type IdentitySource = IdentityCase["sources"][number];

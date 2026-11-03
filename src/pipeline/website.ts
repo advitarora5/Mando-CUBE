@@ -80,7 +80,8 @@ export class WebsiteHttp {
     }
     throw Error("website robots redirect limit reached");
   }
-  async page(value: string): Promise<{ url: string; html: string }> {
+  // maxBody defaults to MAX_WEBSITE_BODY; only callers with a reason (e.g. SEC filing documents) raise it.
+  async page(value: string, maxBody = MAX_WEBSITE_BODY): Promise<{ url: string; html: string }> {
     let url = safeUrl(value);
     for (let hop = 0; hop <= 3; hop++) {
       let robots = this.robots.get(url.origin);
@@ -89,7 +90,7 @@ export class WebsiteHttp {
         this.robots.set(url.origin, robots);
       }
       if (!robotsAllows(parseRobots(robots, "mando-cube-ingestion"), url.pathname + url.search)) throw Error("website disallowed by robots.txt");
-      const res = await this.read(url);
+      const res = await this.read(url, maxBody);
       if (res.status >= 300 && res.status < 400 && res.location) { url = safeUrl(new URL(res.location, url).href); continue; }
       if (res.status !== 200) throw Error(`website HTTP ${res.status}`);
       const head = res.body.slice(0, 20000);

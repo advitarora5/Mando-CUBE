@@ -2,6 +2,7 @@ import { z } from "zod";
 import { htmlToText } from "../domain/ingestion/quote.ts";
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import { WebsiteHttp } from "./website.ts";
+import { corporateFallback, MIN_CORPORATE_TEXT } from "./corporate-fallback.ts";
 import { digest, EMPLOYER_CONTEXT, identityCaseSchema, MAX_IDENTITY_AGE_MS, type IdentityCase, type IdentitySource, type IdentityGroup } from "./identity.ts";
 import type { PipelineContext, WebsiteCapture } from "./types.ts";
 
@@ -68,16 +69,43 @@ export function exactSiteCapture(capture: WebsiteCapture, target: IdentityTarget
 }
 
 // Read-only with respect to PipelineStore. Live evidence is frozen in the returned packet.
-export async function prepareIdentityCase(ctx: PipelineContext, input: unknown, http: WebsiteHttp, opts: { refreshJobs?: boolean } = {}): Promise<IdentityCase> {
+// corporateFallback is opt-in: when the corporate page is unreadable, try provenance-verified first-party pages
+// (see corporate-fallback.ts). It only changes which corporate page is collected.
+export async function prepareIdentityCase(ctx: PipelineContext, input: unknown, http: WebsiteHttp,
+  opts: { refreshJobs?: boolean; corporateFallback?: { secRows: unknown } } = {}): Promise<IdentityCase> {
   const target = identityTargetSchema.parse(input);
   const packet: IdentityCase = { ...target, prepared_at: ctx.now().toISOString(), sources: [], errors: [] };
+  let corporatePage: { url: string; html: string } | null = null;
   try {
     const home = await http.page(target.corporate_url);
+    corporatePage = home;
     // Record the final corporate URL after guarded redirects for subsequent provenance checks.
     packet.corporate_url = home.url;
     const evidence = corporateEvidence(home.html);
     packet.sources.push({ ...source("corporate", home.url, home.html, evidence.text, packet.prepared_at, null), identity_groups: evidence.identity_groups });
   } catch (error) { packet.errors.push(`corporate: ${(error as Error).message}`); }
+  if (opts.corporateFallback) {
+    const current = packet.sources.find(s => s.side === "corporate");
+    if (!current || current.text.trim().length < MIN_CORPORATE_TEXT) {
+      const result = await corporateFallback(ctx, {
+        targetName: target.target_name,
+        corporateUrl: packet.corporate_url,
+        corporatePage,
+        secRows: opts.corporateFallback.secRows,
+        readable: html => corporateEvidence(html).text.trim().length >= MIN_CORPORATE_TEXT,
+      });
+      packet.corporate_fallback = result.attempts;
+      if (result.page) {
+        const evidence = corporateEvidence(result.page.html);
+        const fallbackSource = { ...source("corporate", result.page.url, result.page.html, evidence.text, packet.prepared_at, null), identity_groups: evidence.identity_groups };
+        // The thin page is replaced, not kept beside the fallback; the packet holds at most one corporate source.
+        packet.sources = packet.sources.filter(s => s.side !== "corporate");
+        packet.sources.unshift(fallbackSource);
+      } else {
+        packet.errors.push("corporate fallback: no provenance-verified readable page");
+      }
+    }
+  }
   if (!opts.refreshJobs) {
     const captures = await ctx.store.websiteEvidenceCaptures(normalizeName(target.target_name), 20);
     for (const capture of captures.filter(c => {
