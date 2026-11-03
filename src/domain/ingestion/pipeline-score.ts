@@ -50,8 +50,11 @@ export type ScoringContact = {
   conviction?: { source: string; reason: string; date?: string | null } | null;
 };
 
+// Latest annual filing figures (USD) for Budget capacity. prior_* are the previous fiscal year, null when not reported.
+export type Financials = { fiscal_year_end: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string };
+
 // Company facts the rubric uses. Employee count earns the +3 Authority bonus only with a source link.
-export type ScoringCompany = { employee_count: number | null; employee_source?: string | null };
+export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; financials?: Financials | null };
 
 export type CategoryResult = CategoryInput & { status: "met" | "partial" | "unknown" | "not_met"; detail: Record<string, number> };
 
@@ -123,8 +126,17 @@ export function reachabilityFromContacts(contacts: ScoringContact[]): CategoryRe
 }
 
 // ---------- Budget /20: financial capacity + the single highest technology-investment band (proxies) ----------
-export function budgetFromSignals(signals: ScoringSignal[], now: Date): CategoryResult {
-  // Financial capacity needs matching-entity annual operating income, which the pipeline does not collect yet: 0 points.
+const usd = (n: number) => `${n < 0 ? "-" : ""}$${(Math.abs(n) / 1e9 >= 1 ? `${(Math.abs(n) / 1e9).toFixed(1)}B` : `${(Math.abs(n) / 1e6).toFixed(0)}M`)}`;
+
+// Rubric: positive annual operating income = 10, +1 revenue growth, +1 operating income growth. Not positive = 0.
+export function capacityPoints(f: Financials | null | undefined): number {
+  if (!f || f.operating_income <= 0) return 0;
+  return 10 + (f.revenue !== null && f.prior_revenue !== null && f.revenue > f.prior_revenue ? 1 : 0)
+    + (f.prior_operating_income !== null && f.operating_income > f.prior_operating_income ? 1 : 0);
+}
+
+export function budgetFromSignals(signals: ScoringSignal[], now: Date, financials: Financials | null = null): CategoryResult {
+  // Without a filing, financial capacity is not collected: 0 points and the category stays partial.
   const options: { points: number; signal: ScoringSignal; label: string }[] = [];
   for (const s of signals) {
     if (s.type === "budget_clue" && withinMonths(s.signal_date, 24, now)) options.push({ points: 8, signal: s, label: "adjacent tool purchase/deployment within 24 months" });
@@ -132,9 +144,15 @@ export function budgetFromSignals(signals: ScoringSignal[], now: Date): Category
     if (s.project_type === "implementation") options.push({ points: 6, signal: s, label: "active HR modernization (Workday implementation)" });
   }
   const best = options.sort((a, b) => b.points - a.points)[0];
-  if (!best) return needs("no technology-investment signal; annual operating income not collected.");
-  return { score: best.points, source: best.signal.source_url, status: "partial", detail: { capacity: 0, investment: best.points },
-    reason: clip(`Capacity 0 (operating income not collected) + ${best.label} ${best.points}; proxy, not committed funds: "${short(best.signal.quote)}"`) };
+  if (!best && !financials) return needs("no technology-investment signal; annual operating income not collected.");
+  const capacity = capacityPoints(financials);
+  const investment = best?.points ?? 0;
+  const score = Math.min(rubric.budget.weight, capacity + investment);
+  const filing = financials ? `${capacity ? "positive " : "non-positive "}operating income ${usd(financials.operating_income)} (FY ending ${financials.fiscal_year_end})` : "operating income not collected";
+  // The filing is the larger, verifiable part; the investment signal's link is used only when there is no capacity.
+  const source = capacity > 0 && financials ? financials.source_url : best?.signal.source_url ?? financials!.source_url;
+  return { score, source, status: !financials ? "partial" : score ? "met" : "not_met", detail: { capacity, investment },
+    reason: clip(`Capacity ${capacity} (${filing}) + ${best ? `${best.label} ${best.points}; proxy, not committed funds: "${short(best.signal.quote)}"` : "no technology-investment signal 0"}`) };
 }
 
 // ---------- Release /15: confirmed current deployment, then the confirmed next release's distance ----------
@@ -167,7 +185,7 @@ export function timingFromSignals(signals: ScoringSignal[], now: Date): Category
       else if (days > 183 && days <= 365) candidates.push({ points: 10, signal: s, why: `dated rollout ${days} days ago` });
     } else if (s.type === "go_live") {
       candidates.push({ points: 5, signal: s, why: "go-live without a day-precise date: current operations baseline" });
-    } else if (s.type === "hiring" && s.confidence >= 0.8 && withinMonths(s.signal_date ?? s.first_seen_at.slice(0, 10), 12, now)) {
+    } else if (s.type === "hiring" && s.confidence >= 0.8 && s.signal_date && withinMonths(s.signal_date, 12, now)) {
       candidates.push({ points: 8, signal: s, why: "employer-posted Workday hiring within 12 months" });
     } else if (s.type === "known_customer" || s.type === "hiring") {
       candidates.push({ points: 5, signal: s, why: "current Workday operations, no recent dated trigger" });
@@ -192,7 +210,7 @@ export function scoreCompany(companyId: string, signals: ScoringSignal[], contac
   const categories: Record<Category, CategoryResult> = {
     authority: authorityFromContacts(contacts, company),
     reachability: reachabilityFromContacts(contacts),
-    budget: budgetFromSignals(fresh, now),
+    budget: budgetFromSignals(fresh, now, company.financials),
     release: releaseFromSignals(fresh, now),
     timing: timingFromSignals(fresh, now),
   };

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scoreCompany, authorityFromContacts, reachabilityFromContacts, budgetFromSignals, releaseFromSignals, timingFromSignals } from '../../src/domain/ingestion/pipeline-score.ts';
 import { authorityBand } from '../../src/domain/ingestion/titles.ts';
-import { hiringStrength } from '../../src/pipeline/extract.ts';
+import { hiringStrength, workdaySentence } from '../../src/pipeline/extract.ts';
 import { defaultSettings } from '../../src/domain/ingestion/settings.ts';
 import { evaluateTier } from '../../src/domain/scoring/tier-rules.ts';
 import { tierForTotal, tierThresholdsFor } from '../../src/domain/scoring/rubric.ts';
@@ -13,6 +13,19 @@ const sig = (type, extra = {}) => ({ type, signal_date: null, source_url: `https
 const contact = extra => ({ name: 'Pat Lee', title: 'Director, HRIS', source: 'https://www.linkedin.com/in/pat', linkedin_url: 'https://www.linkedin.com/in/pat', email: null, email_status: null, phone: null, phone_status: null, mutual_connection: null, ...extra });
 const found = { name_title_linkedin: { provider: 'quickenrich via treg' } };
 const evidence = 'https://x.example | Assessment status: met. Reason.';
+
+test('long hiring excerpts retain Workday and remain verbatim', () => {
+  for (const position of [0, 65, 100]) {
+    const words = Array.from({ length: 110 }, (_, i) => i === position ? 'Workday' : `word${i}`);
+    const text = words.join('  ');
+    const quote = workdaySentence(text);
+    assert.match(quote, /\bWorkday\b/);
+    assert.ok(text.includes(quote), 'preserves the original whitespace and exact span');
+    assert.equal(quote.split(/\s+/).length, 60);
+  }
+  assert.equal(workdaySentence('Maintain Workday payroll.'), 'Maintain Workday payroll.');
+  assert.equal(workdaySentence('Maintain payroll systems.'), null);
+});
 
 test('tiers: 70/55 for the team rubric and, since main unified the shared tiers, for older versions too', () => {
   assert.deepEqual(tierThresholdsFor('mando-team-70:pipeline-v2'), { Qualified: 70, Maybe: 55 });
@@ -101,6 +114,8 @@ test('timing: strongest single trigger 15/12/10/8/5, never stacked', () => {
   assert.equal(t(sig('go_live', { signal_date: '2026-02-01' })).score, 10, 'dated rollout within 12 months');
   assert.equal(t(sig('go_live', { signal_date: '2024-02-01' })).status, 'unknown', 'older than 12 months');
   assert.equal(t(sig('hiring', { signal_date: '2026-09-01', confidence: 0.9 })).score, 8, 'employer Workday hiring');
+    assert.equal(t(sig('hiring')).score, 5, 'collection date is not a posting date');
+    assert.equal(t(sig('hiring', { signal_date: '2024-09-01' })).score, 5, 'recent collection does not refresh an old posting');
   assert.equal(t(sig('hiring', { signal_date: '2026-09-01', confidence: 0.6 })).score, 5, 'Workday as a listed skill: operations baseline');
   assert.equal(t(sig('known_customer')).score, 5);
   const undated = t(sig('go_live', { quote: 'Workday Student is scheduled to go live in October 2026' }));

@@ -2,6 +2,7 @@
 // Recorded responses live in tests/fixtures/ingestion (real Workday/SEC bodies, no secrets). Tenants other than
 // nvidia/target are synthetic copies of the recorded bodies with the tenant name replaced; their names are fictional.
 import { readFileSync } from 'node:fs';
+import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
 import { MemoryStore } from '../../src/pipeline/store/memory.ts';
 import { LedgerSpendGuard } from '../../src/pipeline/ledger.ts';
 
@@ -80,7 +81,7 @@ export function spendGuard(caps = { treg: 0.5, llm: 0 }, now = clock()) {
 }
 
 export function makeCtx({ store, fetch, llm = null, treg = null, now = clock(), caps } = {}) {
-  return { store: store ?? new MemoryStore({ now }), now, log: silent, fetch: fetch ?? fakeFetch([]), treg, llm, spend: spendGuard(caps, now), contact: 'test@example.com', sleep: async () => {}, runId: null };
+  return { lookupHost: async () => [{ address: "93.184.216.34", family: 4 }], store: store ?? new MemoryStore({ now }), now, log: silent, fetch: fetch ?? fakeFetch([]), treg, llm, spend: spendGuard(caps, now), contact: 'test@example.com', sleep: async () => {}, runId: null };
 }
 
 // ---------- Fixture world ----------
@@ -121,6 +122,15 @@ export function worldFetch(opts = {}) {
   const details = fixtureJson('workday-job-details-nvidia.json');
   const detailFor = path => details.find(d => d.url.endsWith(path)) ?? details[0];
   return fakeFetch([
+    // The Common Crawl source lists no tenants in this world: the SEC-name route is what the fixtures exercise.
+    { match: /index\.commoncrawl\.org\/collinfo\.json/, respond: () => response(200, []) },
+    { match: /web\.archive\.org\/cdx\/search\/cdx/, respond: () => response(200, '') },
+    { match: /^https:\/\/[a-z0-9]+\.example\/robots\.txt$/, respond: () => response(200, 'User-agent: *\nAllow: /') },
+    { match: /^https:\/\/[a-z0-9]+\.example\/$/, respond: url => {
+      const tenant = new URL(url).hostname.split('.')[0];
+      const name = names.find(n => worldTenant(n) === tenant);
+      return response(200, `<html><title>${name ?? 'Unknown'}</title><a href="https://${tenant}.wd5.myworkdayjobs.com/${tenant}Careers">Careers</a></html>`, { 'content-type': 'text/html' });
+    } },
     { match: /sec\.gov\/robots\.txt/, respond: () => response(200, 'User-agent: *\nDisallow: /search/\n') },
     { match: /sec\.gov\/files\/company_tickers\.json/, respond: () => opts.secDown ? response(503, 'down') : response(200, secFixture(names), { 'content-type': 'application/json' }) },
     { match: /^https:\/\/([a-z0-9]+)\.wd5\.myworkdayjobs\.com\/robots\.txt$/, respond: url => {
@@ -143,7 +153,7 @@ export function worldTreg(opts = {}) {
   return fakeTreg({
     'hunter.x.domain-finder': ({ query }) => {
       const tenant = worldTenant(query.company);
-      if (opts.unconfirmed?.includes(query.company)) return { ok: true, status: 200, body: { data: [{ domain: `other-${tenant}.example`, company_name: 'Somebody Else' }] }, cost_usd: 0, call_id: 'c' };
+      if (opts.unconfirmed?.some(name => normalizeName(name) === normalizeName(query.company))) return { ok: true, status: 200, body: { data: [{ domain: `other-${tenant}.example`, company_name: 'Somebody Else' }] }, cost_usd: 0, call_id: 'c' };
       return { ok: true, status: 200, body: { data: [{ domain: `${tenant}.example`, company_name: query.company.replace(/ (Inc|Corp|Co|Ltd|Group|Holdings)$/, '') }] }, cost_usd: 0, call_id: 'c' };
     },
     'quickenrich.people.search': () => ({ ok: true, status: 200, body: { data: [

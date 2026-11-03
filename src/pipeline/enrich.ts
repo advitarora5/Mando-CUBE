@@ -1,10 +1,14 @@
-// Contact enrichment for companies over the ready-for-contacts threshold. Budget-gated and never blocking:
+// Free contact research for eligible companies; paid email lookup keeps the readiness threshold and budget gate:
 // free people search first, then (budget allowing) one verified work-email lookup per contact through treg.
 // Rules: a LinkedIn URL that already exists is never paid for; only a "valid" verdict is verified; risky
 // addresses are stored unverified; invalid ones are not stored; no address is ever guessed; a paid call
 // for the same contact and step is never repeated (idempotency key in paid_calls and on the treg call).
 import { paidCallKey } from "../domain/ingestion/fingerprint.ts";
-import { mayScore } from "../domain/ingestion/settings.ts";
+import { mayScore, readyForContacts } from "../domain/ingestion/settings.ts";
+import { TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
+import { parseEvidence } from "../domain/scoring/evidence.ts";
+import type { ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
+import type { PipelineSettings } from "../domain/ingestion/settings.ts";
 import { classifyTitle } from "../domain/ingestion/titles.ts";
 import { scoreStage, type StageResult } from "./stages.ts";
 import type { ContactRow, PipelineContext } from "./types.ts";
@@ -39,6 +43,18 @@ export function readEmailAnswer(body: unknown): EmailOutcome {
   return { email, status: "risky", served_by: b._treg?.served_by ?? null };
 }
 
+// Free research is evidence collection, not qualification. Only fresh, sourced, high-confidence
+// Workday customer/hiring evidence can unlock it; a generic event or an invented future timestamp cannot.
+export function eligibleForFreeResearch(signals: ScoringSignal[], settings: PipelineSettings, now: Date): boolean {
+  return signals.some(signal => {
+    const age = now.getTime() - Date.parse(signal.last_seen_at);
+    return (signal.type === "known_customer" || signal.type === "hiring") &&
+      signal.confidence >= TRUSTED_CONFIDENCE && signal.confidence <= 1 &&
+      Number.isFinite(age) && age >= 0 && age <= settings.signal_fresh_days * 86400000 &&
+      !!parseEvidence(`${signal.source_url} | ${signal.quote.trim()}`);
+  });
+}
+
 export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: number; emailWorstCaseUsd?: number; dryRun?: boolean }): Promise<StageResult> {
   const r: StageResult = { counts: {}, errors: [], blocked: null, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0 };
   const bump = (key: string, n = 1) => { r.counts[key] = (r.counts[key] ?? 0) + n; };
@@ -49,21 +65,38 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
   for (const company of companies) {
     if (touched.length >= opts.maxCompanies) break;
     const status = await ctx.store.enrichmentStatus(company.id);
-    if (status !== "pending" && status !== "skipped_budget") continue;
+    if (status && status !== "pending" && status !== "skipped_budget") continue;
     try {
       if (!company.domain) { await ctx.store.setEnrichment(company.id, "pending", "No website yet, so no contact search."); bump("no_website"); continue; }
-      if (!ctx.treg) { await ctx.store.setEnrichment(company.id, "pending", "treg is not configured; contacts pending."); bump("no_treg"); continue; }
-      touched.push(company.id);
       let contacts: ContactRow[] = await ctx.store.contactsForCompany(company.id);
+      if (!status && contacts.length) continue; // Do not opt existing contacts into paid lookup implicitly.
+      const latest = await ctx.store.latestScore(company.id);
+      const paidReady = !!latest && readyForContacts(latest, settings);
+      // Existing researched companies below the paid threshold do not consume the batch's research slots.
+      if (contacts.length && !paidReady) { bump("paid_readiness_deferred"); continue; }
+      if (!contacts.length && !paidReady && !eligibleForFreeResearch(await ctx.store.signalsForCompany(company.id), settings, ctx.now())) {
+        bump("research_evidence_missing"); continue;
+      }
+      if (!ctx.treg) { await ctx.store.setEnrichment(company.id, "pending", "treg is not configured; eligible contact research pending."); bump("no_treg"); continue; }
+      touched.push(company.id);
       // 1. Free search for likely decision makers.
       if (!contacts.length) {
-        const search = await ctx.treg.call(PEOPLE_SEARCH, { body: { company_url: { include: [company.domain], exclude: [] }, title: { include: TITLE_PHRASES, exclude: [] }, per_page: 50 }, headers: { "X-Treg-Route-Max-Cost": "0" } });
+        const search = await ctx.treg.call(PEOPLE_SEARCH, { body: { company_url: { include: [company.domain], exclude: [] }, title: { include: TITLE_PHRASES, exclude: [] }, per_page: 50 }, headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" } });
         r.requests++;
+        if (search.cost_usd > 0) r.treg_spend_usd += search.cost_usd;
         if (search.cost_usd > 0) await ctx.spend.record({ provider: "treg", endpoint: PEOPLE_SEARCH, step: "people_search", subject: company.domain, idempotency_key: "", worst_case_usd: 0, cost_usd: search.cost_usd, outcome: "unexpected charge on a free endpoint" });
-        const people = search.ok ? (((search.body as { data?: FoundPerson[] })?.data) ?? []) : [];
+        if (!search.ok || search.cost_usd !== 0) {
+          bump("error_people_search");
+          r.errors.push(`people search ${company.name}: ${search.ok ? "free research did not report zero cost" : search.error}`);
+          await ctx.store.setEnrichment(company.id, "pending", "Free people search failed; retry on a later run.");
+          // An authentication/rate/billing error must not be repeated across every company.
+          if ((!search.ok && [401, 402, 403, 429].includes(search.status)) || search.cost_usd !== 0) { r.blocked = "Free people search unavailable or zero cost not confirmed."; break; }
+          continue;
+        }
+        const people = ((search.body as { data?: FoundPerson[] })?.data) ?? [];
         const picked = pickContacts(people);
         bump("people_found", picked.length);
-        if (!picked.length) { await ctx.store.setEnrichment(company.id, "no_contacts_found", search.ok ? "Free people search found no HR/IT systems contacts." : `People search failed: ${search.error}`); continue; }
+        if (!picked.length) { await ctx.store.setEnrichment(company.id, "no_contacts_found", "Free people search found no HR/IT systems contacts."); continue; }
         if (opts.dryRun) continue;
         for (const { person } of picked) {
           const contact = {
@@ -77,6 +110,12 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           bump("contacts_added");
         }
         contacts = await ctx.store.contactsForCompany(company.id);
+      }
+      // Free research does not authorize a paid email lookup or inflate a qualification score.
+      if (!paidReady) {
+        await ctx.store.setEnrichment(company.id, "pending", "Free contact research complete; paid email lookup waits for the readiness threshold.");
+        bump("paid_readiness_deferred");
+        continue;
       }
       // 2. Paid work email with verification, best contacts first, within budget.
       let budgetSkipped = false;
@@ -116,6 +155,8 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
   if (touched.length && !opts.dryRun) {
     const rescored = await scoreStage(ctx, { companyIds: touched, trigger: "new_contacts" });
     for (const [k, v] of Object.entries(rescored.counts)) bump(`rescore_${k}`, v);
+    r.errors.push(...rescored.errors);
+    if (rescored.blocked) r.blocked = rescored.blocked;
   }
   return r;
 }

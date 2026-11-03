@@ -3,6 +3,9 @@
 // raw_captures is append-only, so each run uses fresh random fictional names instead of deleting rows.
 // Run: npm run test:integration   (skips when PIPELINE_SUPABASE_URL is not a reachable local database)
 import { test, after } from 'node:test';
+import { randomUUID } from 'node:crypto';
+import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
+import { matchStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
@@ -41,7 +44,9 @@ async function freshWorld(names) {
   // database also holds real pipeline companies, and an unscoped test run wrote its fake email onto their contacts.
   const allCompanies = store.companies.bind(store);
   store.companies = async () => (await allCompanies()).filter(c => (c.domain ?? '').endsWith('.example'));
-  const now = clock(new Date().toISOString());
+  // Real database assessments need real ordering: a frozen clock gives the initial and
+  // contact-enriched rows identical timestamps, making latestScore ambiguous in Postgres.
+  const now = () => new Date();
   return { store, ctx: makeCtx({ store, now, fetch: worldFetch({ names }), llm: groundedModel(), treg: worldTreg() }) };
 }
 
@@ -49,6 +54,32 @@ test('the store refuses remote projects unless explicitly allowed', () => {
   assert.throws(() => new SupabaseStore('https://fkhychihxpregusklggo.supabase.co', 'x'), /Refusing to write to remote Supabase project "fkhychihxpregusklggo"/);
   assert.equal(assertAllowedTarget('https://abc.supabase.co', 'abc'), 'https://abc.supabase.co');
   assert.equal(assertAllowedTarget('http://127.0.0.1:54321', undefined), 'http://127.0.0.1:54321');
+});
+
+test('due resolver attempts: persisted timestamps honor separate refresh and miss cutoffs', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const prefix = `retry-check-${seed}`;
+  const attempts = [
+    { normalized_name: `${prefix}-found-due`, found: true, tried_at: '2020-01-01T00:00:00Z' },
+    { normalized_name: `${prefix}-found-fresh`, found: true, tried_at: '2020-01-09T00:00:00Z' },
+    { normalized_name: `${prefix}-miss-due`, found: false, tried_at: '2019-12-01T00:00:00Z' },
+    { normalized_name: `${prefix}-miss-fresh`, found: false, tried_at: '2019-12-30T00:00:00Z' },
+  ];
+  const keys = attempts.map(a => a.normalized_name);
+  try {
+    for (const a of attempts) await store.saveResolverAttempt({ ...a, company_name: a.normalized_name, probes: 1 });
+    const cutoffs = { foundBefore: attempts[0].tried_at, missBefore: attempts[2].tried_at };
+    const due = (await store.dueResolverAttempts(cutoffs, 100)).filter(a => keys.includes(a.normalized_name));
+    assert.deepEqual(due.map(a => a.normalized_name), [keys[0], keys[2]], 'inclusive cutoffs, with known-site refresh before misses');
+    assert.equal(Date.parse(due[0].tried_at), Date.parse(attempts[0].tried_at));
+    const limited = await store.dueResolverAttempts(cutoffs, 1);
+    assert.equal(limited.length, 1);
+    assert.equal(limited[0].found, true);
+    assert.deepEqual(await store.dueResolverAttempts(cutoffs, 0), []);
+  } finally {
+    const { error } = await db.from('workday_resolver_attempts').delete().in('normalized_name', keys);
+    assert.equal(error, null);
+  }
 });
 
 test('full flow on the database: raw rows, sourced signals, pipeline companies, scored with reasons, run log; repeat adds nothing', { skip }, async () => {
@@ -77,7 +108,8 @@ test('full flow on the database: raw rows, sourced signals, pipeline companies, 
   assert.equal(captures.length, captureIds.length, 'every signal points at a stored raw item');
 
   const { data: scores } = await db.from('scores').select('*').in('company_id', ids);
-  assert.equal(scores.length, 11);
+  assert.equal(scores.length, 22, 'initial and contact-enriched scores for each new company');
+  assert.equal((await ctx.store.latestScore(ids[0])).authority_score, 5, 'latest assessment includes the unconfirmed researched contact');
   for (const s of scores) for (const c of ['authority', 'reachability', 'budget', 'release', 'timing']) {
     const e = s[`${c}_evidence`];
     assert.ok(s[`${c}_score`] > 0 ? /^https?:\/\/\S+ \| .+/.test(e) : e.includes('Needs evidence') || /^https?:/.test(e), `${c}: ${e}`);
@@ -183,4 +215,67 @@ test('review rejection atomically disables unassigned sites, preserves evidence 
 test('regression: integration runs never write test data onto real (non-.example) companies or their contacts', { skip }, async () => {
   const { data: fakeOnReal } = await db.from('contacts').select('id, email, companies!inner(domain)').like('email', '%.example').not('companies.domain', 'like', '%.example');
   assert.deepEqual(fakeOnReal, []);
+});
+
+test('website DB: persisted cache, recovered admission, atomic failure, duplicate protection and human-decision guard', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const db = store.db;
+  const name = randomNames(1, Date.now())[0], normalized = normalizeName(name), tenant = worldTenant(name);
+  const domain = `${tenant}.example`, source = `https://${tenant}.wd5.myworkdayjobs.com/robots.txt`;
+  const now = clock();
+  const capture = await store.saveCapture({ source: 'workday-site-resolver', url: source, fetched_at: now().toISOString(), http_status: 200, content_type: 'text/plain', raw: `Synthetic ${name} Workday site`, fingerprint: randomUUID().replaceAll('-', '').repeat(2), meta: { kind: 'website_test' } }, null);
+  const jobCapture = await store.saveCapture({ source: 'workday-career-sites', url: `https://${tenant}.wd5.myworkdayjobs.com/wday/cxs/${tenant}/${tenant}Careers/job/test`, fetched_at: now().toISOString(), http_status: 200, content_type: 'application/json', raw: JSON.stringify({ jobPostingInfo: { jobDescription: `<a href="https://${domain}/benefits">Benefits</a>` } }), fingerprint: randomUUID().replaceAll('-', '').repeat(2), meta: { kind: 'workday_job', normalized_name: normalized, tenant, pod: 'wd5', site: `${tenant}Careers` } }, null);
+  for (const row of [capture, jobCapture]) await store.saveExtraction({ capture_id: row.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+  assert.equal((await store.websiteEvidenceCaptures(normalized, 20))[0].id, jobCapture.id);
+  const item = await store.addReviewItem({ candidate_name: name, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: 'no_website' });
+  const signal = await store.upsertSignal({ company_id: null, review_item_id: item.id, capture_id: capture.id, extraction_id: null, type: 'known_customer', signal_date: null, source_url: source, quote: `Synthetic Workday evidence for ${name}`, confidence: 0.95, company_name: name, products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: now().toISOString() });
+  const site = await store.upsertWorkdaySite({ tenant, pod: 'wd5', site: `${tenant}Careers`, company_name: name, normalized_name: normalized, match_kind: 'full_name', capture_id: capture.id, discovered_from: 'workday-site-resolver' });
+  let companyId;
+  try {
+    // A nonexistent run FK fails after the company insert: the entire RPC must roll back.
+    await assert.rejects(store.admitReview(item.id, domain, source, null, randomUUID()));
+    assert.equal((await db.from('companies').select('id').eq('domain', domain)).data.length, 0);
+    assert.equal((await db.from('review_queue').select('status').eq('id', item.id).single()).data.status, 'pending');
+    assert.equal((await db.from('signals').select('company_id').eq('id', signal.id).single()).data.company_id, null);
+
+    // Restrict the stage to this test's candidate without changing any other operational rows.
+    const realReviews = store.reviewItems.bind(store), realUnassigned = store.unassignedSignals.bind(store);
+    store.reviewItems = async () => (await realReviews()).filter(r => r.id === item.id);
+    store.unassignedSignals = async () => (await realUnassigned()).filter(s => s.id === signal.id);
+    const world = worldFetch({ names: [name] });
+    const fetch = async (url, init) => new URL(url).hostname === domain && new URL(url).pathname === '/' ? new Response(`<title>${name}</title>`, { headers: { 'content-type': 'text/html' } }) : world(url, init);
+    const ctx = makeCtx({ store, now, fetch, treg: worldTreg() });
+    const result = await matchStage(ctx);
+    assert.deepEqual(result.errors, []); assert.equal(result.counts.recovered_reviews, 1);
+    const cached = await store.websiteResolution(normalized);
+    assert.equal(cached.status, 'confirmed'); assert.equal(cached.domain, domain);
+    assert.equal(cached.evidence.checks[0].employer_link.capture_id, jobCapture.id);
+    const review = (await db.from('review_queue').select('*').eq('id', item.id).single()).data;
+    assert.equal(review.status, 'approved'); assert.match(review.decision_note, /Workday-source website corroboration/); companyId = review.resolved_company_id;
+    const company = (await db.from('companies').select('source,domain,company_origins(origin)').eq('id', companyId).single()).data;
+    assert.equal(company.source, source); assert.equal(company.domain, domain); assert.equal(company.company_origins.origin, 'pipeline');
+    assert.equal((await db.from('signals').select('company_id').eq('id', signal.id).single()).data.company_id, companyId);
+    assert.equal((await db.from('workday_sites').select('company_id').eq('id', site.id).single()).data.company_id, companyId);
+    const providerCalls = ctx.treg.calls.length; // Employer-link proof may require zero provider lookups.
+    await matchStage(ctx);
+    assert.equal(ctx.treg.calls.length, providerCalls, 'repeat admission/cache check makes no additional provider calls');
+    await assert.rejects(store.admitReview(item.id, domain, source, null, null), /not eligible/);
+    for (const reason of ['similar_name', 'no_website']) {
+      const protectedItem = await store.addReviewItem({ candidate_name: `${name} ${reason}`, normalized_name: `${normalized}-${reason}`, candidate_domain: null, employee_count: null, suggested_company_id: null, reason });
+      try {
+        if (reason === 'no_website') await store.resolveReview(protectedItem.id, { action: 'reject' }, 'human rejection', null);
+        const filled = await store.fillReviewWebsite(protectedItem.id, domain);
+        assert.equal(filled, reason === 'similar_name');
+        assert.equal(await store.fillReviewWebsite(protectedItem.id, 'different.example'), false, 'never overwrite a human website or rejected decision');
+        await assert.rejects(store.admitReview(protectedItem.id, domain, source, companyId, null), /not eligible/);
+      } finally { await db.from('review_queue').delete().eq('id', protectedItem.id); }
+    }
+  } finally {
+    // Remove only rows created by this test. Raw captures remain append-only.
+    await db.from('signals').delete().eq('id', signal.id);
+    await db.from('workday_sites').delete().eq('id', site.id);
+    await db.from('review_queue').delete().eq('id', item.id);
+    if (companyId) await db.from('companies').delete().eq('id', companyId);
+    await db.from('website_resolutions').delete().eq('normalized_name', normalized);
+  }
 });

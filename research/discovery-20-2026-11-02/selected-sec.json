@@ -1,0 +1,102 @@
+{
+  "25": {
+    "cik_str": 1341439,
+    "ticker": "ORCL",
+    "title": "ORACLE CORP"
+  },
+  "26": {
+    "cik_str": 6951,
+    "ticker": "AMAT",
+    "title": "APPLIED MATERIALS INC /DE"
+  },
+  "27": {
+    "cik_str": 707549,
+    "ticker": "LRCX",
+    "title": "LAM RESEARCH CORP"
+  },
+  "28": {
+    "cik_str": 21344,
+    "ticker": "KO",
+    "title": "COCA COLA CO"
+  },
+  "29": {
+    "cik_str": 70858,
+    "ticker": "BAC",
+    "title": "BANK OF AMERICA CORP /DE/"
+  },
+  "30": {
+    "cik_str": 18230,
+    "ticker": "CAT",
+    "title": "CATERPILLAR INC"
+  },
+  "31": {
+    "cik_str": 1571996,
+    "ticker": "DELL",
+    "title": "Dell Technologies Inc."
+  },
+  "32": {
+    "cik_str": 310158,
+    "ticker": "MRK",
+    "title": "Merck & Co., Inc."
+  },
+  "33": {
+    "cik_str": 80424,
+    "ticker": "PG",
+    "title": "PROCTER & GAMBLE Co"
+  },
+  "34": {
+    "cik_str": 731766,
+    "ticker": "UNH",
+    "title": "UNITEDHEALTH GROUP INC"
+  },
+  "35": {
+    "cik_str": 1327567,
+    "ticker": "PANW",
+    "title": "Palo Alto Networks Inc"
+  },
+  "36": {
+    "cik_str": 40545,
+    "ticker": "GE",
+    "title": "GENERAL ELECTRIC CO"
+  },
+  "37": {
+    "cik_str": 1089113,
+    "ticker": "HSBC",
+    "title": "HSBC HOLDINGS PLC"
+  },
+  "38": {
+    "cik_str": 1413329,
+    "ticker": "PM",
+    "title": "Philip Morris International Inc."
+  },
+  "39": {
+    "cik_str": 1065280,
+    "ticker": "NFLX",
+    "title": "NETFLIX INC"
+  },
+  "40": {
+    "cik_str": 354950,
+    "ticker": "HD",
+    "title": "HOME DEPOT, INC."
+  },
+  "41": {
+    "cik_str": 895421,
+    "ticker": "MS",
+    "title": "MORGAN STANLEY"
+  },
+  "42": {
+    "cik_str": 1973239,
+    "ticker": "ARM",
+    "title": "ARM HOLDINGS PLC /UK"
+  },
+  "43": {
+    "cik_str": 1306965,
+    "ticker": "SHEL",
+    "title": "Shell plc"
+  },
+  "44": {
+    "cik_str": 2070829,
+    "ticker": "CYATY",
+    "title": "Contemporary Amperex Technology Co., Limited/ADR"
+  }
+}

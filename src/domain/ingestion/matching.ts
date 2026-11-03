@@ -7,7 +7,7 @@ export type KnownCompany = { id: string; name: string; domain: string | null };
 export type Candidate = {
   name: string;
   domain: string | null;
-  // The domain came from a resolver whose returned name equals the candidate's normalized name.
+  // The website has independent identity and source corroboration, not only a provider name match.
   domain_confirmed: boolean;
   // Highest-confidence signal behind this candidate; 0.9+ counts as trusted (structural evidence such as a career site).
   best_confidence: number;
@@ -27,25 +27,28 @@ export function isExcludedCompany(name: string | null | undefined): boolean {
   return EXCLUDED.has(normalizeName(name));
 }
 
-// Rules: an exact website match or a reviewed alias (src/data/company-aliases.ts) merges. A similar (or equal)
-// name without either goes to review. A new company with a confirmed website and a trusted signal is created.
-// Everything else goes to review.
-export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean }, aliases: CompanyAlias[] = []): MatchDecision {
+// Rules: a confirmed exact website match or a reviewed alias (src/data/company-aliases.ts) merges. A similar
+// (or equal) name without either goes to review. Normally a new company needs a confirmed website and a trusted
+// signal. The guarded local AI experiment substitutes verified identity for that signal gate.
+export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean; identityVerified?: boolean }, aliases: CompanyAlias[] = []): MatchDecision {
   if (isExcludedCompany(candidate.name)) return { action: "skip", why: "excluded organisation (the vendor)" };
   const domain = normalizeDomain(candidate.domain);
-  if (domain) {
+  if (domain && candidate.domain_confirmed) {
     const exact = known.find(company => normalizeDomain(company.domain) === domain);
     if (exact) return { action: "attach", company_id: exact.id, why: `website ${domain} matches ${exact.name}` };
   }
   const ownerId = aliasOwner(candidate.name, aliases);
   const owner = ownerId ? known.find(company => company.id === ownerId) : undefined;
   if (owner) return { action: "attach", company_id: owner.id, why: `${candidate.name} is a known name of ${owner.name}` };
+  // Explicit parent/subdomain relationships are ambiguous; do not guess a registrable domain.
+  const related = domain && known.find(company => { const other = normalizeDomain(company.domain); return other && (domain.endsWith(`.${other}`) || other.endsWith(`.${domain}`)); });
+  if (related) return { action: "review", reason: "similar_name", suggested_company_id: related.id, why: "website is a parent or subdomain of an existing company" };
   const similar = known.find(company => isSimilarName(company.name, candidate.name));
   if (similar) return { action: "review", reason: "similar_name", suggested_company_id: similar.id, why: `name is similar to existing ${similar.name}` };
   if (!domain || !candidate.domain_confirmed) return { action: "review", reason: "no_website", suggested_company_id: null, why: "no confirmed website" };
-  if (candidate.best_confidence < TRUSTED_CONFIDENCE) return { action: "review", reason: "untrusted_signal", suggested_company_id: null, why: `best signal confidence ${candidate.best_confidence}` };
+  if (!room.identityVerified && candidate.best_confidence < TRUSTED_CONFIDENCE) return { action: "review", reason: "untrusted_signal", suggested_company_id: null, why: `best signal confidence ${candidate.best_confidence}` };
   if (!room.canCreate) return { action: "review", reason: "over_run_cap", suggested_company_id: null, why: "new-company cap for this run reached" };
-  return { action: "create", why: `new company with website ${domain} and a trusted signal` };
+  return { action: "create", why: `new company with website ${domain} and ${room.identityVerified ? "AI-verified identity" : "a trusted signal"}` };
 }
 
 // Size handling: companies under 3,000 employees are not blocked, only scored lower by the rubric; unknown is labelled.

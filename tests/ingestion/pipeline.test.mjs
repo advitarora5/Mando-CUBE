@@ -34,7 +34,7 @@ test('full flow: 12 new Workday companies created with origin pipeline, sourced 
     const capture = store.captures.find(c => c.id === s.capture_id);
     assert.ok(JSON.parse(capture.body).jobPostingInfo.jobDescription.length > 0);
   }
-  assert.equal(store.scores.length, 12);
+  assert.equal(store.scores.length, 24, "initial scores plus scores after free contact research");
   for (const score of store.scores) for (const c of categories) {
     const evidence = score[`${c}_evidence`];
     assert.ok(score[`${c}_score`] === 0 || /^https?:\/\/\S+ \| .+/.test(evidence), `${c} points need a link and reason`);
@@ -134,7 +134,8 @@ test('failure: database error mid-run -> run finishes, no half-written company, 
 test('failure: treg 402 and treg timeout -> contact lookup is skipped, the run still scores; contacts stay pending', async () => {
   const t402 = worldTreg({ emailFind: () => ({ ok: false, status: 402, error: 'treg HTTP 402', cost_usd: 0 }) });
   const { ctx, store } = world({ treg: t402 });
-  await run(ctx);
+  await run(ctx, "weekly");
+  store.settingsRows = [{ key: "ready_for_contacts_threshold", value: 0 }];
   for (const id of store.companyRows.map(c => c.id)) await store.setEnrichment(id, 'pending', 'test');
   const r = await enrichStage(ctx, { maxCompanies: 3 });
   assert.equal(r.counts.budget_skipped, 3, 'after the first 402 every company waits for budget');
@@ -158,7 +159,7 @@ test('time travel: a signal older than 14 days drops out of the score, and every
   assert.ok(first.timing_score > 0);
   now.advanceDays(1);
   await scoreStage(ctx);
-  assert.equal(store.scores.filter(s => s.company_id === id).length, 1, 'unchanged after a day: no new row');
+  assert.equal(store.scores.filter(s => s.company_id === id).length, 2, 'initial and contact-enriched assessments remain unchanged after a day');
   now.advanceDays(14);
   const r = await scoreStage(ctx);
   const latest = await store.latestScore(id);
@@ -178,11 +179,13 @@ test('every saved score records why: run, trigger, previous score and a summary 
   const id = store.companyRows[0].id;
   const first = store.scores.find(s => s.company_id === id);
   assert.deepEqual([store.scoreChanges.get(first.id).change_trigger, store.scoreChanges.get(first.id).change_summary, store.scoreChanges.get(first.id).previous_score_id], ['pipeline_run', 'First assessment.', null]);
+  // Free contact research in the same run can already have rescored the company; link to whatever was latest.
+  const replaced = await store.latestScore(id);
   now.advanceDays(15);
   await scoreStage(ctx, { companyIds: [id], trigger: 'new_contacts' });
   const second = (await store.latestScore(id));
   const change = store.scoreChanges.get(second.id);
-  assert.equal(change.previous_score_id, first.id, 'links back to the score it replaced');
+  assert.equal(change.previous_score_id, replaced.id, 'links back to the score it replaced');
   assert.equal(change.change_trigger, 'new_contacts', 'the caller that knew the reason is recorded');
   assert.match(change.change_summary, /Timing \d+ to 0: Needs evidence/, 'the expired hiring signal shows up as the reason for Timing');
   now.advanceDays(14);
@@ -222,7 +225,8 @@ test('similar name to an existing company goes to review with a suggestion; appr
 test('spend: the budget cap is enforced and an existing LinkedIn URL never triggers a paid lookup', async () => {
   const treg = worldTreg();
   const { ctx, store } = world({ treg, caps: { treg: 0.03 } });
-  await run(ctx);
+  await run(ctx, "weekly");
+  store.settingsRows = [{ key: "ready_for_contacts_threshold", value: 0 }];
   const ids = store.companyRows.map(c => c.id);
   for (const id of ids) await store.setEnrichment(id, 'pending', 'test');
   // One company already has a contact with a LinkedIn URL.
@@ -290,12 +294,13 @@ test('regression: the resolver reads the SEC list collected in this run, even wh
   assert.equal(store.companyRows.filter(c => c.pipeline).length, 12, 'names came from list A, collected this run');
 });
 
-test('regression (round 1): job signals from a site waiting in review join that review item; no company is created behind its back', async () => {
+test('human-only review: new job signals join the item without automatically creating a company', async () => {
   const { ctx, store } = world({ tregOpts: { unconfirmed: ['Birchway Logistics Corp'] } });
   await run(ctx, 'weekly');
   const item = store.reviews.find(r => r.candidate_name.startsWith('Birchway'));
   assert.ok(item && item.status === 'pending');
-  ctx.treg = worldTreg(); // the domain now resolves: still must not bypass the pending review
+  item.reason = 'similar_name'; // an ambiguous identity remains a human decision even with new evidence
+  ctx.treg = worldTreg(); // confirmation may fill the website, but must not resolve this human-only review
   await run(ctx, 'daily');
   assert.equal(store.companyRows.filter(c => c.name.startsWith('Birchway')).length, 0);
   const birchSignals = store.signals.filter(s => /birchway/i.test(s.company_name ?? ''));
@@ -339,6 +344,20 @@ test('round 2: an unconfirmed website guess is not stored on the review item, so
   await run(ctx, 'weekly');
   const item = store.reviews.find(r => r.candidate_name.startsWith('Birchway'));
   assert.equal(item.candidate_domain, null);
+});
+
+test('an unconfirmed domain-finder result cannot assign signals to an unrelated existing company', async () => {
+  const { ctx, store } = world({ tregOpts: { unconfirmed: ['Birchway Logistics Corp'] } });
+  const unrelated = store.addExistingCompany({ name: 'Independent Computing Services', domain: 'other-birchwaylogistics.example' });
+  await run(ctx, 'weekly');
+  const signals = store.signals.filter(s => s.company_name === 'Birchway Logistics Corp');
+  assert.ok(signals.length > 0);
+  assert.ok(signals.every(s => s.company_id !== unrelated));
+  const review = store.reviews.find(r => r.normalized_name === 'birchway logistics');
+  assert.ok(review);
+  assert.equal(review.reason, 'no_website');
+  assert.equal(review.candidate_domain, null);
+  assert.ok(signals.every(s => s.review_item_id === review.id));
 });
 
 test('round 2: the daily plan does not run weekly sources (paid treg feeds keep their frequency)', async () => {

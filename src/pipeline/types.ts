@@ -107,6 +107,21 @@ export type ReviewItem = {
   created_at: string;
 };
 
+export type WebsiteCapture = CaptureRow & { meta: Record<string, unknown>; last_seen_at: string };
+export type EmployerWebsiteLink = { domain: string; url: string; source_url: string; capture_id: string; field: "hiringOrganization.url" | "jobPostingInfo.jobDescription" };
+
+export type WebsiteResolution = {
+  normalized_name: string;
+  company_name: string;
+  domain: string | null;
+  status: "confirmed" | "unresolved" | "error";
+  reason: string;
+  input_signature: string;
+  checked_at: string;
+  next_check_at: string;
+  evidence: { search?: { provider: string; query: string; results: { url: string; title: string; domain: string }[] }; employer_links?: EmployerWebsiteLink[]; queries?: { company: string; candidates: { domain: string; company_name: string }[] }[]; candidates: { domain: string; company_name: string }[]; checks: { domain: string; url?: string; identity?: string; workday_url?: string | null; employer_link?: EmployerWebsiteLink; reason: string }[] };
+};
+
 export type WorkdaySite = {
   id: string;
   tenant: string;
@@ -123,6 +138,8 @@ export type WorkdaySite = {
 };
 
 export type CompanyRow = { id: string; name: string; domain: string | null; employee_count: number | null; pipeline: boolean };
+export type ResolverAttempt = { normalized_name: string; company_name: string; found: boolean; probes: number; tried_at: string };
+export type ResolverCutoffs = { foundBefore: string; missBefore: string };
 export type ContactRow = ScoringContact & { id: string; company_id: string };
 export type StoredScore = ScoreRow & { id: string; assessed_at: string };
 
@@ -168,6 +185,14 @@ export interface PipelineStore {
   // An unchanged capture was seen again: its signals stay fresh.
   touchSignals(captureId: string, seenAt: string): Promise<number>;
   addReviewItem(item: Omit<ReviewItem, "id" | "status" | "resolved_company_id" | "created_at">): Promise<{ id: string; inserted: boolean }>;
+  signalsForReview(itemId: string): Promise<SignalRow[]>;
+  websiteEvidenceCaptures(normalizedName: string, limit: number): Promise<WebsiteCapture[]>;
+  fillReviewWebsite(itemId: string, domain: string): Promise<boolean>;
+  websiteResolution(normalizedName: string): Promise<WebsiteResolution | null>;
+  saveWebsiteResolution(resolution: WebsiteResolution): Promise<void>;
+  updatePendingReview(itemId: string, patch: { candidate_domain: string | null; reason: ReviewItem["reason"]; suggested_company_id: string | null; candidate_name?: string }): Promise<void>;
+  // Locks and rechecks eligibility; creation and review resolution are a single transaction.
+  admitReview(itemId: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null): Promise<string>;
   reviewItems(status?: ReviewItem["status"]): Promise<ReviewItem[]>;
   resolveReview(itemId: string, decision: { action: "approve"; domain?: string | null } | { action: "merge"; company_id: string } | { action: "reject" }, note: string, runId: string | null): Promise<string | null>;
 
@@ -176,7 +201,8 @@ export interface PipelineStore {
   markSiteChecked(id: string, status: string, at: string): Promise<void>;
   linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }): Promise<void>;
   resolverAttempts(names: string[]): Promise<Set<string>>;
-  saveResolverAttempt(attempt: { normalized_name: string; company_name: string; found: boolean; probes: number }): Promise<void>;
+  dueResolverAttempts(cutoffs: ResolverCutoffs, limit: number): Promise<ResolverAttempt[]>;
+  saveResolverAttempt(attempt: Omit<ResolverAttempt, "tried_at"> & { tried_at?: string }): Promise<void>;
 
   contactsForCompany(companyId: string): Promise<ContactRow[]>;
   latestScore(companyId: string): Promise<StoredScore | null>;
@@ -209,6 +235,7 @@ export type PipelineContext = {
   now: () => Date;
   log: Logger;
   fetch: typeof fetch;
+  lookupHost?: (host: string) => Promise<{ address: string; family: number }[]>;
   treg: TregTransport | null;
   llm: LLMProvider | null;
   spend: SpendGuard;

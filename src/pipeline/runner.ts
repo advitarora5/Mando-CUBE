@@ -70,7 +70,7 @@ export async function runPipeline(ctx: PipelineContext, opts: RunOptions): Promi
   const score = () => job(ctx, report, "score", null, opts.trigger, () => scoreStage(ctx));
   const enrich = () => job(ctx, report, "enrich", null, opts.trigger, () => enrichStage(ctx, { maxCompanies: opts.enrichCompanies ?? opts.limit, dryRun: opts.dryRun }));
   // Each plan collects only sources of its frequency, so a weekly paid feed never runs daily.
-  const discoveryIds = ["sec-company-list", "workday-site-resolver"];
+  const discoveryIds = ["sec-company-list", "workday-site-resolver", "workday-tenant-crawl", "workday-tenant-wayback"];
   const discovery = async () => {
     for (const id of discoveryIds) await collect(byId(id));
     for (const s of sources.filter(s => s.frequency === "weekly" && !discoveryIds.includes(s.id))) await collect(s);

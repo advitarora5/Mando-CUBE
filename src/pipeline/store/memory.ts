@@ -7,12 +7,14 @@ import type { ScoreRow } from "../../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
   CaptureRow, CompanyRow, ContactRow, ExtractionRecord, PipelineStore, RawItem, ReviewItem, RunCounts, RunStatus,
-  SignalInput, SignalRow, SourceRow, StoredScore, WorkdaySite,
+  SignalInput, SignalRow, SourceRow, StoredScore, WorkdaySite, ResolverAttempt, ResolverCutoffs, WebsiteResolution, WebsiteCapture,
 } from "../types.ts";
 
 export const DEFAULT_SOURCES: SourceRow[] = [
   { id: "workday-career-sites", type: "workday_career_site", name: "Workday career sites", config: {}, frequency: "daily", max_requests_per_run: 1500, min_delay_ms: 1000, enabled: true },
   { id: "workday-site-resolver", type: "workday_site_resolver", name: "Workday site resolver", config: {}, frequency: "weekly", max_requests_per_run: 500, min_delay_ms: 1000, enabled: true },
+  { id: "workday-tenant-crawl", type: "workday_tenant_crawl", name: "Workday tenants from Common Crawl", config: {}, frequency: "weekly", max_requests_per_run: 500, min_delay_ms: 1000, enabled: true },
+  { id: "workday-tenant-wayback", type: "workday_tenant_wayback", name: "Workday tenants from the Wayback Machine", config: {}, frequency: "weekly", max_requests_per_run: 500, min_delay_ms: 1000, enabled: true },
   { id: "sec-company-list", type: "sec_company_list", name: "SEC company list", config: { url: "https://www.sec.gov/files/company_tickers.json" }, frequency: "weekly", max_requests_per_run: 2, min_delay_ms: 1000, enabled: true },
   { id: "treg-reddit-workday", type: "treg_reddit", name: "r/workday via treg", config: { subreddit: "workday" }, frequency: "weekly", max_requests_per_run: 2, min_delay_ms: 1000, enabled: false },
   { id: "treg-workday-users", type: "treg_tech_lookup", name: "Workday users via treg", config: {}, frequency: "weekly", max_requests_per_run: 1, min_delay_ms: 1000, enabled: false },
@@ -33,7 +35,8 @@ export class MemoryStore implements PipelineStore {
   companyRows: (CompanyRow & { source: string | null; created_at: string })[] = [];
   reviews: ReviewItem[] = [];
   sites: WorkdaySite[] = [];
-  attempts = new Map<string, { company_name: string; found: boolean; probes: number }>();
+  websites = new Map<string, WebsiteResolution>();
+  attempts = new Map<string, ResolverAttempt>();
   contacts: (ContactRow & { contact_sources?: unknown; enriched_at?: string })[] = [];
   scores: StoredScore[] = [];
   enrichment = new Map<string, { status: string; reason: string }>();
@@ -145,6 +148,34 @@ export class MemoryStore implements PipelineStore {
     this.reviews.push({ id, ...item, status: "pending", resolved_company_id: null, created_at: this.now().toISOString() });
     return { id, inserted: true };
   }
+  async signalsForReview(itemId: string) { return this.signals.filter(s => s.review_item_id === itemId && !s.company_id); }
+  async websiteEvidenceCaptures(name: string, limit: number): Promise<WebsiteCapture[]> {
+    return this.captures.filter(c => c.source_id === "workday-career-sites" && c.meta.kind === "workday_job" && c.meta.normalized_name === name && c.http_status === 200)
+      .sort((a, b) => b.fetched_at.localeCompare(a.fetched_at) || a.id.localeCompare(b.id)).slice(0, limit)
+      .map(c => ({ ...c, last_seen_at: this.signals.filter(s => s.capture_id === c.id).reduce((latest, s) => s.last_seen_at > latest ? s.last_seen_at : latest, c.fetched_at) }));
+  }
+  async fillReviewWebsite(id: string, domain: string) {
+    const item = this.reviews.find(r => r.id === id && r.status === "pending" && r.candidate_domain === null);
+    if (!item) return false;
+    item.candidate_domain = domain; return true;
+  }
+  async websiteResolution(name: string) { return this.websites.get(name) ?? null; }
+  async saveWebsiteResolution(value: WebsiteResolution) { this.trip("saveWebsiteResolution"); this.websites.set(value.normalized_name, value); }
+  async updatePendingReview(id: string, patch: { candidate_domain: string | null; reason: ReviewItem["reason"]; suggested_company_id: string | null; candidate_name?: string }) {
+    const item = this.reviews.find(r => r.id === id && r.status === "pending" && r.reason !== "similar_name");
+    if (!item) throw Error("review is no longer eligible");
+    Object.assign(item, patch);
+  }
+  async admitReview(id: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null) {
+    this.trip("admitReview");
+    const item = this.reviews.find(r => r.id === id && r.status === "pending" && r.reason !== "similar_name");
+    if (!item) throw Error("review is no longer eligible");
+    const company = existingCompanyId ?? await this.createPipelineCompany({ name: item.candidate_name, domain, employee_count: item.employee_count, source }, runId, { signal_ids: [], normalized_name: null });
+    await this.resolveReview(id, { action: "merge", company_id: company }, "Automatic website confirmation", runId);
+    item.status = existingCompanyId ? "merged" : "approved";
+    item.candidate_domain = domain;
+    return company;
+  }
   async reviewItems(status?: ReviewItem["status"]) { return this.reviews.filter(r => !status || r.status === status); }
   async resolveReview(itemId: string, decision: { action: "approve"; domain?: string | null } | { action: "merge"; company_id: string } | { action: "reject" }, _note: string, runId: string | null) {
     const item = this.reviews.find(r => r.id === itemId && r.status === "pending");
@@ -184,11 +215,20 @@ export class MemoryStore implements PipelineStore {
     for (const s of this.sites) if (s.normalized_name === normalizedName && !s.company_id) Object.assign(s, target);
   }
   async resolverAttempts(names: string[]) { return new Set(names.filter(n => this.attempts.has(n))); }
-  async saveResolverAttempt(a: { normalized_name: string; company_name: string; found: boolean; probes: number }) { this.attempts.set(a.normalized_name, a); }
+  async dueResolverAttempts(cutoffs: ResolverCutoffs, limit: number) {
+    return [...this.attempts.values()]
+      .filter(a => a.tried_at <= (a.found ? cutoffs.foundBefore : cutoffs.missBefore))
+      .sort((a, b) => Number(b.found) - Number(a.found) || a.tried_at.localeCompare(b.tried_at) || a.normalized_name.localeCompare(b.normalized_name))
+      .slice(0, limit);
+  }
+  async saveResolverAttempt(a: Omit<ResolverAttempt, "tried_at"> & { tried_at?: string }) {
+    this.attempts.set(a.normalized_name, { ...a, tried_at: a.tried_at ?? this.now().toISOString() });
+  }
 
   async contactsForCompany(companyId: string) { return this.contacts.filter(c => c.company_id === companyId); }
   async latestScore(companyId: string) {
-    return this.scores.filter(s => s.company_id === companyId).sort((a, b) => b.assessed_at.localeCompare(a.assessed_at))[0] ?? null;
+    // The later insert wins if the test clock gives two assessments the same timestamp.
+    return this.scores.filter(s => s.company_id === companyId).reverse().sort((a, b) => b.assessed_at.localeCompare(a.assessed_at))[0] ?? null;
   }
   scoreChanges = new Map<string, ScoreChange>();
   async insertScore(row: ScoreRow, assessedAt: string, change?: ScoreChange) {

@@ -37,7 +37,13 @@ try {
       plan: args.plan ?? (args.stage ?? "daily"), source: args.source, limit: Number(args.limit ?? 20), dryRun,
       trigger: args.trigger ?? "manual", enrichCompanies: args["enrich-companies"] ? Number(args["enrich-companies"]) : undefined,
     });
-    console.log(JSON.stringify({ ms: report.ms, treg_spend_usd: report.treg_spend_usd, llm_spend_usd: report.llm_spend_usd, alerts: report.alerts, jobs: report.jobs.map(j => ({ job: j.job, source: j.source_id, status: j.status, ms: j.ms, counts: j.counts })) }, null, 2));
+    const unsuccessful = report.jobs.filter(j => j.status !== "succeeded");
+    const status = unsuccessful.length ? "failed" : "succeeded";
+    console.log(JSON.stringify({ status, ms: report.ms, treg_spend_usd: report.treg_spend_usd, llm_spend_usd: report.llm_spend_usd, alerts: report.alerts, jobs: report.jobs.map(j => ({ job: j.job, source: j.source_id, status: j.status, ms: j.ms, counts: j.counts, blocked: j.blocked, errors: j.errors })) }, null, 2));
+    if (unsuccessful.length) {
+      console.error(`Pipeline failed: ${unsuccessful.map(j => `${j.job}${j.source_id ? ` [${j.source_id}]` : ""}: ${j.status}`).join("; ")}`);
+      process.exitCode = 1;
+    }
     if (dryRun) console.log("Dry run: nothing was written to the database or the spend ledger.");
   } else if (command === "import") {
     if (!rest[0]) throw new Error("usage: pipeline import <file.csv>");

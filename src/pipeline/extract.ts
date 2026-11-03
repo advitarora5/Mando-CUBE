@@ -6,6 +6,7 @@ import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { ProjectType } from "../domain/ingestion/pipeline-score.ts";
 import { htmlToText, verifyQuote } from "../domain/ingestion/quote.ts";
 import { sitesFromRobots, primarySites, origin } from "./collectors/workday.ts";
+import { corporateWorkdayLinks } from "./collectors/corporate-careers.ts";
 import type { CaptureRow, LLMProvider, SignalInput } from "./types.ts";
 
 // extract-v2 (prompt + type/company/length checks) beat v1 on the golden set in round 1; v1 stays for comparison.
@@ -65,11 +66,18 @@ export function needsModelText(kind: string, title: string | null, text: string)
 }
 
 // "March 4, 2026", "4 March 2026", "2026-03-04" -> ISO day. Month-only or relative dates stay null; a day is never invented.
-export function isoDay(text: string | null | undefined): string | null {
+export function isoDay(text: string | null | undefined, publishedOn?: string | null): string | null {
   if (!text) return null;
   const iso = text.match(/\b(20\d\d)-(\d\d)-(\d\d)\b/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   const months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  // "July 1" with no year: take the year from the page's publication date, only if that puts it within 6 months of it.
+  const bare = publishedOn && text.toLowerCase().match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})\b(?!\s*,?\s*\d{4})/);
+  if (bare) {
+    const near = [-1, 0, 1].map(d => `${Number(publishedOn.slice(0, 4)) + d}-${String(months.indexOf(bare[1]) + 1).padStart(2, "0")}-${bare[2].padStart(2, "0")}`)
+      .filter(v => new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v && Math.abs(Date.parse(v) - Date.parse(publishedOn)) <= 183 * 86400000);
+    return near.length === 1 ? near[0] : null;
+  }
   const a = text.toLowerCase().match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2}),?\s+(20\d\d)\b/);
   const b = text.toLowerCase().match(/\b(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december),?\s+(20\d\d)\b/);
   const [month, day, year] = a ? [a[1], a[2], a[3]] : b ? [b[2], b[1], b[3]] : [null, null, null];
@@ -99,7 +107,14 @@ export function workdaySentence(text: string): string | null {
   const sentences = text.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(s => isWorkdaySoftwareMention(s) && s.split(/\s+/).length >= 3);
   const best = sentences.find(s => s.split(/\s+/).length <= 60) ?? sentences[0];
   if (!best) return null;
-  const check = verifyQuote(best.split(/\s+/).length > 60 ? best.split(/\s+/).slice(0, 60).join(" ") : best, text);
+  const words = [...best.matchAll(/\S+/g)];
+  const mention = words.findIndex(word => /\bworkday\b/i.test(word[0]));
+  // Keep the supporting product mention inside the verbatim excerpt, even in long sentences.
+  const start = Math.max(0, Math.min(mention - 30, words.length - 60));
+  const excerpt = words.length > 60
+    ? best.slice(words[start].index, words[start + 59].index! + words[start + 59][0].length)
+    : best;
+  const check = verifyQuote(excerpt, text);
   return check.ok ? check.quote : null;
 }
 
@@ -109,7 +124,7 @@ export type ExtractedCapture = {
   model: ModelReading | null;
   // The capture has text only a model can read; without a working model it stays queued.
   needsModel?: boolean;
-  sites?: { tenant: string; pod: string; site: string; company_name: string; normalized_name: string; match_kind: "full_name" | "first_word" }[];
+  sites?: { tenant: string; pod: string; site: string; company_name: string; normalized_name: string; match_kind: "full_name" | "first_word" | "careers_link" }[];
 };
 
 type Meta = Record<string, unknown>;
@@ -126,9 +141,23 @@ export async function extractCapture(capture: CaptureRow & { meta?: Meta }, llm:
     case "sec_company_list":
       return { signals: [], structured: { rows: meta.rows ?? null }, model: null };
 
+    case "corporate_careers": {
+      const company = s(meta.company_name) ?? "";
+      const observed = capture.http_status === 200 ? corporateWorkdayLinks(capture.body, capture.url, company) : [];
+      const selected = observed.filter(link => link.site === primarySites(observed.filter(other => other.tenant === link.tenant && other.pod === link.pod).map(other => other.site), link.tenant)[0]);
+      return {
+        structured: { company_name: company, observed_workday_links: observed.map(link => link.url) }, model: null,
+        sites: selected.map(link => ({ tenant: link.tenant, pod: link.pod, site: link.site, company_name: company, normalized_name: normalizeName(company), match_kind: "careers_link" })),
+        signals: selected.flatMap(link => {
+          const quote = verifyQuote(link.quote, capture.body, 1);
+          return quote.ok ? [{ ...base(company), type: "known_customer" as const, signal_date: null, source_url: link.url, quote: quote.quote, confidence: 0.6, method: "structured" as const }] : [];
+        }),
+      };
+    }
+
     case "workday_robots": {
       const tenant = String(meta.tenant), pod = String(meta.pod);
-      const sites = primarySites(sitesFromRobots(capture.body, tenant, pod));
+      const sites = primarySites(sitesFromRobots(capture.body, tenant, pod), tenant);
       const company = String(meta.company_name);
       const line = capture.body.split(/\r?\n/).find(l => l.includes(`/${sites[0]}/siteMap.xml`)) ?? "";
       const quote = verifyQuote(line, capture.body, 1);

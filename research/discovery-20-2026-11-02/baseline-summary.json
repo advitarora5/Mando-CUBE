@@ -1,0 +1,111 @@
+{
+  "started_at": "2026-11-02T19:18:04.612Z",
+  "finished_at": "2026-11-02T19:20:39.387Z",
+  "selected_sha256": "0f4fa976d4592182ca28343b3aa0a676c4a1027fdf2ee53a944b719c31b5998b",
+  "counts": {
+    "selected": 20,
+    "completed_name_searches": 20,
+    "names_with_sites": 1,
+    "sites": 1,
+    "admitted": 0,
+    "held": 1
+  },
+  "backend": "local Supabase",
+  "site_pairs": [
+    {
+      "company": "Shell plc",
+      "tenant": "shell",
+      "pod": "wd3",
+      "site": "NOVCareers",
+      "match_kind": "full_name"
+    }
+  ],
+  "stages": [
+    {
+      "job": "collect",
+      "source": "sec-company-list",
+      "status": "succeeded",
+      "ms": 59,
+      "requests": 0,
+      "counts": {
+        "items": 1,
+        "new_captures": 1
+      },
+      "errors": []
+    },
+    {
+      "job": "extract",
+      "source": null,
+      "status": "succeeded",
+      "ms": 29,
+      "requests": 0,
+      "counts": {
+        "pending": 1,
+        "extracted": 1
+      },
+      "errors": []
+    },
+    {
+      "job": "collect",
+      "source": "workday-site-resolver",
+      "status": "succeeded",
+      "ms": 153156,
+      "requests": 153,
+      "counts": {
+        "items": 1,
+        "new_captures": 1
+      },
+      "errors": []
+    },
+    {
+      "job": "extract",
+      "source": null,
+      "status": "succeeded",
+      "ms": 32,
+      "requests": 0,
+      "counts": {
+        "pending": 1,
+        "new_workday_sites": 1,
+        "new_signals": 1,
+        "extracted": 1
+      },
+      "errors": []
+    },
+    {
+      "job": "collect",
+      "source": "workday-career-sites",
+      "status": "succeeded",
+      "ms": 1336,
+      "requests": 2,
+      "counts": {
+        "items": 0
+      },
+      "errors": []
+    },
+    {
+      "job": "extract",
+      "source": null,
+      "status": "succeeded",
+      "ms": 9,
+      "requests": 0,
+      "counts": {
+        "pending": 0
+      },
+      "errors": []
+    },
+    {
+      "job": "match",
+      "source": null,
+      "status": "succeeded",
+      "ms": 62,
+      "requests": 0,
+      "counts": {
+        "candidates": 1,
+        "website_checked": 1,
+        "review_no_website": 1,
+        "trusted_candidates": 1
+      },
+      "errors": []
+    }
+  ]
+}
