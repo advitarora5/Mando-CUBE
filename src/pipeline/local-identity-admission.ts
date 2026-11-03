@@ -109,8 +109,12 @@ export async function localIdentityAdmission(ctx: PipelineContext, candidates: L
           if (cached) cacheHits++;
           else if (result.status !== "insufficient_input") checks++;
           results.push(result); persist();
+          // When a consistency check held the model's verdict, show that reason rather than the model's own explanation.
+          let detail = result.error ?? result.answer?.explanation ?? "";
+          const held = result.answer?.consistency_holds ?? [];
+          if (!result.error && held.length > 0) detail = `held: ${held.join("; ")}`;
           resolution.evidence.checks.push({ domain: normalizeDomain(packet.corporate_url) ?? "", url: packet.corporate_url,
-            reason: `${result.status}: ${result.verdict}; ${result.error ?? result.answer?.explanation ?? ""}` });
+            reason: `${result.status}: ${result.verdict}; ${detail}` });
           if (result.status !== "done" || result.verdict !== "same_company") { everySiteMatched = false; break; }
           const observed = normalizeDomain(packet.corporate_url);
           if (domain && domain !== observed) { everySiteMatched = false; break; }

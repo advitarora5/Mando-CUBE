@@ -56,7 +56,11 @@ try {
     if (!response.ok) throw Error(`Ollama models HTTP ${response.status}`);
     const tag = (await response.json()).models?.find(m => m.name === model);
     if (!tag?.digest) throw Error(`model ${model} is not installed in Ollama`);
-    const llm = new OllamaProvider({ host, model, timeoutMs: 120000, ...IDENTITY_MODEL_OPTIONS });
+    // Slower local hardware (e.g. a model partly offloaded to CPU) may need longer than the default.
+    // The timeout does not change model options or the answer; it only decides when a call is abandoned.
+    const timeoutMs = Number(process.env.IDENTITY_TIMEOUT_MS ?? 120000);
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 1800000) throw Error('IDENTITY_TIMEOUT_MS must be an integer from 1000 to 1800000');
+    const llm = new OllamaProvider({ host, model, timeoutMs, ...IDENTITY_MODEL_OPTIONS });
     const old = existsSync(args['--output']) ? read(args['--output']) : { results: [] };
     if (!Array.isArray(old.results)) throw Error('invalid existing shadow results');
     const selected = packets.slice(0, limit);
