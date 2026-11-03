@@ -1,5 +1,6 @@
 // The pipeline stages. Each one reads from and writes to the store only, so any stage can run on its own.
 // Failures are counted and logged per item; a stage never throws out of a run.
+import { companyAliases } from "../data/company-aliases.ts";
 import { decideMatch, TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
 import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
@@ -191,7 +192,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
       // A slug-derived name (Common Crawl tenant) is replaced by the name the confirmed website uses.
       const pageName = candidateSites.some(s => s.match_kind === "first_word") ? confirmedName(lookup) : null;
       const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", best_confidence: best }, known,
-        { canCreate: created < settings.max_new_companies_per_run, identityVerified: !!opts.localIdentity && lookup.status === "confirmed" });
+        { canCreate: created < settings.max_new_companies_per_run, identityVerified: !!opts.localIdentity && lookup.status === "confirmed" }, companyAliases);
       if (opts.dryRun) { bump(r, `would_${decision.action}`); continue; }
       if (decision.action === "skip") { bump(r, "excluded"); continue; }
       const source = signals.find(s => s.type === "known_customer" && /^https:\/\//.test(s.source_url))?.source_url ?? signals.find(s => /^https:\/\//.test(s.source_url))?.source_url;
@@ -245,9 +246,11 @@ export function sameScore(a: StoredScore | null, b: Record<string, unknown>): bo
   return categories.every(c => Number(a[`${c}_score`]) === Number(b[`${c}_score`]) && evidenceLink(a[`${c}_evidence`]) === evidenceLink(b[`${c}_evidence`])) && a.tier === b.tier;
 }
 
+import { buildScoreChange, type ScoreTrigger } from "../domain/ingestion/score-change.ts";
+
 // Scores every in-scope company. A new row is appended only when something changed, or every 14 days.
 // Out-of-scope companies (existing companies while scope is pipeline_only) are never touched.
-export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[] } = {}): Promise<StageResult> {
+export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[]; trigger?: ScoreTrigger } = {}): Promise<StageResult> {
   const r = result();
   const settings = await ctx.store.settings();
   const now = ctx.now();
@@ -267,7 +270,12 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       const latest = await ctx.store.latestScore(company.id);
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
       if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
-      else { await ctx.store.insertScore(assessment.result.row, now.toISOString()); bump(r, latest ? "rescored" : "scored"); }
+      else {
+        // An unchanged score that is only re-saved because it is due is a refresh; anything else was started by the caller.
+        const trigger: ScoreTrigger = sameScore(latest, assessment.result.row) ? "periodic_refresh" : opts.trigger ?? "pipeline_run";
+        await ctx.store.insertScore(assessment.result.row, now.toISOString(), buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId }));
+        bump(r, latest ? "rescored" : "scored");
+      }
       if (assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
         await ctx.store.setEnrichment(company.id, "pending", "Budget + Release + Timing reached the ready-for-contacts threshold.");
         bump(r, "ready_for_contacts");

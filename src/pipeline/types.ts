@@ -3,6 +3,7 @@
 import type { PipelineSettings } from "../domain/ingestion/settings.ts";
 import type { SignalType, ProjectType, ScoringContact } from "../domain/ingestion/pipeline-score.ts";
 import type { ScoreRow } from "../domain/scoring/assessment.ts";
+import type { ScoreChange } from "../domain/ingestion/score-change.ts";
 import type { LedgerEntry } from "../domain/ingestion/budget.ts";
 
 // ---------- Sources and collectors ----------
@@ -205,7 +206,7 @@ export interface PipelineStore {
 
   contactsForCompany(companyId: string): Promise<ContactRow[]>;
   latestScore(companyId: string): Promise<StoredScore | null>;
-  insertScore(row: ScoreRow, assessedAt: string): Promise<string>;
+  insertScore(row: ScoreRow, assessedAt: string, change?: ScoreChange): Promise<string>;
   setEnrichment(companyId: string, status: "pending" | "skipped_budget" | "searching" | "done" | "no_contacts_found", reason: string): Promise<void>;
   enrichmentStatus(companyId: string): Promise<string | null>;
   updateContact(contactId: string, patch: Partial<ContactRow> & { contact_sources?: unknown; enriched_at?: string }): Promise<void>;

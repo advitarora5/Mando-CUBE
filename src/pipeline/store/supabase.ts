@@ -3,6 +3,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseSettings } from "../../domain/ingestion/settings.ts";
 import type { ScoreRow } from "../../domain/scoring/assessment.ts";
+import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
   CaptureRow, CompanyRow, ContactRow, ExtractionRecord, PipelineStore, RawItem, ReviewItem, RunCounts, RunStatus,
   SignalInput, SignalRow, SourceRow, StoredScore, WorkdaySite, ResolverAttempt, ResolverCutoffs, WebsiteResolution, WebsiteCapture,
@@ -208,8 +209,15 @@ export class SupabaseStore implements PipelineStore {
   async latestScore(companyId: string) {
     return this.check(await this.db.from("scores").select(SCORE_FIELDS).eq("company_id", companyId).order("assessed_at", { ascending: false }).limit(1).maybeSingle(), "latest score") as StoredScore | null;
   }
-  async insertScore(row: ScoreRow, assessedAt: string) {
-    return (this.check(await this.db.from("scores").insert({ ...row, assessed_at: assessedAt }).select("id").single(), "insert score") as { id: string }).id;
+  async insertScore(row: ScoreRow, assessedAt: string, change?: ScoreChange) {
+    const base = { ...row, assessed_at: assessedAt };
+    if (change) {
+      const saved = await this.db.from("scores").insert({ ...base, ...change }).select("id").single();
+      if (!saved.error) return (saved.data as { id: string }).id;
+      // Until the score-change migration is applied those columns do not exist; keep scoring without them.
+      if (!/column|schema cache/i.test(saved.error.message)) this.check(saved, "insert score");
+    }
+    return (this.check(await this.db.from("scores").insert(base).select("id").single(), "insert score") as { id: string }).id;
   }
   async setEnrichment(companyId: string, status: string, reason: string) {
     this.check(await this.db.from("enrichment_requests").upsert({ company_id: companyId, status, reason }), "set enrichment");

@@ -60,7 +60,7 @@ export async function readWithModel(llm: LLMProvider, kind: string, title: strin
 // searchText=Workday returns postings that never say it); Reddit posts must touch Workday or releases.
 export function needsModelText(kind: string, title: string | null, text: string): boolean {
   const all = `${title ?? ""}\n${text}`;
-  if (/job posting/i.test(kind)) return /\bworkday\b/i.test(all);
+  if (/job posting/i.test(kind)) return !!workdaySentence(text) || isWorkdaySoftwareMention(title ?? "");
   if (/reddit/i.test(kind)) return /\bworkday\b|\bR[12]\b|release|rising|go-?live|implementation/i.test(all) && text.trim().length > 0;
   return true;
 }
@@ -89,6 +89,14 @@ export function isoDay(text: string | null | undefined, publishedOn?: string | n
 // "role": the work is on Workday (title, or a sentence about building/running it). "skill": Workday is one listed tool.
 const WORKDAY_TITLE = /workday|\bhris\b|\bhcm\b|hr (?:systems|technology|tech)|people (?:systems|technology)|payroll systems/i;
 const WORKDAY_WORK = /implement|configur|build|develop|integrat|support (?:features|the|our)|administ|optimi[sz]|maintain|test(?:ing)?|design|deploy|own(?:s|ing)? /i;
+// A career site can be genuine while its posting only uses the ordinary word "workday".
+// Do not turn physical requirements or workplace prose into software evidence.
+export function isWorkdaySoftwareMention(sentence: string): boolean {
+  const ordinary = /\b(?:typical|flexible|normal|standard|eight.hour|8.hour)\s+workday\b|\b(?:of|during|throughout)\s+(?:a|the|your|their)\s+workday\b|\bin\s+(?:your|their)\s+workday\b|\bworkday\s+(?:hours|schedule|ends|begins|starts)\b/gi;
+  const remaining = sentence.replace(ordinary, "");
+  if (!/\bworkday\b/i.test(remaining)) return false;
+  return /\bWorkday\b/.test(remaining) || /\b(?:hris|hcm|ats|erp|payroll|software|systems?|platforms?|tenants?|compensation|recruitment)\b|integrat|configur|implement/i.test(remaining);
+}
 export function hiringStrength(title: string | null, sentence: string): "role" | "skill" {
   if (WORKDAY_TITLE.test(title ?? "")) return "role";
   return WORKDAY_WORK.test(sentence) ? "role" : "skill";
@@ -96,7 +104,7 @@ export function hiringStrength(title: string | null, sentence: string): "role" |
 
 // First sentence that mentions Workday, used as the structured hiring quote. Always a verbatim span.
 export function workdaySentence(text: string): string | null {
-  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(s => /\bworkday\b/i.test(s) && s.split(/\s+/).length >= 3);
+  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(s => isWorkdaySoftwareMention(s) && s.split(/\s+/).length >= 3);
   const best = sentences.find(s => s.split(/\s+/).length <= 60) ?? sentences[0];
   if (!best) return null;
   const words = [...best.matchAll(/\S+/g)];
@@ -173,9 +181,9 @@ export async function extractCapture(capture: CaptureRow & { meta?: Meta }, llm:
       const posted = s(info.startDate)?.slice(0, 10) ?? null;
       const company = s(meta.company_name);
       const structured = { title, posted, url, location: s(info.location), req_id: s(info.jobReqId), company_name: company };
-      const mentionsWorkday = /\bworkday\b/i.test(`${title}\n${text}`);
+      const mentionsWorkday = !!workdaySentence(text) || isWorkdaySoftwareMention(title ?? "");
       if (!mentionsWorkday) return { signals: [], structured: { ...structured, mentions_workday: false }, model: null };
-      const quote = workdaySentence(text) ?? (title && /\bworkday\b/i.test(title) ? verifyQuote(title, title).ok ? title : null : null);
+      const quote = workdaySentence(text) ?? (title && isWorkdaySoftwareMention(title) ? verifyQuote(title, title).ok ? title : null : null);
       const hiring = quote ? { ...base(company), ...owner, type: "hiring" as const, signal_date: posted, source_url: url, quote, confidence: hiringStrength(title, quote) === "role" ? 0.9 : 0.6, method: "structured" as const } : null;
       const model = llm ? await readWithModel(llm, "job posting", title, text, prompt) : null;
       const signals: ExtractedCapture["signals"] = [];

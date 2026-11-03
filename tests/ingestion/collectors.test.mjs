@@ -72,6 +72,41 @@ test('happy path: Workday jobs collector returns one raw item per posting, exact
   assert.ok(slept.length >= 3 && slept.every(ms => ms <= 1000));
 });
 
+test('shared tenants prefer their branded external site without treating a first-word match as identity proof', () => {
+  assert.deepEqual(primarySites(['AvanadeCareers', 'AccentureCareers'], 'accenture'), ['AccentureCareers']);
+  assert.deepEqual(primarySites(['ACCENTURE_Careers', 'Careers', 'Accenture_Internal'], 'accenture'), ['ACCENTURE_Careers']);
+  assert.deepEqual(primarySites(['AccenturesubsidiaryCareers', 'Careers'], 'accenture'), ['Careers']);
+  assert.deepEqual(primarySites(['Careers', 'Acme_Internal'], 'acme'), ['Careers']);
+  assert.deepEqual(primarySites(['Careers', 'RegionalCareers'], 'acme'), ['Careers']);
+  assert.deepEqual(primarySites([], 'acme'), []);
+  assert.deepEqual(primarySites(['WESTERN'], 'western'), ['WESTERN']);
+});
+
+test('resolver records the tenant-branded primary site from a shared robots capture', async () => {
+  const store = new MemoryStore();
+  await store.saveCapture({ source: 'sec-company-list', url: 'https://www.sec.gov/files/company_tickers.json', fetched_at: '2026-11-02T00:00:00Z', http_status: 200, content_type: 'application/json', raw: secFixture(['Accenture plc']), fingerprint: 'b'.repeat(64), meta: { kind: 'sec_company_list' } }, null);
+  const robots = ['AvanadeCareers', 'AccentureCareers'].map(site => `Sitemap: https://accenture.wd5.myworkdayjobs.com/${site}/siteMap.xml`).join('\n');
+  const fetch = fakeFetch([{ match: /robots\.txt$/, respond: () => response(200, robots) }]);
+  const out = await new WorkdayResolver().collect(source('workday-site-resolver'), limits, makeCtx({ store, fetch }));
+  assert.equal(out.items.length, 1);
+  assert.deepEqual(out.items[0].meta.primary_sites, ['AccentureCareers']);
+});
+
+test('jobs collection uses the tenant-branded site even when a shorter sibling was saved first', async () => {
+  const store = new MemoryStore();
+  for (const site of ['AvanadeCareers', 'AccentureCareers']) {
+    await store.upsertWorkdaySite({ tenant: 'accenture', pod: 'wd103', site, company_name: 'Accenture plc', normalized_name: 'accenture', match_kind: 'full_name', discovered_from: 'workday-site-resolver', capture_id: null });
+  }
+  const fetch = fakeFetch([
+    { match: /robots\.txt$/, respond: () => response(200, 'User-agent: *\nAllow: /') },
+    { match: /\/AccentureCareers\/jobs$/, method: 'POST', respond: () => response(200, JSON.stringify({ jobPostings: [], total: 0 }), { 'content-type': 'application/json' }) },
+  ]);
+  const out = await new WorkdayJobs().collect(source('workday-career-sites'), limits, makeCtx({ store, fetch }));
+  assert.equal(out.errors.length, 0);
+  assert.ok(fetch.calls.some(call => call.url.includes('/AccentureCareers/jobs')));
+  assert.ok(fetch.calls.every(call => !call.url.includes('/AvanadeCareers/')));
+});
+
 test('regression (round 1): --limit counts companies (sites), each gets its postings, and sites rotate by last check', async () => {
   const store = new MemoryStore();
   for (const tenant of ['aaa', 'bbb', 'ccc']) await store.upsertWorkdaySite({ tenant, pod: 'wd5', site: 'Careers', company_name: tenant, normalized_name: tenant, match_kind: 'full_name', discovered_from: 'x', capture_id: null });

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { defaultSettings, parseSettings, type PipelineSettings } from "../../domain/ingestion/settings.ts";
 import { normalizeName } from "../../domain/ingestion/normalize.ts";
 import type { ScoreRow } from "../../domain/scoring/assessment.ts";
+import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
   CaptureRow, CompanyRow, ContactRow, ExtractionRecord, PipelineStore, RawItem, ReviewItem, RunCounts, RunStatus,
   SignalInput, SignalRow, SourceRow, StoredScore, WorkdaySite, ResolverAttempt, ResolverCutoffs, WebsiteResolution, WebsiteCapture,
@@ -181,12 +182,17 @@ export class MemoryStore implements PipelineStore {
     if (!item) throw new Error(`review item ${itemId} is not pending`);
     let companyId: string | null = null;
     if (decision.action === "approve") companyId = await this.createPipelineCompany({ name: item.candidate_name, domain: decision.domain ?? item.candidate_domain, employee_count: item.employee_count, source: "review_queue" }, runId, { signal_ids: [], normalized_name: null });
-    if (decision.action === "merge") companyId = decision.company_id;
+    if (decision.action === "merge") {
+      if (!this.companyRows.some(company => company.id === decision.company_id)) throw new Error(`company ${decision.company_id} does not exist`);
+      companyId = decision.company_id;
+    }
     item.status = decision.action === "approve" ? "approved" : decision.action === "merge" ? "merged" : "rejected";
     item.resolved_company_id = companyId;
     if (companyId) {
       for (const s of this.signals) if (s.review_item_id === itemId && !s.company_id) s.company_id = companyId;
       for (const site of this.sites) if (site.review_item_id === itemId && !site.company_id) site.company_id = companyId;
+    } else {
+      for (const site of this.sites) if (site.review_item_id === itemId && !site.company_id) site.enabled = false;
     }
     return companyId;
   }
@@ -224,10 +230,12 @@ export class MemoryStore implements PipelineStore {
     // The later insert wins if the test clock gives two assessments the same timestamp.
     return this.scores.filter(s => s.company_id === companyId).reverse().sort((a, b) => b.assessed_at.localeCompare(a.assessed_at))[0] ?? null;
   }
-  async insertScore(row: ScoreRow, assessedAt: string) {
+  scoreChanges = new Map<string, ScoreChange>();
+  async insertScore(row: ScoreRow, assessedAt: string, change?: ScoreChange) {
     this.trip("insertScore");
     const id = randomUUID();
     this.scores.push({ id, ...row, assessed_at: assessedAt });
+    if (change) this.scoreChanges.set(id, change);
     return id;
   }
   async setEnrichment(companyId: string, status: string, reason: string) { this.enrichment.set(companyId, { status, reason }); }

@@ -1,3 +1,5 @@
+import type { CompanyAlias } from "../../data/company-aliases.ts";
+import { aliasOwner } from "./duplicates.ts";
 import { isSimilarName, normalizeDomain, normalizeName } from "./normalize.ts";
 
 export type KnownCompany = { id: string; name: string; domain: string | null };
@@ -25,16 +27,19 @@ export function isExcludedCompany(name: string | null | undefined): boolean {
   return EXCLUDED.has(normalizeName(name));
 }
 
-// Rules: a confirmed exact website match merges. A similar (or equal) name without one goes to review.
-// Normally a new company needs a confirmed website and a trusted signal. The guarded
-// local AI experiment substitutes verified identity for that signal gate.
-export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean; identityVerified?: boolean }): MatchDecision {
+// Rules: a confirmed exact website match or a reviewed alias (src/data/company-aliases.ts) merges. A similar
+// (or equal) name without either goes to review. Normally a new company needs a confirmed website and a trusted
+// signal. The guarded local AI experiment substitutes verified identity for that signal gate.
+export function decideMatch(candidate: Candidate, known: KnownCompany[], room: { canCreate: boolean; identityVerified?: boolean }, aliases: CompanyAlias[] = []): MatchDecision {
   if (isExcludedCompany(candidate.name)) return { action: "skip", why: "excluded organisation (the vendor)" };
   const domain = normalizeDomain(candidate.domain);
   if (domain && candidate.domain_confirmed) {
     const exact = known.find(company => normalizeDomain(company.domain) === domain);
     if (exact) return { action: "attach", company_id: exact.id, why: `website ${domain} matches ${exact.name}` };
   }
+  const ownerId = aliasOwner(candidate.name, aliases);
+  const owner = ownerId ? known.find(company => company.id === ownerId) : undefined;
+  if (owner) return { action: "attach", company_id: owner.id, why: `${candidate.name} is a known name of ${owner.name}` };
   // Explicit parent/subdomain relationships are ambiguous; do not guess a registrable domain.
   const related = domain && known.find(company => { const other = normalizeDomain(company.domain); return other && (domain.endsWith(`.${other}`) || other.endsWith(`.${domain}`)); });
   if (related) return { action: "review", reason: "similar_name", suggested_company_id: related.id, why: "website is a parent or subdomain of an existing company" };

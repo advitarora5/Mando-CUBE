@@ -172,6 +172,29 @@ test('time travel: a signal older than 14 days drops out of the score, and every
   assert.equal(due.counts.rescored, 12, 'unchanged scores are still re-saved every 14 days');
 });
 
+test('every saved score records why: run, trigger, previous score and a summary of what changed', async () => {
+  const now = clock('2026-10-13T12:00:00Z');
+  const { ctx, store } = world({ now });
+  await run(ctx);
+  const id = store.companyRows[0].id;
+  const first = store.scores.find(s => s.company_id === id);
+  assert.deepEqual([store.scoreChanges.get(first.id).change_trigger, store.scoreChanges.get(first.id).change_summary, store.scoreChanges.get(first.id).previous_score_id], ['pipeline_run', 'First assessment.', null]);
+  // Free contact research in the same run can already have rescored the company; link to whatever was latest.
+  const replaced = await store.latestScore(id);
+  now.advanceDays(15);
+  await scoreStage(ctx, { companyIds: [id], trigger: 'new_contacts' });
+  const second = (await store.latestScore(id));
+  const change = store.scoreChanges.get(second.id);
+  assert.equal(change.previous_score_id, replaced.id, 'links back to the score it replaced');
+  assert.equal(change.change_trigger, 'new_contacts', 'the caller that knew the reason is recorded');
+  assert.match(change.change_summary, /Timing \d+ to 0: Needs evidence/, 'the expired hiring signal shows up as the reason for Timing');
+  now.advanceDays(14);
+  await scoreStage(ctx, { companyIds: [id] });
+  const third = store.scoreChanges.get((await store.latestScore(id)).id);
+  assert.equal(third.change_trigger, 'periodic_refresh', 'an unchanged score re-saved because it is due is a refresh');
+  assert.equal(third.change_summary, 'Re-saved with no score change (periodic refresh).');
+});
+
 test('boundary: an existing company matched by website gets signals attached but its scores are untouched (scope pipeline_only)', async () => {
   const { ctx, store } = world();
   const existing = store.addExistingCompany({ name: 'Alder Robotics Incorporated', domain: 'alderrobotics.example' });
