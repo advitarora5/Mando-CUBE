@@ -1,5 +1,9 @@
 # Scheduled discovery skeleton
 
+Initial skeleton notes. Current execution controls are in discovery-operation.md and
+archive candidate caching is documented in discovery-archive-cache.md. Contact-worker
+PR 37 has since merged into main; its execution remains separately gated.
+
 Task 1 coordinates existing discovery and ingestion. The local feature branch now integrates
 refined-pipeline with main, but does not activate schedules, apply migrations or enable contact research.
 The dashboard remains on Vercel. GitHub Actions is the proposed background runner.

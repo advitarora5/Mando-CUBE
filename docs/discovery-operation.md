@@ -55,9 +55,10 @@ Use a distributed lease in a later reviewed migration if multiple independent ru
 
 ## Rollout requirements still outstanding
 
-Review the combined branch's admission and scoring changes with teammates. Verify the
-target schema and migration history, particularly duplicate version 202610270001 in the
-repository (the disposable test copy renumbered one file without changing its SQL).
+Review the combined branch's admission and scoring changes with teammates. Main's
+merged contact-worker PR resolves the duplicate version in the repository: score-change
+reasons use 202610270001 and company merge uses 202610270002. Confirm the actual target
+database's migration history separately before deployment.
 Approve database migration/deployment changes separately. Decide how task 2/3 identity
 verification should run unattended; the experimental local model path is not invoked here.
 Re-run bounded live discovery to verify scoring after a partial match and supervised
@@ -68,3 +69,9 @@ One 144-second live local run admitted one company and held two; Common Crawl re
 504 and one Workday endpoint returned 500. The admitted company's missing score was
 recovered successfully. This is not a sustained growth-rate estimate. All nine database
 integration tests passed before adding the supervisor; no production data was accessed.
+
+## Archive candidate windows
+
+See discovery-archive-cache.md for candidate caching and bounded enumeration added
+after the first supervised runs. Caching requires no new database schema and does not
+replace live checks or create company evidence.

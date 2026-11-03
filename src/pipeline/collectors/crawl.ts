@@ -30,6 +30,13 @@ export function tenantsFromIndex(body: string): { tenant: string; pod: string }[
 type Tenant = { tenant: string; pod: string };
 type IndexGet = (url: string, expect: "json" | "text") => Promise<HttpResult>;
 
+async function untriedTenants(found: Tenant[], ctx: PipelineContext): Promise<Tenant[]> {
+  const known = new Set((await ctx.store.workdaySites(false)).map(s => `${s.tenant}.${s.pod}`));
+  const fresh = found.filter(t => !known.has(`${t.tenant}.${t.pod}`) && !NON_LIVE.test(t.tenant) && !isExcludedCompany(tenantName(t.tenant)));
+  const tried = await ctx.store.resolverAttempts(fresh.map(t => normalizeName(tenantName(t.tenant))));
+  return fresh.filter(t => !tried.has(normalizeName(tenantName(t.tenant))));
+}
+
 export class WorkdayTenantCrawl implements Collector {
   readonly type: string = "workday_tenant_crawl";
   // Where the candidate tenants come from. Wayback overrides this; everything after it is shared.
@@ -51,6 +58,10 @@ export class WorkdayTenantCrawl implements Collector {
         const got = await indexGet(`${base}&page=${page}`, "text");
         if (!got.ok) { fail(result, got); continue; }
         for (const t of tenantsFromIndex(got.body)) found.set(`${t.tenant}.${t.pod}`, t);
+        // Stop once this window can feed a bounded batch. Later queries advance past
+        // names already attempted rather than downloading every pod before probing.
+        const target = Math.max(1, Math.min(1000, Number(source.config.index_candidate_limit ?? 50)));
+        if ((await untriedTenants([...found.values()], ctx)).length >= target) return [...found.values()];
       }
     }
     return [...found.values()];
@@ -73,14 +84,31 @@ export class WorkdayTenantCrawl implements Collector {
       }
     };
 
-    const found = await this.listTenants(source, ctx, result, indexGet, pods);
+    const signature = JSON.stringify([this.type, pods, source.config.crawls ?? 1, source.config.index_page_size ?? 5]);
+    let found: Tenant[] = [];
+    try {
+      const cached = await ctx.store.tenantIndexCache(source.id);
+      const age = cached ? ctx.now().getTime() - Date.parse(cached.fetched_at) : Infinity;
+      const snapshot = cached && age >= 0 && age < 86400000 ? JSON.parse(cached.body) : null;
+      if (snapshot?.signature === signature && Array.isArray(snapshot.tenants) && snapshot.tenants.length <= 10000
+        && snapshot.tenants.every((t: Tenant) => typeof t?.tenant === "string" && /^[a-z0-9][a-z0-9-]*$/.test(t.tenant)
+          && typeof t.pod === "string" && /^wd\d+$/.test(t.pod) && pods.includes(t.pod))) {
+        if ((await untriedTenants(snapshot.tenants, ctx)).length) found = snapshot.tenants;
+      }
+    } catch { ctx.log.warn("archive candidate cache unavailable; querying index"); }
+    if (!found.length) {
+      found = await this.listTenants(source, ctx, result, indexGet, pods);
+      if (found.length && !limits.dryRun) {
+        const url = this.type === "workday_tenant_wayback" ? "https://web.archive.org/cdx/search/cdx" : COLLINFO;
+        const snapshot = JSON.stringify({ signature, tenants: found, captured_at: ctx.now().toISOString() });
+        try { await ctx.store.saveCapture(item(source.id, url, 200, "application/json", snapshot, ctx.now(), { kind: "workday_index_cache" }), ctx.runId); }
+        catch { result.errors.push({ url, kind: "cache", message: "could not retain archive candidate window" }); }
+      }
+    }
     ctx.log.info(`${this.type}: ${found.length} tenants in the index`);
 
     // 2. Drop tenants we already have, and names already probed (by this source or the SEC resolver).
-    const known = new Set((await ctx.store.workdaySites(false)).map(s => `${s.tenant}.${s.pod}`));
-    const fresh = found.filter(t => !known.has(`${t.tenant}.${t.pod}`) && !NON_LIVE.test(t.tenant) && !isExcludedCompany(tenantName(t.tenant)));
-    const tried = await ctx.store.resolverAttempts(fresh.map(t => normalizeName(tenantName(t.tenant))));
-    const todo = fresh.filter(t => !tried.has(normalizeName(tenantName(t.tenant))));
+    const todo = await untriedTenants(found, ctx);
 
     // 3. robots.txt is the check: it exists and names career sites only for a live Workday tenant.
     for (const { tenant, pod } of todo) {
@@ -124,7 +152,7 @@ export const waybackTenants = (body: string): Tenant[] => {
 
 export class WorkdayTenantWayback extends WorkdayTenantCrawl {
   readonly type = "workday_tenant_wayback";
-  protected async listTenants(source: SourceRow, _ctx: PipelineContext, result: CollectResult, indexGet: IndexGet, pods: string[]): Promise<Tenant[]> {
+  protected async listTenants(source: SourceRow, ctx: PipelineContext, result: CollectResult, indexGet: IndexGet, pods: string[]): Promise<Tenant[]> {
     const found = new Map<string, Tenant>();
     for (const pod of pods) {
       if (result.blocked) break;
@@ -132,6 +160,8 @@ export class WorkdayTenantWayback extends WorkdayTenantCrawl {
       const got = await indexGet(url, "text");
       if (!got.ok) { fail(result, got); continue; }
       for (const t of waybackTenants(got.body)) found.set(`${t.tenant}.${t.pod}`, t);
+      const target = Math.max(1, Math.min(1000, Number(source.config.index_candidate_limit ?? 50)));
+      if ((await untriedTenants([...found.values()], ctx)).length >= target) break;
     }
     return [...found.values()];
   }

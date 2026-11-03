@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { WorkdayTenantCrawl, tenantsFromIndex, tenantName } from '../../src/pipeline/collectors/crawl.ts';
 import { extractCapture } from '../../src/pipeline/extract.ts';
 import { MemoryStore, DEFAULT_SOURCES } from '../../src/pipeline/store/memory.ts';
-import { fixture, fakeFetch, response, makeCtx } from './helpers.mjs';
+import { fixture, fakeFetch, response, makeCtx, clock } from './helpers.mjs';
 
 const limits = { maxRequests: 200, maxItems: 20, minDelayMs: 1000, dryRun: false };
 const source = { ...DEFAULT_SOURCES.find(s => s.id === 'workday-tenant-crawl'), config: { pods: ['wd5'] } };
@@ -39,6 +39,41 @@ test('configured index retry limit bounds repeated gateway failures', async () =
   assert.equal(calls, 2);
   assert.equal(result.items.length, 0);
   assert.ok(result.errors.length > 0);
+});
+
+test('later batches reuse candidate windows but still verify new tenants live', async () => {
+  const store = new MemoryStore();
+  const fetch = world();
+  const ctx = makeCtx({ store, fetch });
+  const first = await new WorkdayTenantCrawl().collect(source, { ...limits, maxItems: 1 }, ctx);
+  assert.equal(first.items[0].meta.tenant, 'nvidia');
+  const before = fetch.calls.length;
+  const second = await new WorkdayTenantCrawl().collect(source, { ...limits, maxItems: 1 }, ctx);
+  assert.equal(second.items[0].meta.tenant, 'target');
+  const calls = fetch.calls.slice(before);
+  assert.ok(calls.every(c => !c.url.includes('index.commoncrawl.org')));
+  assert.ok(calls.some(c => /target.*robots\.txt/.test(c.url)));
+  const cached = await store.tenantIndexCache(source.id);
+  const extracted = await extractCapture(cached, null, '');
+  assert.deepEqual(extracted.signals, [], 'cached names are not evidence');
+  assert.equal(extracted.model, null);
+});
+
+test('expired candidate snapshots are refreshed instead of used indefinitely', async () => {
+  const now = clock(), store = new MemoryStore({ now }), fetch = world();
+  const ctx = makeCtx({ store, now, fetch });
+  await new WorkdayTenantCrawl().collect(source, { ...limits, maxItems: 1 }, ctx);
+  now.advanceDays(2);
+  const before = fetch.calls.length;
+  await new WorkdayTenantCrawl().collect(source, { ...limits, maxItems: 1 }, ctx);
+  assert.ok(fetch.calls.slice(before).some(c => c.url.includes('collinfo.json')));
+});
+
+test('enough untried names stop index pagination early, reserving requests for live verification', async () => {
+  const fetch = world();
+  const result = await new WorkdayTenantCrawl().collect({ ...source, config: { pods: ['wd5'], index_candidate_limit: 2 } }, limits, makeCtx({ fetch }));
+  assert.equal(result.items.length, 2);
+  assert.equal(fetch.calls.filter(c => /page=/.test(c.url)).length, 1);
 });
 
 test('finds live tenants, records misses, skips known and test tenants, and does not re-probe on the next run', async () => {
@@ -105,4 +140,15 @@ test('wayback: lists tenants from the CDX index and verifies each with robots.tx
   const out = await new WorkdayTenantWayback().collect(wayback, limits, makeCtx({ fetch }));
   assert.deepEqual(out.items.map(i => i.meta.tenant), ['nvidia']);
   assert.equal(out.items[0].meta.discovered_via, 'commoncrawl', 'shared item shape');
+});
+
+test('wayback stops enumerating pods once it has candidates for this batch', async () => {
+  const fetch = fakeFetch([
+    { match: /web\.archive\.org/, respond: () => response(200, 'https://nvidia.wd5.myworkdayjobs.com/robots.txt') },
+    { match: /nvidia\.wd5.*robots\.txt/, respond: () => response(200, fixture('workday-robots-nvidia.txt')) },
+  ]);
+  const source = { ...DEFAULT_SOURCES.find(s => s.id === 'workday-tenant-wayback'), config: { pods: ['wd5', 'wd1'], index_candidate_limit: 1 } };
+  const result = await new WorkdayTenantWayback().collect(source, { ...limits, maxItems: 1 }, makeCtx({ fetch }));
+  assert.equal(result.items.length, 1);
+  assert.equal(fetch.calls.filter(c => c.url.includes('web.archive.org')).length, 1);
 });

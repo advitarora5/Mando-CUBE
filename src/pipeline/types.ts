@@ -170,6 +170,7 @@ export interface PipelineStore {
 
   saveCapture(item: RawItem, runId: string | null): Promise<{ id: string; inserted: boolean }>;
   latestCapture(sourceId: string): Promise<CaptureRow | null>;
+  tenantIndexCache(sourceId: string): Promise<CaptureRow | null>;
   captureById(id: string): Promise<CaptureRow | null>;
   pendingCaptures(limit: number, sourceIds?: string[]): Promise<CaptureRow[]>;
   saveExtraction(record: ExtractionRecord): Promise<string>;

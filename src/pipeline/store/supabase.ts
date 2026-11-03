@@ -80,6 +80,10 @@ export class SupabaseStore implements PipelineStore {
   async captureById(id: string) {
     return this.check(await this.db.from("raw_captures").select("*").eq("id", id).maybeSingle(), "capture") as CaptureRow | null;
   }
+  async tenantIndexCache(sourceId: string) {
+    return this.check(await this.db.from("raw_captures").select("*").eq("source_id", sourceId)
+      .eq("meta->>kind", "workday_index_cache").order("fetched_at", { ascending: false }).limit(1).maybeSingle(), "tenant index cache") as CaptureRow | null;
+  }
   async pendingCaptures(limit: number, sourceIds?: string[]) {
     let query = this.db.from("pending_captures").select("*").order("fetched_at", { ascending: true }).limit(limit);
     if (sourceIds) query = query.in("source_id", sourceIds);

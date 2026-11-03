@@ -1,5 +1,9 @@
 # Scheduling integration status
 
+Historical initial integration checkpoint. See discovery-operation.md and
+discovery-archive-cache.md for later controls and cache behavior. Database integration
+subsequently passed in local testing and GitHub CI.
+
 ## Completed locally
 
 Branch: anushka/scheduled-discovery. Base main: 1ffff55.

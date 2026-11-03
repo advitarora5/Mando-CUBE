@@ -138,6 +138,9 @@ function base(companyName: string | null): { company_id: string | null; review_i
 export async function extractCapture(capture: CaptureRow & { meta?: Meta }, llm: LLMProvider | null, prompt: string): Promise<ExtractedCapture> {
   const meta = (capture.meta ?? {}) as Meta;
   switch (meta.kind) {
+    case "workday_index_cache":
+      // Candidate names are collection state, never company identity or Workday evidence.
+      return { structured: { kind: "workday_index_cache" }, model: null, signals: [] };
     case "sec_company_list":
       return { signals: [], structured: { rows: meta.rows ?? null }, model: null };
 

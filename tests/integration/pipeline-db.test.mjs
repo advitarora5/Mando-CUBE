@@ -3,7 +3,7 @@
 // raw_captures is append-only, so each run uses fresh random fictional names instead of deleting rows.
 // Run: npm run test:integration   (skips when PIPELINE_SUPABASE_URL is not a reachable local database)
 import { test, after } from 'node:test';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
 import { matchStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
@@ -54,6 +54,18 @@ test('the store refuses remote projects unless explicitly allowed', () => {
   assert.throws(() => new SupabaseStore('https://fkhychihxpregusklggo.supabase.co', 'x'), /Refusing to write to remote Supabase project "fkhychihxpregusklggo"/);
   assert.equal(assertAllowedTarget('https://abc.supabase.co', 'abc'), 'https://abc.supabase.co');
   assert.equal(assertAllowedTarget('http://127.0.0.1:54321', undefined), 'http://127.0.0.1:54321');
+});
+
+test('archive candidate cache persists using existing captures and stays separate from live evidence', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const raw = JSON.stringify({ signature: `cache-test-${randomUUID()}`, tenants: [{ tenant: 'cachefixture', pod: 'wd5' }] });
+  const saved = await store.saveCapture({ source: 'workday-tenant-crawl', url: `https://index.commoncrawl.org/collinfo.json#${randomUUID()}`,
+    fetched_at: new Date().toISOString(), http_status: 200, content_type: 'application/json', raw,
+    fingerprint: createHash('sha256').update(raw).digest('hex'), meta: { kind: 'workday_index_cache' } }, null);
+  const cached = await store.tenantIndexCache('workday-tenant-crawl');
+  assert.equal(cached.id, saved.id);
+  assert.equal(cached.body, raw);
+  assert.equal((await store.captureById(saved.id)).source_id, 'workday-tenant-crawl');
 });
 
 test('due resolver attempts: persisted timestamps honor separate refresh and miss cutoffs', { skip }, async () => {

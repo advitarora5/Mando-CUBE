@@ -54,6 +54,6 @@ test('a source deadline preserves items collected before the stalled request', a
     { plan: 'collect', source: source.id, limit: 2, dryRun: false, trigger: 'manual' }), 100);
   assert.equal(report.jobs[0].status, 'blocked');
   assert.equal(report.jobs[0].counts.items, 1);
-  assert.equal(ctx.store.captures.length, 1);
-  assert.equal(ctx.store.captures[0].source_id, source.id);
+  assert.equal(ctx.store.captures.filter(c => c.meta.kind === 'workday_robots').length, 1);
+  assert.ok(ctx.store.captures.every(c => c.source_id === source.id));
 });
