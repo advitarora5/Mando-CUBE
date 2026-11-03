@@ -4,6 +4,11 @@ import { assertLocalIdentityMode, selectLocalIdentityCandidates } from '../scrip
 import { runPipeline } from '../src/pipeline/runner.ts';
 import { makeCtx } from './ingestion/helpers.mjs';
 import { SupabaseStore } from '../src/pipeline/store/supabase.ts';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 test('AI discovery rejects remote databases, remote models, wrong models and non-execution mode', () => {
   const mode = { execute: true, approved: false };
@@ -37,4 +42,22 @@ test('AI capability is rejected by the runner before logging or writes on a remo
   const ctx = makeCtx({ store });
   store.closeStaleRuns = () => { throw Error('unexpected write'); };
   await assert.rejects(() => runPipeline(ctx, { plan: 'match', limit: 1, dryRun: false, trigger: 'manual', localIdentity: { names: new Set(), resolve: () => {} } }), /loopback/);
+});
+
+test('admission-only CLI refuses prepare and approved modes before connecting or echoing secrets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'discovery-ai-mode-'));
+  try {
+    for (const args of [['--ai-admission-only'], ['--local-ai', '--ai-admission-only'], ['--execute-approved', '--local-ai', '--ai-admission-only']]) {
+      const run = spawnSync(process.execPath, [fileURLToPath(new URL('../scripts/discovery.mjs', import.meta.url)), ...args], {
+        cwd: directory, encoding: 'utf8', env: { ...process.env, DISCOVERY_OUTPUT: directory, PIPELINE_SUPABASE_URL: 'https://secret.invalid', PIPELINE_SUPABASE_KEY: 'secret-value' },
+      });
+      assert.equal(run.status, 1);
+      const report = readFileSync(join(directory, 'summary.json'), 'utf8');
+      assert.equal(JSON.parse(report).failure_stage, 'configuration');
+      assert.ok(!`${report}${run.stdout}${run.stderr}`.includes('secret-value'));
+    }
+  } finally {
+    if (!resolve(directory).startsWith(resolve(tmpdir()) + '\\') && !resolve(directory).startsWith(resolve(tmpdir()) + '/')) throw Error('Unexpected temporary path');
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

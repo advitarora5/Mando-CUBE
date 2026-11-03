@@ -42,3 +42,11 @@ test('a remote Ollama endpoint is rejected before network calls or artifacts', a
   await assert.rejects(() => localIdentityAdmission({ store, fetch: () => { throw Error('unexpected network call'); } }, [{ name: 'Example' }],
     { host: 'https://hosted.example', model: 'qwen2.5:7b', maxChecks: 1, save: () => { throw Error('unexpected artifact'); } }));
 });
+
+test('identity request timeouts stay bounded and invalid limits fail before network calls', async () => {
+  const store = new SupabaseStore('http://127.0.0.1:54321', 'test-key');
+  for (const timeoutMs of [0, 999, 240001, NaN, Infinity]) {
+    await assert.rejects(() => localIdentityAdmission({ store, fetch: () => { throw Error('unexpected network call'); } }, [{ name: 'Example' }],
+      { host: 'http://127.0.0.1:11434', model: 'qwen2.5:7b', maxChecks: 1, timeoutMs, save: () => {} }), /timeout/);
+  }
+});

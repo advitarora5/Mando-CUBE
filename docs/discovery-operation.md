@@ -42,6 +42,10 @@ opts into the existing local identity-admission policy. Both the database and mo
 must use explicit loopback endpoints; the model is pinned to `qwen2.5:7b`. No production
 or GitHub-hosted AI mode is provided. The model is checked before collection writes.
 The normal execution command remains model-free.
+Add `--ai-admission-only` alongside `--local-ai` to run only matching and scoped
+scoring against already collected candidates. It refreshes identity evidence as needed
+but does not run the discovery collectors or extraction stages. This diagnostic mode
+still requires local targets and uses the same model/admission limits.
 
 This pilot selects at most one candidate, excludes human-only/rejected decisions
 and disabled sibling sites, and allows at most three model checks across the selected
@@ -51,7 +55,9 @@ stored signal confidence. All enabled sibling sites must be verified by the exis
 policy before admission. A human-only similar-name review is not automatically resolved.
 
 The local AI supervisor has a ten-minute overall deadline and an admission cap of
-one; individual collection budgets remain 25 seconds. This longer deadline is local
+one; individual collection budgets remain 25 seconds. The local AI profile allows
+up to four minutes per model request; the dedicated admission CLI retains its two-minute
+default. This longer deadline is local
 only. Slow model calls may exhaust the window. Scoring follows matching and stays
 limited to touched companies. Inspect actual admission/assessment counts; a completed
 run or an empty scoring stage does not establish growth.

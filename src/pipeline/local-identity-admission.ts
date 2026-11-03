@@ -37,6 +37,7 @@ export function confirmedCorporateDomain(domains: Iterable<string>): string | nu
 
 export async function localIdentityAdmission(ctx: PipelineContext, candidates: LocalAdmissionCandidate[], opts: {
   host: string; model: string; maxChecks: number;
+  timeoutMs?: number;
   packets?: IdentityCase[];
   cachedResults?: IdentityResult[];
   save: (name: string, value: unknown) => void;
@@ -45,11 +46,13 @@ export async function localIdentityAdmission(ctx: PipelineContext, candidates: L
   assertLocalAdmissionUrl(opts.host);
   if (opts.model !== "qwen2.5:7b") throw Error("This experiment is pinned to qwen2.5:7b");
   if (!Number.isInteger(opts.maxChecks) || opts.maxChecks < 1 || opts.maxChecks > 100) throw Error("maxChecks must be 1–100");
+  const timeoutMs = opts.timeoutMs ?? 120000;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 240000) throw Error("Identity request timeout must be 1–240 seconds");
   const response = await ctx.fetch(`${opts.host.replace(/\/$/, "")}/api/tags`, { signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw Error(`Ollama tags HTTP ${response.status}`);
   const tag = (await response.json()).models?.find((m: { name: string; digest: string }) => m.name === opts.model);
   if (!tag?.digest) throw Error("Install qwen2.5:7b in local Ollama before running admission");
-  const llm = new OllamaProvider({ host: opts.host, model: opts.model, fetchImpl: ctx.fetch, timeoutMs: 120000, ...IDENTITY_MODEL_OPTIONS });
+  const llm = new OllamaProvider({ host: opts.host, model: opts.model, fetchImpl: ctx.fetch, timeoutMs, ...IDENTITY_MODEL_OPTIONS });
   const packets: IdentityCase[] = [], results: IdentityResult[] = [];
   const outcomes: { name: string; status: string; reason: string; domain: string | null }[] = [];
   let checks = 0, cacheHits = 0;

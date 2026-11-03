@@ -14,15 +14,20 @@ const save = summary => {
 const args = process.argv.slice(2);
 let failureStage = 'configuration';
 try {
-  let limit = 10, execute = false, approved = false, localAi = false;
+  let limit = 10, execute = false, approved = false, localAi = false, admissionOnly = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--execute-local') execute = true;
     else if (args[i] === '--execute-approved') { execute = true; approved = true; }
     else if (args[i] === '--local-ai') localAi = true;
+    else if (args[i] === '--ai-admission-only') admissionOnly = true;
     else if (args[i] === '--limit') limit = Number(args[++i]);
     else throw Error(`Unknown argument: ${args[i]}`);
   }
   const plan = discoveryPlan(limit);
+  if (admissionOnly) {
+    if (!localAi || !execute || approved) throw Error('Admission-only discovery requires explicit local AI execution');
+    plan.steps = [{ plan: 'match' }, { plan: 'score' }];
+  }
   let identityConfig = null, prepareLocalDiscoveryIdentity;
   if (localAi) {
     const identity = await import('./discovery-local-identity.mjs');

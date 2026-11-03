@@ -10,7 +10,7 @@ export function assertLocalIdentityMode({ execute, approved }, env) {
   const host = env.OLLAMA_HOST || 'http://127.0.0.1:11434';
   assertLocalAdmissionUrl(host);
   if (env.OLLAMA_MODEL && env.OLLAMA_MODEL !== 'qwen2.5:7b') throw Error('Required model is qwen2.5:7b');
-  return { host, model: 'qwen2.5:7b', maxChecks: 3 };
+  return { host, model: 'qwen2.5:7b', maxChecks: 3, timeoutMs: 240000 };
 }
 
 // First local pilot: one candidate, all enabled sibling sites checked by the
