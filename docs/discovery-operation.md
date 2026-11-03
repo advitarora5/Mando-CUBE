@@ -1,5 +1,8 @@
 # Discovery execution controls
 
+See [rollout preparation](discovery-rollout.md) for the reviewed configuration,
+dashboard connection, writer coordination, error-log compatibility and staged activation plan.
+
 The feature branch now has a supervised local entry point and a manual-only,
 approval-gated GitHub execution workflow. No schedule or execution flags have been enabled.
 
