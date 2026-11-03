@@ -38,6 +38,9 @@ jobs:
           PIPELINE_SUPABASE_KEY: ${{ secrets.PIPELINE_SUPABASE_KEY }}
           PIPELINE_ALLOW_REMOTE: ${{ vars.PIPELINE_ALLOW_REMOTE }}
         run: node scripts/discovery-execute-approved.mjs
+      - name: Show discovery health
+        if: always()
+        run: node scripts/discovery-health.mjs
       - name: Retain safe run summaries
         if: always()
         uses: actions/upload-artifact@v4

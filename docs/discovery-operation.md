@@ -56,6 +56,14 @@ Its ten-minute job deadline includes installation and a five-minute worker deadl
 It retains only safe JSON summaries for seven days, even on failure. Raw provider output
 is not uploaded. Partial failures return a failing workflow status while retaining success counts.
 
+The workflow's Summary tab shows each source's status, items, request count and
+candidate-cache reuse, plus admission, new-review and assessment-write counts.
+Missing stages and early stops are shown explicitly; counts come from completed
+stage reports and are not a transaction audit. A zero-count scoring stage is not
+proof that new admissions were scored. No raw errors, company/contact records or
+provider URLs are copied into the Markdown summary. For an existing local run,
+`node scripts/discovery-health.mjs` reads only `var/discovery/latest.json`.
+
 The filesystem lock does not coordinate different machines. Before enablement, confirm
 that all other writers either participate in the same GitHub concurrency group or are
 stopped. The single-writer flag records an operator confirmation; it is not a database lock.
