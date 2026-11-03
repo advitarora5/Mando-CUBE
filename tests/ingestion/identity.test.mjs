@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyIdentity, identitySignature, reusableIdentity, evaluateIdentity, digest, groundIdentityAnswer, identityExcerpts } from '../../src/pipeline/identity.ts';
+import { verifyIdentity, identitySignature, reusableIdentity, evaluateIdentity, digest, groundIdentityAnswer, identityExcerpts, containsName, nameKey, IDENTITY_VERSION } from '../../src/pipeline/identity.ts';
 import { prepareIdentityCase, jobIdentityText, identityTargetSchema, boundedIdentityText } from '../../src/pipeline/identity-evidence.ts';
 import { WebsiteHttp } from '../../src/pipeline/website.ts';
 import { makeCtx, fakeFetch, response } from './helpers.mjs';
@@ -15,6 +15,7 @@ function packet() {
     ].map(s => ({ ...s, fetched_at: now.toISOString(), content_hash: digest(s.text), capture_id: null })) };
 }
 const mismatch = () => ({ verdict: 'different_company', corporate_identity: ['Western Digital'], workday_identity: ['Western Colorado University'],
+  corporate_name: 'Western Digital', workday_name: 'Western Colorado University', shared_name: null,
   business: { corporate: 'Data storage products', workday: 'Higher education' },
   supporting_factors: [], contradictions: ['Storage manufacturer versus university'], uncertainties: [],
   explanation: 'The sources describe different employers and different organization types.', evidence: {
@@ -96,6 +97,7 @@ function contextualPair() {
   p.sources[1].text = 'Cisco Systems, Inc. is hiring to build networking equipment and security products.';
   p.sources[1].identity_groups = [{ kind: 'workday_employer', names: [{ field: 'hiringOrganization.name', value: 'Cisco Systems, Inc.' }] }];
   const answer = { ...mismatch(), verdict: 'same_company', corporate_identity: ['Cisco'], workday_identity: ['Cisco Systems, Inc.'],
+    corporate_name: 'Cisco', workday_name: 'Cisco Systems, Inc.', shared_name: 'Cisco',
     business: { corporate: 'Enterprise networking and security', workday: 'Enterprise networking and security' },
     supporting_factors: ['Distinctive Cisco brand and consistent networking products'], contradictions: [], uncertainties: [],
     explanation: 'The brand, employer description and product context support the same organization.', evidence: {
@@ -129,12 +131,12 @@ test('identity: multiple legal employers and citations can jointly support a bus
 
 test('identity: names need not occur literally within a single cited business excerpt', () => {
   const p = packet();
-  p.sources[0].text = 'We manufacture data storage products for enterprise customers.';
-  p.sources[1].text = 'We are a public university offering undergraduate education.';
-  const output = { ...mismatch(), evidence: { corporate: [{ source_id: 'c', excerpt_index: 0 }], workday: [{ source_id: 'w', excerpt_index: 0 }] } };
+  p.sources[0].text = 'Western Digital\nWe manufacture data storage products for enterprise customers.';
+  p.sources[1].text = 'Western Colorado University\nWe are a public university offering undergraduate education.';
+  const output = { ...mismatch(), evidence: { corporate: [{ source_id: 'c', excerpt_index: 1 }], workday: [{ source_id: 'w', excerpt_index: 1 }] } };
   const { answer } = groundIdentityAnswer(p, output);
   assert.equal(answer.verdict, 'different_company');
-  assert.equal(answer.evidence.workday[0].quote, p.sources[1].text);
+  assert.equal(answer.evidence.workday[0].quote, 'We are a public university offering undergraduate education.');
   output.evidence.workday[0].source_id = 'c';
   assert.throws(() => groundIdentityAnswer(p, output), /wrong side/);
 });
@@ -240,6 +242,152 @@ test('identity names: old frozen packets retain original employer observations a
   const result = await verifyIdentity(p, model(answer), 'v1', now);
   assert.equal(result.verdict, 'same_company');
   assert.deepEqual(result.answer.observed_identities.workday, ['Cisco Systems, Inc.']);
+});
+
+// A same-industry pair with different names, like BlackRock / Blackstone. Uses invented names.
+function sameIndustryPair() {
+  const p = packet();
+  p.target_name = 'Silverline';
+  p.sources[0].text = 'Silverline is one of the largest asset management firms.\nSilverline provides investment management.';
+  p.sources[1].text = 'Analyst\n{"name":"70040 Silverstone Alternative Asset Management LP","url":""}\nSilverstone is the largest alternative asset manager.';
+  const answer = { ...mismatch(), verdict: 'same_company', corporate_identity: ['Silverline'],
+    workday_identity: ['70040 Silverstone Alternative Asset Management LP'], corporate_name: 'Silverline', workday_name: 'Silverstone',
+    shared_name: null, business: { corporate: 'Asset management', workday: 'Asset management' },
+    supporting_factors: ['Both are asset managers'], contradictions: [], uncertainties: [],
+    explanation: 'Consistent asset management business; different legal entities within the same organization.', evidence: {
+      corporate: [{ source_id: 'c', quote: 'Silverline is one of the largest asset management firms.' }],
+      workday: [{ source_id: 'w', quote: 'Silverstone is the largest alternative asset manager.' }],
+    } };
+  return { p, answer };
+}
+
+test('identity v7: business similarity alone cannot establish shared identity', async () => {
+  const { p, answer } = sameIndustryPair();
+  const result = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(result.status, 'done');
+  assert.equal(result.verdict, 'insufficient_evidence');
+  assert.equal(result.answer.model_verdict, 'same_company');
+  assert.equal(result.model_output.verdict, 'same_company');
+  assert.match(result.answer.consistency_holds[0], /no name shared/);
+  assert.match(result.answer.review_reasons[0], /same_company needs an employer name/);
+});
+
+test('identity v7: an industry phrase or look-alike name is not accepted as the shared name', async () => {
+  for (const shared of ['asset management', 'Silverline', 'Silver', 'Holdings Inc']) {
+    const { p, answer } = sameIndustryPair();
+    answer.shared_name = shared;
+    const result = await verifyIdentity(p, model(answer), 'v1', now);
+    assert.equal(result.verdict, 'insufficient_evidence', shared);
+    assert.equal(result.answer.consistency_holds.length, 1, shared);
+  }
+});
+
+test('identity v7: a name the model attributes to the wrong side holds the verdict', async () => {
+  // Like Workiva / Thomson Reuters: the model claims the Workday employer's name appears on the corporate side.
+  const { p, answer } = sameIndustryPair();
+  answer.corporate_identity = ['Silverline', 'Silverstone'];
+  answer.shared_name = 'Silverstone';
+  const result = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(result.verdict, 'insufficient_evidence');
+  assert.match(result.answer.consistency_holds.join(' '), /"Silverstone" is not written in the corporate sources/);
+});
+
+test('identity v7.1: a target name or site slug added to the name lists does not hold a real shared-brand match', async () => {
+  // Like 3M Co / USA 3M Company: "Acme Co" and "AcmeCareers" are not written in the sources, "Acme" is.
+  const { p, answer } = regionalEmployerPair();
+  answer.corporate_identity = ['Acme Co'];
+  answer.workday_identity.push('AcmeCareers');
+  const result = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(result.verdict, 'same_company');
+  assert.deepEqual(result.answer.consistency_holds, []);
+});
+
+test('identity v7.1: the brand may appear in posting text while the legal employer is a regional entity', async () => {
+  // Like Kraft Heinz France: the brand is in the posting text, the legal employer name is different.
+  const { p, answer } = regionalEmployerPair();
+  p.sources[1].text = 'Stage\n{"name":"3813 HJ Distribution SASU","url":""}\nA propos de Acme : nous recrutons.';
+  p.sources.pop();
+  answer.workday_identity = ['3813 HJ Distribution SASU'];
+  answer.workday_name = '3813 HJ Distribution SASU';
+  answer.evidence.workday = [{ source_id: 'w', quote: 'A propos de Acme : nous recrutons.' }];
+  const result = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(result.verdict, 'same_company');
+});
+
+// A legitimate pair with coded legal and regional employers, like Airbus. Uses invented names.
+function regionalEmployerPair() {
+  const p = packet();
+  p.target_name = 'Acme';
+  p.sources[0].text = 'Acme designs and delivers commercial aircraft and helicopters.\nname: Acme';
+  p.sources[1].text = 'Analyst\n{"name":"1568 Acme Americas, Inc.","url":""}\nAcme is committed to equal opportunity.';
+  p.sources.push({ ...p.sources[1], id: 'w2', url: p.sources[1].url + '_2',
+    text: 'Pilot\n{"name":"5552 Aerovance Corporation","url":""}\nThe Acme Helicopters program builds unmanned aircraft.' });
+  p.sources[2].content_hash = digest(p.sources[2].text);
+  const answer = { ...mismatch(), verdict: 'same_company', corporate_identity: ['Acme'],
+    workday_identity: ['1568 Acme Americas, Inc.', '5552 Aerovance Corporation'], corporate_name: 'Acme', workday_name: 'Acme',
+    shared_name: 'Acme', business: { corporate: 'Aircraft and helicopters', workday: 'Aerospace' },
+    supporting_factors: ['Acme brand on the postings'], contradictions: [], uncertainties: [],
+    explanation: 'The postings carry the Acme brand; coded legal employers are regional entities.', evidence: {
+      corporate: [{ source_id: 'c', quote: 'Acme designs and delivers commercial aircraft and helicopters.' }],
+      workday: [{ source_id: 'w', quote: 'Acme is committed to equal opportunity.' }],
+    } };
+  return { p, answer };
+}
+
+test('identity v7: legal, regional and coded employer names keep a same_company verdict', async () => {
+  const { p, answer } = regionalEmployerPair();
+  const result = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(result.verdict, 'same_company');
+  assert.deepEqual(result.answer.consistency_holds, []);
+  assert.deepEqual(result.answer.review_reasons, []);
+});
+
+test('identity v7: legal or regional name variation alone cannot cause a rejection', async () => {
+  const { p, answer } = regionalEmployerPair();
+  answer.verdict = 'different_company';
+  answer.explanation = 'The postings list distinct legal entities that are separate from Acme.';
+  const held = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(held.verdict, 'insufficient_evidence');
+  assert.equal(held.answer.model_verdict, 'different_company');
+  assert.match(held.answer.consistency_holds[0], /no contradiction was given/);
+  // A concrete conflict the model names is still respected.
+  answer.contradictions = ['The corporate site makes aircraft; the postings describe a hospital'];
+  const rejected = await verifyIdentity(p, model(answer), 'v1', now);
+  assert.equal(rejected.verdict, 'different_company');
+});
+
+test('identity v7: name checks ignore case and punctuation but need whole words', () => {
+  assert.ok(containsName('Hiring at 1568 AIRBUS Americas Inc. today', 'Airbus Americas, Inc.'));
+  assert.ok(containsName('Cisco Systems, Inc. is hiring', 'cisco'));
+  assert.equal(containsName('BlackRock is an asset manager', 'Black'), false);
+  assert.equal(containsName('Blackstone', 'BlackRock'), false);
+  assert.equal(containsName('anything', '  '), false);
+  assert.equal(nameKey('  Thomson  Reuters /CAN/ '), 'thomson reuters can');
+});
+
+test('identity v7: the version is identity-v7.1 and the verdict is generated after names and the shared name', () => {
+  assert.equal(IDENTITY_VERSION, 'identity-v7.1');
+  const { p, answer } = contextualPair();
+  const llm = model(answer);
+  return verifyIdentity(p, llm, 'v1', now).then(() => {
+    const keys = Object.keys(llm.calls[0].schema.properties);
+    assert.ok(keys.indexOf('shared_name') < keys.indexOf('verdict'));
+    assert.ok(keys.indexOf('workday_identity') < keys.indexOf('verdict'));
+    assert.doesNotMatch(llm.calls[0].system, /Airbus|BlackRock|Blackstone|Workiva|Thomson/);
+  });
+});
+
+test('identity evaluation: consistency holds are counted separately from model output', () => {
+  const results = [
+    { case_id: 'held', verdict: 'insufficient_evidence', status: 'done', model_output: { verdict: 'same_company' },
+      answer: { consistency_holds: ['same_company needs an employer name written on both sides'] } },
+    { case_id: 'kept', verdict: 'different_company', status: 'done', model_output: { verdict: 'different_company' }, answer: { consistency_holds: [] } },
+  ];
+  const labels = [{ case_id: 'held', expected: 'different_company' }, { case_id: 'kept', expected: 'different_company' }];
+  const summary = evaluateIdentity(results, labels);
+  assert.equal(summary.consistencyHolds, 1);
+  assert.equal(summary.rawFalseAccepts, 1);
+  assert.equal(summary.falseAccepts, 0);
 });
 
 test('identity evaluation: abstentions, errors and missing labels do not inflate accuracy', () => {

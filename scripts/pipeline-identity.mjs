@@ -1,5 +1,5 @@
 // Shadow ownership evaluation only. Database access is read-only and restricted to local Supabase.
-// prepare --input targets.json --output packets.json [--refresh-jobs]
+// prepare --input targets.json --output packets.json [--refresh-jobs] [--corporate-fallback]
 // run --input packets.json --output results.json [--model llama3.1:8b] [--limit 25]
 // evaluate --input results.json --labels labels.json
 import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
@@ -21,8 +21,8 @@ function flags(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
-    if (!['--input', '--output', '--labels', '--model', '--limit', '--refresh-jobs'].includes(key) || key in out) throw Error(`unknown or repeated flag ${key}`);
-    if (key === '--refresh-jobs') out[key] = true;
+    if (!['--input', '--output', '--labels', '--model', '--limit', '--refresh-jobs', '--corporate-fallback'].includes(key) || key in out) throw Error(`unknown or repeated flag ${key}`);
+    if (key === '--refresh-jobs' || key === '--corporate-fallback') out[key] = true;
     else { if (!argv[i + 1] || argv[i + 1].startsWith('--')) throw Error(`missing value for ${key}`); out[key] = argv[++i]; }
   }
   return out;
@@ -40,8 +40,15 @@ try {
     if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/?$/.test(process.env.PIPELINE_SUPABASE_URL ?? '')) throw Error('prepare requires local Supabase');
     const ctx = await contextFromEnv(process.env, { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
     const packets = [], http = new WebsiteHttp(ctx, 500);
+    // Opt-in recovery of unreadable corporate pages from provenance-verified first-party pages. The local SEC
+    // tickers file (PIPELINE_SEC_FILE) only maps the name to a CIK; trust comes from the issuer's own filing.
+    let corporateFallback;
+    if (args['--corporate-fallback']) {
+      const secFile = process.env.PIPELINE_SEC_FILE;
+      corporateFallback = { secRows: secFile && existsSync(secFile) ? read(secFile) : null };
+    }
     for (const target of targets.slice(0, limit)) {
-      const packet = await prepareIdentityCase(ctx, target, http, { refreshJobs: !!args['--refresh-jobs'] });
+      const packet = await prepareIdentityCase(ctx, target, http, { refreshJobs: !!args['--refresh-jobs'], corporateFallback });
       packets.push(packet); save(args['--output'], packets);
       console.log(JSON.stringify({ case_id: packet.id, sources: packet.sources.length, errors: packet.errors }));
     }
@@ -56,7 +63,11 @@ try {
     if (!response.ok) throw Error(`Ollama models HTTP ${response.status}`);
     const tag = (await response.json()).models?.find(m => m.name === model);
     if (!tag?.digest) throw Error(`model ${model} is not installed in Ollama`);
-    const llm = new OllamaProvider({ host, model, timeoutMs: 120000, ...IDENTITY_MODEL_OPTIONS });
+    // Slower local hardware (e.g. a model partly offloaded to CPU) may need longer than the default.
+    // The timeout does not change model options or the answer; it only decides when a call is abandoned.
+    const timeoutMs = Number(process.env.IDENTITY_TIMEOUT_MS ?? 120000);
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 1800000) throw Error('IDENTITY_TIMEOUT_MS must be an integer from 1000 to 1800000');
+    const llm = new OllamaProvider({ host, model, timeoutMs, ...IDENTITY_MODEL_OPTIONS });
     const old = existsSync(args['--output']) ? read(args['--output']) : { results: [] };
     if (!Array.isArray(old.results)) throw Error('invalid existing shadow results');
     const selected = packets.slice(0, limit);

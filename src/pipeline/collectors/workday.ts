@@ -57,7 +57,7 @@ export function tenantBrandedSite(site: string, tenant: string): boolean {
 export function rankedSites(sites: string[], tenant = ""): string[] {
   const brand = tenant.toLowerCase().replace(/-/g, "");
   const compact = (site: string) => site.toLowerCase().replace(/[_-]/g, "");
-  const branded = (site: string) => !!brand && (compact(site) === brand || compact(site).startsWith(brand) && /^(careers?|jobs?|external|search)/.test(compact(site).slice(brand.length)));
+  const branded = (site: string) => tenantBrandedSite(site, tenant);
   const unique = [...new Set(sites)].filter(site => /^[A-Za-z0-9_-]+$/.test(site));
   const main = unique.filter(site => !NON_PRIMARY.test(branded(site) ? compact(site).slice(brand.length) : site));
   const pool = main.length ? main : unique;
@@ -243,7 +243,12 @@ export class WorkdayJobs implements Collector {
 
       }
       const disabled = new Set(allSites.filter(s => !s.enabled && s.tenant === seed.tenant && s.pod === seed.pod).map(s => s.site));
-      for (const siteName of rankedSites(observed.filter(s => !disabled.has(s)), seed.tenant).slice(0, 3)) {
+      const ranked = rankedSites(observed.filter(s => !disabled.has(s)), seed.tenant);
+      // When the tenant has a site carrying its own name, an empty one never falls back to a differently named
+      // sibling: a shared tenant can host another brand (AccentureCareers and AvanadeCareers).
+      const brandedSites = ranked.filter(site => tenantBrandedSite(site, seed.tenant));
+      const candidates = brandedSites.length ? brandedSites : ranked;
+      for (const siteName of candidates.slice(0, 3)) {
         let site = group.find(s => s.site === siteName) ?? { ...seed, id: "", site: siteName };
         if (result.blocked || http.remaining < 2) break;
         const before = result.items.length, errorsBefore = result.errors.length;
