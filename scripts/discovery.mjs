@@ -12,6 +12,7 @@ const save = summary => {
 };
 
 const args = process.argv.slice(2);
+let failureStage = 'configuration';
 try {
   let limit = 10, execute = false, approved = false, localAi = false;
   for (let i = 0; i < args.length; i++) {
@@ -35,9 +36,14 @@ try {
     else assertLocalTarget(process.env.PIPELINE_SUPABASE_URL);
     const { contextFromEnv } = await import('../src/pipeline/context.ts');
     const { runPipeline } = await import('../src/pipeline/runner.ts');
+    failureStage = 'database_setup';
     const ctx = await contextFromEnv({ ...process.env, PIPELINE_ALLOW_REMOTE: approved ? process.env.PIPELINE_ALLOW_REMOTE : '', TREG_BUDGET_USD: '0', PIPELINE_LLM_BUDGET_USD: '0' },
       { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
-    if (identityConfig) await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true);
+    if (identityConfig) {
+      failureStage = 'local_model_preflight';
+      await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true);
+    }
+    failureStage = 'run_bounds';
     const maxNew = Number(process.env.DISCOVERY_MAX_NEW || 3), maxRequests = Number(process.env.DISCOVERY_MAX_REQUESTS || 20);
     if (![maxNew, maxRequests].every(n => Number.isInteger(n) && n >= 1 && n <= 100)) throw Error('Invalid run bounds');
     const settings = ctx.store.settings.bind(ctx.store), sources = ctx.store.sources.bind(ctx.store);
@@ -54,7 +60,9 @@ try {
     const prepareScoreScope = discoveryScoreScope(ctx.store);
     summary = { ...plan, local_ai: localAi, status: 'running', jobs: [] };
     save(summary);
+    failureStage = 'source_preflight';
     const result = await executeDiscovery(ctx, async (...options) => {
+      failureStage = options[1].plan;
       prepareScoreScope(options[1].plan);
       if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig);
       const report = options[1].plan === 'collect'
@@ -71,7 +79,7 @@ try {
   save(summary);
   console.log(JSON.stringify(summary, null, 2));
 } catch {
-  save({ status: 'failed', message: 'Preflight or execution failed; no successful run is claimed.' });
+  save({ status: 'failed', failure_stage: failureStage, message: 'Preflight or execution failed; no successful run is claimed.' });
   // Do not echo credentials, URLs or provider error bodies in unattended output.
   console.error('Discovery stopped. Check arguments, local database configuration, and required source integration.');
   process.exitCode = 1;
