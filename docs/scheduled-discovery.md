@@ -37,8 +37,9 @@ then extracts postings, matches/admit-or-holds, and scores. The first extraction
 so newly discovered sites can be collected during the same invocation.
 Existing matching and storage own deduplication; no second admission implementation is added.
 One collector failure does not suppress other collectors. The final status remains
-needs_attention even if processing saved partial results. Failed or partial processing
-stops subsequent dependent stages. Treg and model clients are disabled and there is no
+needs_attention even if processing saved partial results. Partial processing continues so
+successfully admitted companies still get scored. Failed or blocked processing stops
+subsequent dependent stages. Treg and model clients are disabled and there is no
 enrichment step. This mode therefore does not use the experimental AI identity checker.
 
 The saved summary includes stage counts, statuses and durations. Existing pipeline logs

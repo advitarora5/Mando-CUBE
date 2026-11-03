@@ -41,9 +41,21 @@ test('processing failure stops dependent matching and scoring', async () => {
   const ctx = { store: { sources: async () => DISCOVERY_SOURCES.map(id => ({ id, enabled: true })) } };
   const result = await executeDiscovery(ctx, async (_, opts) => {
     calls.push(opts.plan);
-    return { jobs: [{ status: opts.plan === 'extract' ? 'partial' : 'succeeded' }] };
+    return { jobs: [{ status: opts.plan === 'extract' ? 'failed' : 'succeeded' }] };
   }, discoveryPlan());
   assert.equal(calls.at(-1), 'extract');
+  assert.equal(result.status, 'needs_attention');
+});
+
+test('partial matching still scores admitted companies while reporting needs_attention', async () => {
+  const calls = [];
+  const ctx = { store: { sources: async () => DISCOVERY_SOURCES.map(id => ({ id, enabled: true })) } };
+  const result = await executeDiscovery(ctx, async (_, opts) => {
+    calls.push(opts.plan);
+    return { jobs: [{ status: opts.plan === 'match' ? 'partial' : 'succeeded' }] };
+  }, discoveryPlan());
+  assert.equal(calls.at(-1), 'score');
+  assert.equal(calls.length, 9);
   assert.equal(result.status, 'needs_attention');
 });
 

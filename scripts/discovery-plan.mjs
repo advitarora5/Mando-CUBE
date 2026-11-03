@@ -34,9 +34,10 @@ export async function executeDiscovery(ctx, run, plan) {
   for (const step of plan.steps) {
     const report = await run(ctx, { ...step, limit: plan.limit, dryRun: false, trigger: 'manual' });
     reports.push(report);
-    // Independent collectors may continue; dependent stages stop on an unhealthy predecessor.
-    const unhealthy = !report.jobs.length || report.jobs.some(j => j.status !== 'succeeded');
-    if (unhealthy && step.plan !== 'collect') break;
+    // Partial processing preserves usable work: an admitted company must still be scored
+    // when another candidate's website fails. Fatal processing failures stop dependents.
+    const fatal = !report.jobs.length || report.jobs.some(j => j.status === 'failed' || j.status === 'blocked');
+    if (fatal && step.plan !== 'collect') break;
   }
   return { status: reports.length !== plan.steps.length || reports.some(r => !r.jobs.length || r.jobs.some(j => j.status !== 'succeeded'))
     ? 'needs_attention' : 'succeeded', reports };
