@@ -299,6 +299,7 @@ export class WorkdayJobs implements Collector {
       }
     }
     result.requests = http.requests;
+    if (ctx.signal?.aborted) result.blocked = "source time budget reached";
     return result;
   }
 }

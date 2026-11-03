@@ -40,11 +40,13 @@ export class WorkdayTenantCrawl implements Collector {
     // 1. Candidate tenants from the index. A page that keeps failing costs that page, not the run.
     const found = new Map<string, Tenant>();
     for (const api of apis) for (const pod of pods) {
+      if (result.blocked) return [...found.values()];
       const base = `${api}?url=*.${pod}.myworkdayjobs.com&output=json&fl=url`;
       const count = await indexGet(`${base}&showNumPages=true`, "json");
       if (!count.ok) { fail(result, count); continue; }
       const pages = Number((count.json as { pages?: number }).pages ?? 0);
       for (let page = 0; page < pages; page++) {
+        if (result.blocked) break;
         const got = await indexGet(`${base}&page=${page}`, "text");
         if (!got.ok) { fail(result, got); continue; }
         for (const t of tenantsFromIndex(got.body)) found.set(`${t.tenant}.${t.pod}`, t);
@@ -99,6 +101,7 @@ export class WorkdayTenantCrawl implements Collector {
       if (!limits.dryRun) await ctx.store.saveResolverAttempt({ normalized_name: normalized, company_name: name, found: hit, probes: 1, tried_at: ctx.now().toISOString() });
     }
     result.requests = http.requests;
+    if (ctx.signal?.aborted) result.blocked = "source time budget reached";
     return result;
   }
 }
@@ -121,6 +124,7 @@ export class WorkdayTenantWayback extends WorkdayTenantCrawl {
   protected async listTenants(source: SourceRow, _ctx: PipelineContext, result: CollectResult, indexGet: IndexGet, pods: string[]): Promise<Tenant[]> {
     const found = new Map<string, Tenant>();
     for (const pod of pods) {
+      if (result.blocked) break;
       const url = `https://web.archive.org/cdx/search/cdx?url=*.${pod}.myworkdayjobs.com/robots.txt&fl=original&collapse=urlkey&limit=${Number(source.config.limit ?? 2000)}`;
       const got = await indexGet(url, "text");
       if (!got.ok) { fail(result, got); continue; }

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { discoveryPlan, assertLocalTarget, assertApprovedTarget, executeDiscovery } from './discovery-plan.mjs';
 import { resolve } from 'node:path';
 import { discoveryScoreScope } from './discovery-score-scope.mjs';
+import { withSourceBudget } from './discovery-source-budget.mjs';
 
 const output = resolve(process.env.DISCOVERY_OUTPUT || 'var/discovery');
 const save = summary => {
@@ -40,7 +41,9 @@ try {
     save(summary);
     const result = await executeDiscovery(ctx, async (...options) => {
       prepareScoreScope(options[1].plan);
-      const report = await runPipeline(...options);
+      const report = options[1].plan === 'collect'
+        ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]))
+        : await runPipeline(...options);
       summary.jobs.push(...report.jobs.map(j => ({ job: j.job, source: j.source_id, status: j.status, ms: j.ms, counts: j.counts })));
       save(summary);
       return report;

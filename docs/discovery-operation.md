@@ -14,6 +14,10 @@ node --env-file=.env.pipeline.local scripts/discovery-execute-local.mjs
 The initial operating configuration requests two items/sites per source, limits each
 source to at most 20 requests, and admits at most three new companies per matching pass.
 The supervisor stops its worker after five minutes. Providers may return fewer results.
+Each collection stage also has a 25-second cooperative time budget: requests are
+cancelled, retry waits wake, and buffered items are retained before the next source runs.
+This prevents a stalled index source from consuming the entire worker window. Processing
+stages still share the remaining overall deadline.
 No Treg or model client is created. SEC names can come from committed sec.json.
 No migration is executed. Discovery scoring is limited to companies touched by this run;
 the existing daily/rescore plans remain responsible for periodic full rescoring.

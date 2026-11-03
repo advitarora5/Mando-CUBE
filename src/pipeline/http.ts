@@ -10,7 +10,7 @@ export type HttpOk = { ok: true; status: number; body: string; json: unknown; co
 export type HttpFail = { ok: false; kind: FailureKind; status: number; message: string; url: string };
 export type HttpResult = HttpOk | HttpFail;
 
-type Deps = { fetch: typeof fetch; sleep: (ms: number) => Promise<void>; now: () => Date; contact: string };
+type Deps = { fetch: typeof fetch; sleep: (ms: number) => Promise<void>; now: () => Date; contact: string; signal?: AbortSignal };
 type Options = { maxRequests: number; minDelayMs: number; timeoutMs?: number; maxRetries?: number; userAgent?: string };
 
 const CAPTCHA = /captcha|cf-chl-|challenge-platform|are you a (robot|human)|verify you are human|px-captcha|access denied|request blocked|unusual traffic/i;
@@ -70,7 +70,7 @@ export class PoliteHttp {
     this.userAgent = opts.userAgent ?? `mando-cube-ingestion/1.0 (+https://github.com/advitarora5/Mando-CUBE; ${deps.contact || "contact unset"})`;
   }
 
-  get remaining() { return Math.max(0, this.opts.maxRequests - this.requests); }
+  get remaining() { return this.deps.signal?.aborted ? 0 : Math.max(0, this.opts.maxRequests - this.requests); }
 
   private async pace(host: string) {
     const last = this.lastByHost.get(host);
@@ -80,9 +80,11 @@ export class PoliteHttp {
   }
 
   private async raw(url: string, init: RequestInit): Promise<{ res: Response; body: string } | HttpFail> {
+    if (this.deps.signal?.aborted) return { ok: false, kind: "budget", status: 0, message: "source time budget reached", url };
     if (this.requests >= this.opts.maxRequests) return { ok: false, kind: "budget", status: 0, message: `request cap ${this.opts.maxRequests} reached`, url };
     // Pace per site, not per host: every Workday tenant is a different host on the same myworkdayjobs.com servers.
     await this.pace(new URL(url).hostname.split(".").slice(-2).join("."));
+    if (this.deps.signal?.aborted) return { ok: false, kind: "budget", status: 0, message: "source time budget reached", url };
     this.requests++;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.opts.timeoutMs ?? 20000);

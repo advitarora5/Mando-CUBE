@@ -235,6 +235,7 @@ export type PipelineContext = {
   now: () => Date;
   log: Logger;
   fetch: typeof fetch;
+  signal?: AbortSignal; // optional cooperative deadline for one source
   lookupHost?: (host: string) => Promise<{ address: string; family: number }[]>;
   treg: TregTransport | null;
   llm: LLMProvider | null;
