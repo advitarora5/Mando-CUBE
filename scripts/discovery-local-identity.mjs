@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeName } from '../src/domain/ingestion/normalize.ts';
+import { guessDomains } from '../src/pipeline/website.ts';
 import { assertLocalAdmissionUrl, assertLocalAdmissionStore, localIdentityAdmission } from '../src/pipeline/local-identity-admission.ts';
 
 export function assertLocalIdentityMode({ execute, approved }, env) {
@@ -21,7 +22,12 @@ export async function selectLocalIdentityCandidates(store) {
   const ordered = [...reviews.filter(r => r.status === 'pending').sort((a, b) => a.created_at.localeCompare(b.created_at)).map(r => r.candidate_name),
     ...signals.map(signal => signal.company_name).filter(Boolean)];
   const name = ordered.find(name => eligible.has(normalizeName(name)) && !protectedNames.has(normalizeName(name)));
-  return name ? [{ name }] : [];
+  if (!name) return [];
+  const slug = normalizeName(name).replace(/ /g, '');
+  // Candidate hypotheses only: reuse the normal resolver's bounded .com/.org/.edu
+  // guesses. Every page and Workday sibling still needs the full identity check.
+  const corporate_urls = /^[a-z0-9-]{2,63}$/.test(slug) ? guessDomains(slug).slice(0, 3).map(domain => `https://${domain}/`) : [];
+  return [{ name, corporate_urls }];
 }
 
 export async function prepareLocalDiscoveryIdentity(ctx, output, config, preflight = false) {

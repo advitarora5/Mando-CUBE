@@ -25,9 +25,11 @@ test('candidate selection protects human decisions and disabled siblings while b
   const store = { reviewItems: async () => reviews, workdaySites: async () => [
     ...['rejected', 'similar', 'disabled', 'eligible', 'new'].map(normalized_name => ({ normalized_name, enabled: true, company_id: null })),
     { normalized_name: 'disabled', enabled: false }], unassignedSignals: async () => [{ company_name: 'New' }] };
-  assert.deepEqual(await selectLocalIdentityCandidates(store), [{ name: 'Eligible' }]);
+  const selected = await selectLocalIdentityCandidates(store);
+  assert.deepEqual(selected.map(candidate => candidate.name), ['Eligible']);
+  assert.deepEqual(selected[0].corporate_urls, ['https://eligible.com/', 'https://eligible.org/', 'https://eligible.edu/']);
   store.reviewItems = async () => reviews.slice(0, 3);
-  assert.deepEqual(await selectLocalIdentityCandidates(store), [{ name: 'New' }]);
+  assert.deepEqual((await selectLocalIdentityCandidates(store)).map(candidate => candidate.name), ['New']);
 });
 
 test('AI capability is rejected by the runner before logging or writes on a remote store', async () => {
