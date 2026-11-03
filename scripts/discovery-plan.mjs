@@ -22,6 +22,15 @@ export function assertLocalTarget(value) {
   }
 }
 
+export function assertApprovedTarget(env) {
+  const ref = env.DISCOVERY_APPROVED_PROJECT_REF;
+  if (env.DISCOVERY_EXECUTION_ENABLED !== 'true' || env.DISCOVERY_SINGLE_WRITER_CONFIRMED !== 'true'
+    || !/^[a-z0-9]{20}$/.test(ref || '') || env.PIPELINE_ALLOW_REMOTE !== ref
+    || env.PIPELINE_SUPABASE_URL !== `https://${ref}.supabase.co`) {
+    throw Error('Approved execution requires explicit enablement, a single writer and an exact database project');
+  }
+}
+
 export function assertSources(sources) {
   const unavailable = DISCOVERY_SOURCES.filter(id => !sources.some(s => s.id === id && s.enabled));
   if (unavailable.length) throw Error(`Integrate and configure required sources first: ${unavailable.join(', ')}`);

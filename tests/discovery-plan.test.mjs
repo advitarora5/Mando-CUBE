@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { discoveryPlan, assertSources, assertLocalTarget, executeDiscovery, DISCOVERY_SOURCES } from '../scripts/discovery-plan.mjs';
+import { discoveryPlan, assertSources, assertLocalTarget, assertApprovedTarget, executeDiscovery, DISCOVERY_SOURCES } from '../scripts/discovery-plan.mjs';
 
 test('plan covers discovery followed by job collection and processing, with no enrichment', () => {
   const plan = discoveryPlan(5);
@@ -25,6 +25,19 @@ test('missing sources stop before any stage executes', async () => {
   let calls = 0;
   await assert.rejects(executeDiscovery({ store: { sources: async () => [] } }, async () => { calls++; }, discoveryPlan()));
   assert.equal(calls, 0);
+});
+
+test('approved target requires all activation gates and an exact HTTPS project URL', () => {
+  const ref = 'a'.repeat(20);
+  const env = { DISCOVERY_EXECUTION_ENABLED: 'true', DISCOVERY_SINGLE_WRITER_CONFIRMED: 'true',
+    DISCOVERY_APPROVED_PROJECT_REF: ref, PIPELINE_ALLOW_REMOTE: ref, PIPELINE_SUPABASE_URL: `https://${ref}.supabase.co` };
+  assertApprovedTarget(env);
+  for (const key of Object.keys(env)) {
+    assert.throws(() => assertApprovedTarget({ ...env, [key]: '' }));
+  }
+  for (const url of [`http://${ref}.supabase.co`, `https://${ref}.supabase.co.evil`, `https://${ref}.supabase.co/path`]) {
+    assert.throws(() => assertApprovedTarget({ ...env, PIPELINE_SUPABASE_URL: url }));
+  }
 });
 test('source failures preserve other collection attempts and remain visible in final status', async () => {
   const calls = [];
