@@ -143,5 +143,4 @@ Aliases (legal names, former names, abbreviations the name rules miss) live in `
 
 A merge keeps the kept company's name and values and fills only its empty fields from the duplicate; lead status keeps the furthest outreach stage. Contacts, scores, weekly snapshots, drafts, signals, Workday sites, review items and any later table that references companies move to the kept company. Insights, pipeline origin and enrichment status keep the kept company's row with its gaps filled. If both companies have a weekly snapshot for the same week, the merge stops so no history is dropped. Afterwards, add the merged name to the alias list (the command prints the line) and record the merge in the [company-data error log](docs/company-data-error-log.md).
 
-The merge runs in the `merge_companies` database function (`supabase/migrations/202610270001_merge_companies.sql`). Apply that migration to the shared database once before the first merge.
-
+The merge runs in the `merge_companies` database function (`supabase/migrations/202610270002_merge_companies.sql`). Apply that migration to the shared database once before the first merge.
