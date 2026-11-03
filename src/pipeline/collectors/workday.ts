@@ -260,15 +260,28 @@ export class WorkdayJobs implements Collector {
           const total = (page.json as { total?: number }).total ?? 0;
           if (list.length < WORKDAY_PAGE_SIZE || offset + WORKDAY_PAGE_SIZE >= Math.min(total || 0, WORKDAY_OFFSET_CAP)) break;
         }
-        if (listFailed) break;
+        if (listFailed) {
+          // Record the attempted check so one failing tenant cannot monopolize later batches.
+          // This is not a successful check or an admission/identity decision.
+          if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "errors", ctx.now().toISOString());
+          break;
+        }
         if (!postings.length) {
           // No keyword hits does not mean the site is empty. Only a successful unfiltered
           // empty response allows trying the next observed site.
           if (searchText) {
             const available = await http.request(`${base}/jobs`, { method: "POST", expect: "json", json: { appliedFacets: {}, limit: 1, offset: 0, searchText: "" } });
-            if (!available.ok) { fail(result, available); break; }
+            if (!available.ok) {
+              fail(result, available);
+              if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "errors", ctx.now().toISOString());
+              break;
+            }
             const jobs = (available.json as { jobPostings?: unknown }).jobPostings;
-            if (!Array.isArray(jobs)) { fail(result, { ok: false, kind: "unavailable", status: available.status, message: "jobs response has no jobPostings array", url: available.url }); break; }
+            if (!Array.isArray(jobs)) {
+              fail(result, { ok: false, kind: "unavailable", status: available.status, message: "jobs response has no jobPostings array", url: available.url });
+              if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "errors", ctx.now().toISOString());
+              break;
+            }
             if (jobs.length) {
               if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "0 matching postings; site has jobs", ctx.now().toISOString());
               break;

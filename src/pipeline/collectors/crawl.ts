@@ -41,7 +41,8 @@ export class WorkdayTenantCrawl implements Collector {
     const found = new Map<string, Tenant>();
     for (const api of apis) for (const pod of pods) {
       if (result.blocked) return [...found.values()];
-      const base = `${api}?url=*.${pod}.myworkdayjobs.com&output=json&fl=url`;
+      const pageSize = Math.max(1, Math.min(5, Number(source.config.index_page_size ?? 5)));
+      const base = `${api}?url=*.${pod}.myworkdayjobs.com&output=json&fl=url&pageSize=${pageSize}`;
       const count = await indexGet(`${base}&showNumPages=true`, "json");
       if (!count.ok) { fail(result, count); continue; }
       const pages = Number((count.json as { pages?: number }).pages ?? 0);
@@ -58,14 +59,16 @@ export class WorkdayTenantCrawl implements Collector {
   async collect(source: SourceRow, limits: CollectLimits, ctx: PipelineContext): Promise<CollectResult> {
     const result = empty();
     // The index answers 502/504 under load: more retries and a longer timeout than the Workday hosts need.
-    const http = new PoliteHttp(ctx, { maxRequests: limits.maxRequests, minDelayMs: limits.minDelayMs, maxRetries: 2, timeoutMs: 120000 });
+    const timeoutMs = Math.max(1000, Math.min(120000, Number(source.config.request_timeout_ms ?? 120000)));
+    const http = new PoliteHttp(ctx, { maxRequests: limits.maxRequests, minDelayMs: limits.minDelayMs, maxRetries: 2, timeoutMs });
     const pods = (source.config.pods as string[] | undefined) ?? WORKDAY_PODS;
 
     // The index answers 502/504 when busy and succeeds moments later; PoliteHttp only retries 429, 503 and timeouts.
     const indexGet: IndexGet = async (url, expect) => {
       for (let attempt = 0; ; attempt++) {
         const got = await http.request(url, { expect, checkRobots: false });
-        if (got.ok || attempt >= 3 || ![502, 504].includes(got.status)) return got;
+        const retries = Math.max(0, Math.min(3, Number(source.config.index_retries ?? 3)));
+        if (got.ok || attempt >= retries || ![502, 504].includes(got.status)) return got;
         await ctx.sleep(5000);
       }
     };

@@ -24,6 +24,23 @@ test('index lines collapse to distinct tenants; tenant slugs become provisional 
   assert.equal(tenantName('air-products'), 'Air Products');
 });
 
+test('small index pages use the same size for the count and data query', async () => {
+  const fetch = world();
+  await new WorkdayTenantCrawl().collect({ ...source, config: { pods: ['wd5'], index_page_size: 1 } }, limits, makeCtx({ fetch }));
+  const queries = fetch.calls.filter(c => /CC-TEST-index/.test(c.url));
+  assert.ok(queries.length >= 2);
+  assert.ok(queries.every(c => new URL(c.url).searchParams.get('pageSize') === '1'));
+});
+
+test('configured index retry limit bounds repeated gateway failures', async () => {
+  let calls = 0;
+  const fetch = world({ page: () => { calls++; return response(504, 'busy'); } });
+  const result = await new WorkdayTenantCrawl().collect({ ...source, config: { pods: ['wd5'], index_retries: 1 } }, limits, makeCtx({ fetch }));
+  assert.equal(calls, 2);
+  assert.equal(result.items.length, 0);
+  assert.ok(result.errors.length > 0);
+});
+
 test('finds live tenants, records misses, skips known and test tenants, and does not re-probe on the next run', async () => {
   const store = new MemoryStore();
   await store.upsertWorkdaySite({ tenant: 'known', pod: 'wd5', site: 'Careers', company_name: 'Known Co', normalized_name: 'known', match_kind: 'full_name', discovered_from: 'workday-site-resolver', capture_id: null });

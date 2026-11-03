@@ -13,6 +13,24 @@ const source = id => DEFAULT_SOURCES.find(s => s.id === id);
 const CAPTCHA_PAGE = '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><div id="challenge-platform">Verify you are human</div></body></html>';
 const UNAVAILABLE_PAGE = '<!doctype html><html><body><h1>Workday is currently unavailable</h1><p>Scheduled maintenance.</p></body></html>';
 
+test('a failed jobs endpoint rotates behind unchecked tenants on the next batch', async () => {
+  const store = new MemoryStore();
+  for (const tenant of ['aaa', 'bbb']) await store.upsertWorkdaySite({ tenant, pod: 'wd5', site: 'Careers', company_name: tenant, normalized_name: tenant, match_kind: 'full_name', discovered_from: 'test', capture_id: null });
+  const fetch = fakeFetch([
+    { match: /robots\.txt$/, respond: () => response(200, 'User-agent: *\nAllow: /') },
+    { match: /aaa.*\/jobs$/, respond: () => response(500, 'temporary outage') },
+    { match: /bbb.*\/jobs$/, respond: () => response(200, { jobPostings: [], total: 0 }) },
+  ]);
+  const ctx = makeCtx({ store, fetch });
+  const config = { ...source('workday-career-sites'), config: { search_text: '' } };
+  await new WorkdayJobs().collect(config, { ...limits, maxItems: 1 }, ctx);
+  assert.equal(store.sites.find(s => s.tenant === 'aaa').last_status, 'errors');
+  const before = fetch.calls.length;
+  await new WorkdayJobs().collect(config, { ...limits, maxItems: 1 }, ctx);
+  assert.ok(fetch.calls.slice(before).some(c => /bbb.*\/jobs$/.test(c.url)));
+  assert.ok(fetch.calls.slice(before).every(c => !c.url.includes('aaa.')));
+});
+
 async function storeWithSite() {
   const store = new MemoryStore();
   await store.upsertWorkdaySite({ tenant: 'nvidia', pod: 'wd5', site: 'NVIDIAExternalCareerSite', company_name: 'NVIDIA CORP', normalized_name: 'nvidia', match_kind: 'full_name', discovered_from: 'workday-site-resolver', capture_id: null });
