@@ -35,6 +35,7 @@ export type RawItem = {
 export type CollectLimits = { maxRequests: number; maxItems: number; minDelayMs: number; dryRun: boolean };
 
 export type CollectResult = {
+  cache_hit?: boolean;
   items: RawItem[];
   requests: number;
   // A source stopped early because it blocked us, showed a CAPTCHA or an "unavailable" page.

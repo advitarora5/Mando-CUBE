@@ -13,7 +13,7 @@ import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
 import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
-export type StageResult = { counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
+export type StageResult = { cache_hit?: boolean; counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
 const result = (): StageResult => ({ counts: {}, errors: [], blocked: null, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0 });
 const bump = (r: StageResult, key: string, n = 1) => { r.counts[key] = (r.counts[key] ?? 0) + n; };
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -29,6 +29,7 @@ export async function collectStage(ctx: PipelineContext, source: SourceRow, opts
   try { collected = await collector.collect(source, limits, ctx); }
   catch (error) { r.errors.push(`collector crashed: ${message(error)}`); return r; }
   r.requests = collected.requests;
+  r.cache_hit = collected.cache_hit;
   r.treg_spend_usd = collected.spend_usd;
   r.blocked = collected.blocked;
   for (const e of collected.errors) { bump(r, `error_${e.kind}`); if (r.errors.length < 20) r.errors.push(`${e.kind} ${e.url}: ${e.message}`); }
@@ -186,6 +187,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
           await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id });
           if (lookup.status === "confirmed" && await ctx.store.fillReviewWebsite(waiting.id, lookup.domain!)) bump(r, "review_websites_confirmed");
         }
+        bump(r, "pending_reason_similar_name");
         bump(r, "joined_pending_review"); continue;
       }
       const best = Math.max(0, ...signals.filter(s => isSignalFresh(s, settings, ctx.now())).map(s => s.confidence));
@@ -210,6 +212,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
           bump(r, "recovered_reviews");
         } else {
           await ctx.store.updatePendingReview(waiting.id, { candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, reason: decision.reason, suggested_company_id: decision.suggested_company_id });
+          bump(r, `pending_reason_${decision.reason}`);
           bump(r, "joined_pending_review");
         }
       } else if (decision.action === "attach") {

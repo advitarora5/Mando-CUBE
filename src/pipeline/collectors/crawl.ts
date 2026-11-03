@@ -51,12 +51,20 @@ export class WorkdayTenantCrawl implements Collector {
       const pageSize = Math.max(1, Math.min(5, Number(source.config.index_page_size ?? 5)));
       const base = `${api}?url=*.${pod}.myworkdayjobs.com&output=json&fl=url&pageSize=${pageSize}`;
       const count = await indexGet(`${base}&showNumPages=true`, "json");
-      if (!count.ok) { fail(result, count); continue; }
+      if (!count.ok) {
+        fail(result, count);
+        if (source.config.index_fail_fast) return [...found.values()];
+        continue;
+      }
       const pages = Number((count.json as { pages?: number }).pages ?? 0);
       for (let page = 0; page < pages; page++) {
         if (result.blocked) break;
         const got = await indexGet(`${base}&page=${page}`, "text");
-        if (!got.ok) { fail(result, got); continue; }
+        if (!got.ok) {
+          fail(result, got);
+          if (source.config.index_fail_fast) return [...found.values()];
+          continue;
+        }
         for (const t of tenantsFromIndex(got.body)) found.set(`${t.tenant}.${t.pod}`, t);
         // Stop once this window can feed a bounded batch. Later queries advance past
         // names already attempted rather than downloading every pod before probing.
@@ -71,7 +79,8 @@ export class WorkdayTenantCrawl implements Collector {
     const result = empty();
     // The index answers 502/504 under load: more retries and a longer timeout than the Workday hosts need.
     const timeoutMs = Math.max(1000, Math.min(120000, Number(source.config.request_timeout_ms ?? 120000)));
-    const http = new PoliteHttp(ctx, { maxRequests: limits.maxRequests, minDelayMs: limits.minDelayMs, maxRetries: 2, timeoutMs });
+    const maxRetries = Math.max(0, Math.min(2, Number(source.config.http_retries ?? 2)));
+    const http = new PoliteHttp(ctx, { maxRequests: limits.maxRequests, minDelayMs: limits.minDelayMs, maxRetries, timeoutMs });
     const pods = (source.config.pods as string[] | undefined) ?? WORKDAY_PODS;
 
     // The index answers 502/504 when busy and succeeds moments later; PoliteHttp only retries 429, 503 and timeouts.
@@ -93,7 +102,10 @@ export class WorkdayTenantCrawl implements Collector {
       if (snapshot?.signature === signature && Array.isArray(snapshot.tenants) && snapshot.tenants.length <= 10000
         && snapshot.tenants.every((t: Tenant) => typeof t?.tenant === "string" && /^[a-z0-9][a-z0-9-]*$/.test(t.tenant)
           && typeof t.pod === "string" && /^wd\d+$/.test(t.pod) && pods.includes(t.pod))) {
-        if ((await untriedTenants(snapshot.tenants, ctx)).length) found = snapshot.tenants;
+        if ((await untriedTenants(snapshot.tenants, ctx)).length) {
+          found = snapshot.tenants;
+          result.cache_hit = true;
+        }
       }
     } catch { ctx.log.warn("archive candidate cache unavailable; querying index"); }
     if (!found.length) {
@@ -122,7 +134,7 @@ export class WorkdayTenantCrawl implements Collector {
           hit = true;
           // match_kind first_word: the name is the tenant slug, a guess. It is admitted only with a confirmed website and a strong posting.
           result.items.push(item(source.id, got.url, got.status, got.contentType, got.body, ctx.now(),
-            { kind: "workday_robots", tenant, pod, sites, primary_sites: primarySites(sites, tenant), company_name: name, normalized_name: normalized, match_kind: "first_word", discovered_via: "commoncrawl" }));
+            { kind: "workday_robots", tenant, pod, sites, primary_sites: primarySites(sites, tenant), company_name: name, normalized_name: normalized, match_kind: "first_word", discovered_via: this.type === "workday_tenant_wayback" ? "wayback" : "commoncrawl" }));
         }
       } else if (!(got.kind === "http" && [404, 410, 422].includes(got.status))) {
         // Anything but a plain miss may be temporary: leave it eligible next run.
@@ -158,7 +170,11 @@ export class WorkdayTenantWayback extends WorkdayTenantCrawl {
       if (result.blocked) break;
       const url = `https://web.archive.org/cdx/search/cdx?url=*.${pod}.myworkdayjobs.com/robots.txt&fl=original&collapse=urlkey&limit=${Number(source.config.limit ?? 2000)}`;
       const got = await indexGet(url, "text");
-      if (!got.ok) { fail(result, got); continue; }
+      if (!got.ok) {
+        fail(result, got);
+        if (source.config.index_fail_fast) break;
+        continue;
+      }
       for (const t of waybackTenants(got.body)) found.set(`${t.tenant}.${t.pod}`, t);
       const target = Math.max(1, Math.min(1000, Number(source.config.index_candidate_limit ?? 50)));
       if ((await untriedTenants([...found.values()], ctx)).length >= target) break;

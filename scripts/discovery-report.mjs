@@ -1,6 +1,7 @@
 // Keep source diagnostics useful without retaining raw provider bodies or URL tokens.
 export function summarizeJob(job) {
   return { job: job.job, source: job.source_id, status: job.status, ms: job.ms, counts: job.counts,
+    requests: job.requests ?? 0, cache_hit: job.cache_hit === true,
     reason: job.blocked === 'source time budget reached' ? 'source_deadline' : job.blocked ? 'source_blocked' : null,
     diagnostics: (job.errors || []).slice(0, 5).map(error => {
       const value = String(error);

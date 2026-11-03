@@ -50,6 +50,7 @@ test('later batches reuse candidate windows but still verify new tenants live', 
   const before = fetch.calls.length;
   const second = await new WorkdayTenantCrawl().collect(source, { ...limits, maxItems: 1 }, ctx);
   assert.equal(second.items[0].meta.tenant, 'target');
+  assert.equal(second.cache_hit, true, 'reports actual reuse of the retained candidate window');
   const calls = fetch.calls.slice(before);
   assert.ok(calls.every(c => !c.url.includes('index.commoncrawl.org')));
   assert.ok(calls.some(c => /target.*robots\.txt/.test(c.url)));
@@ -139,7 +140,7 @@ test('wayback: lists tenants from the CDX index and verifies each with robots.tx
   const wayback = { ...DEFAULT_SOURCES.find(s => s.id === 'workday-tenant-wayback'), config: { pods: ['wd5'] } };
   const out = await new WorkdayTenantWayback().collect(wayback, limits, makeCtx({ fetch }));
   assert.deepEqual(out.items.map(i => i.meta.tenant), ['nvidia']);
-  assert.equal(out.items[0].meta.discovered_via, 'commoncrawl', 'shared item shape');
+  assert.equal(out.items[0].meta.discovered_via, 'wayback', 'archive provenance is retained');
 });
 
 test('wayback stops enumerating pods once it has candidates for this batch', async () => {

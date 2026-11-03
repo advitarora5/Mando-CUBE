@@ -16,6 +16,14 @@ source to at most 20 requests, and admits at most three new companies per matchi
 The supervisor stops its worker after five minutes. Providers may return fewer results.
 Each collection stage also has a 25-second cooperative time budget: requests are
 cancelled, retry waits wake, and buffered items are retained before the next source runs.
+
+Unattended archive requests use a 12-second request timeout with no in-run HTTP
+or gateway retries. An index failure stops enumeration against that service for
+the current batch; the next invocation can try again. This keeps an archive outage
+from consuming the source deadline in nested retries. Interactive collector defaults
+are unchanged. Safe summaries include request counts and measured candidate-cache
+hits. Matching reports `pending_reason_*` counts for existing reviews without
+changing admission or human-review rules. Wayback captures retain Wayback provenance.
 This prevents a stalled index source from consuming the entire worker window. Processing
 stages still share the remaining overall deadline.
 No Treg or model client is created. SEC names can come from committed sec.json.
