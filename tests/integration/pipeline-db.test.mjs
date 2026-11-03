@@ -28,6 +28,7 @@ const count = async table => (await db.from(table).select('id', { count: 'exact'
 // (regression: real sites in a shared local database used to stay disabled after the tests).
 const disabled = [];
 const testTenants = [];
+const cleanupCompanies = [];
 
 test('local AI runner admits and scores a confirmed candidate, holds a mismatch and remains duplicate-safe', { skip }, async () => {
   const store = new SupabaseStore(url, key);
@@ -88,6 +89,7 @@ after(async () => {
   if (disabled.length) await db.from('workday_sites').update({ enabled: true }).in('id', disabled);
   // The fictional tenants must never be crawled by a real run.
   if (testTenants.length) await db.from('workday_sites').update({ enabled: false }).in('tenant', testTenants);
+  if (cleanupCompanies.length) await db.from('companies').delete().in('id', cleanupCompanies);
 });
 
 async function freshWorld(names) {
@@ -97,10 +99,28 @@ async function freshWorld(names) {
   const ids = (others ?? []).map(s => s.id);
   if (ids.length) { await db.from('workday_sites').update({ enabled: false }).in('id', ids); disabled.push(...ids); }
   const store = new SupabaseStore(url, key);
-  // Scope scoring and enrichment to this test's fictional companies (".example" websites). Regression: the shared local
-  // database also holds real pipeline companies, and an unscoped test run wrote its fake email onto their contacts.
+  // Include only this run's fixture domains. Older .example companies can otherwise
+  // consume enrichment slots and receive new fake scores/contacts on repeated runs.
+  const fixtureDomains = new Set(names.map(domainOf));
+  const fixtureNames = new Set(names.map(normalizeName));
   const allCompanies = store.companies.bind(store);
-  store.companies = async () => (await allCompanies()).filter(c => (c.domain ?? '').endsWith('.example'));
+  store.companies = async () => (await allCompanies()).filter(c => fixtureDomains.has(c.domain));
+  const reviews = store.reviewItems.bind(store), signals = store.unassignedSignals.bind(store);
+  store.reviewItems = async status => (await reviews(status)).filter(row => fixtureNames.has(row.normalized_name));
+  store.unassignedSignals = async () => (await signals()).filter(row => fixtureNames.has(normalizeName(row.company_name)));
+  const dueAttempts = store.dueResolverAttempts.bind(store), sites = store.workdaySites.bind(store);
+  store.dueResolverAttempts = async (cutoffs, limit) => (await dueAttempts(cutoffs, limit)).filter(row => fixtureNames.has(row.normalized_name));
+  store.workdaySites = async enabled => (await sites(enabled)).filter(row => fixtureNames.has(row.normalized_name));
+  const captures = new Set(), saveCapture = store.saveCapture.bind(store);
+  store.saveCapture = async (...args) => { const saved = await saveCapture(...args); captures.add(saved.id); return saved; };
+  store.pendingCaptures = async (limit, sourceIds) => {
+    if (!captures.size) return [];
+    let query = db.from('pending_captures').select('*').in('id', [...captures]).order('fetched_at').limit(limit);
+    if (sourceIds) query = query.in('source_id', sourceIds);
+    const { data, error } = await query;
+    if (error) throw Error(error.message);
+    return data;
+  };
   // Real database assessments need real ordering: a frozen clock gives the initial and
   // contact-enriched rows identical timestamps, making latestScore ambiguous in Postgres.
   const now = () => new Date();
@@ -154,12 +174,19 @@ test('due resolver attempts: persisted timestamps honor separate refresh and mis
 test('full flow on the database: raw rows, sourced signals, pipeline companies, scored with reasons, run log; repeat adds nothing', { skip }, async () => {
   const names = randomNames(15, seed);
   const { ctx } = await freshWorld(names);
+  // Simulate a pipeline company left by a previous local test. It must not be
+  // scored or researched by this batch, even though its domain is fictional too.
+  const unrelatedId = await ctx.store.createPipelineCompany({ name: `Unrelated prior fixture ${seed}`, domain: `unrelated${seed}.example`, employee_count: null,
+    source: `https://unrelated${seed}.example/evidence` }, null, { signal_ids: [], normalized_name: null });
+  cleanupCompanies.push(unrelatedId);
   // An existing (non-pipeline) company whose website matches one tenant: boundary case.
   const boundaryDomain = domainOf(names[3]);
   const { data: existing } = await db.from('companies').insert({ name: `Boundary ${seed} Holdings`, domain: boundaryDomain }).select('id').single();
   await db.from('scores').insert({ company_id: existing.id, rubric_version: 'manual', tier: 'Maybe', authority_score: 20, authority_evidence: 'https://x.example | manual', reachability_score: 20, reachability_evidence: 'https://x.example | manual', budget_score: 10, budget_evidence: 'https://x.example | manual', release_score: 5, release_evidence: 'https://x.example | manual', timing_score: 5, timing_evidence: 'https://x.example | manual' });
 
   const report = await runPipeline(ctx, { plan: 'all', limit: 20, dryRun: false, trigger: 'manual' });
+  assert.equal(await ctx.store.latestScore(unrelatedId), null, 'older fictional companies are not scored');
+  assert.deepEqual(await ctx.store.contactsForCompany(unrelatedId), [], 'older fictional companies are not researched');
   assert.equal(report.jobs.filter(j => j.status === 'failed').length, 0, JSON.stringify(report.jobs.map(j => [j.job, j.status, j.errors.slice(0, 2)])));
 
   const { data: created } = await db.from('companies').select('id, name, domain, company_origins(origin)').in('domain', names.slice(0, 12).map(domainOf));
