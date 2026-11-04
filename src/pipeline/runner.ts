@@ -3,7 +3,7 @@
 import { collectStage, extractStage, matchStage, scoreStage, type StageResult } from "./stages.ts";
 import { enrichStage } from "./enrich.ts";
 import type { PipelineContext, RunStatus, SourceRow } from "./types.ts";
-import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
+import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 
 export type Plan = "daily" | "weekly" | "rescore" | "all" | "collect" | "extract" | "match" | "score" | "enrich";
 export type RunOptions = { plan: Plan; source?: string; limit: number; dryRun: boolean; trigger: "schedule" | "manual" | "import_button"; enrichCompanies?: number; localIdentity?: LocalIdentityAdmission };
@@ -53,7 +53,7 @@ async function checkAlerts(ctx: PipelineContext, report: RunReport, sourceId: st
 }
 
 export async function runPipeline(ctx: PipelineContext, opts: RunOptions): Promise<RunReport> {
-  if (opts.localIdentity) assertLocalAdmissionStore(ctx);
+  if (opts.localIdentity) assertIdentityAdmissionContext(ctx, opts.localIdentity);
   const report: RunReport = { jobs: [], alerts: [], ms: 0, treg_spend_usd: 0, llm_spend_usd: 0 };
   const started = Date.now();
   // A run that crashed stays "running" forever; close those (older than 6 hours) so health shows the truth.

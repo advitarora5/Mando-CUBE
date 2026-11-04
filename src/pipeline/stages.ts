@@ -10,7 +10,7 @@ import { categories } from "../domain/contracts/company.ts";
 import { resolveWebsite, WebsiteHttp, WEBSITE_LIMIT, websiteSignature, loadEmployerLinks, confirmedName } from "./website.ts";
 import { collectors } from "./collectors/sources.ts";
 import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
-import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
+import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
 export type StageResult = { cache_hit?: boolean; counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
@@ -123,7 +123,7 @@ export function displayName(name: string, resolved: string | null): string {
 }
 
 export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean; localIdentity?: LocalIdentityAdmission } = {}): Promise<StageResult> {
-  if (opts.localIdentity) assertLocalAdmissionStore(ctx);
+  if (opts.localIdentity) assertIdentityAdmissionContext(ctx, opts.localIdentity);
   const r = result();
   const settings = await ctx.store.settings();
   const allReviews = await ctx.store.reviewItems();

@@ -39,8 +39,10 @@ the existing daily/rescore plans remain responsible for periodic full rescoring.
 
 `node --env-file=.env.pipeline.local scripts/discovery-execute-local.mjs --local-ai`
 opts into the existing local identity-admission policy. Both the database and model
-must use explicit loopback endpoints; the model is pinned to `qwen2.5:7b`. No production
-or GitHub-hosted AI mode is provided. The model is checked before collection writes.
+must use explicit loopback endpoints; the model is pinned to `qwen2.5:7b`.
+The local entry point refuses production. A separate, disabled-by-default
+[approved AI path](discovery-approved-ai.md) is prepared for an operator-reviewed pilot.
+The model is checked before collection writes. No GitHub-hosted AI mode is provided.
 The normal execution command remains model-free.
 Add `--ai-admission-only` alongside `--local-ai` to run only matching and scoped
 scoring against already collected candidates. It refreshes identity evidence as needed

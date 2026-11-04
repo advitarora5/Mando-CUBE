@@ -3,6 +3,10 @@
 Prepared for task 1. This document does not enable execution, install secrets,
 apply migrations, change another worker, or add a schedule.
 
+The separately gated [approved AI pilot](discovery-approved-ai.md) is now prepared.
+It adds AI-specific approval and a pinned model revision; it remains disabled until
+the target/configuration review and explicit pilot approval described below.
+
 ## Where it runs and how companies reach the dashboard
 
 The prepared worker runs in GitHub Actions using `discovery-execute.yml`.

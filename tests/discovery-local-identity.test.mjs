@@ -47,7 +47,8 @@ test('AI capability is rejected by the runner before logging or writes on a remo
 test('admission-only CLI refuses prepare and approved modes before connecting or echoing secrets', () => {
   const directory = mkdtempSync(join(tmpdir(), 'discovery-ai-mode-'));
   try {
-    for (const args of [['--ai-admission-only'], ['--local-ai', '--ai-admission-only'], ['--execute-approved', '--local-ai', '--ai-admission-only']]) {
+    for (const args of [['--ai-admission-only'], ['--local-ai', '--ai-admission-only'], ['--execute-approved', '--local-ai', '--ai-admission-only'],
+      ['--execute-approved', '--approved-ai', '--ai-admission-only'], ['--execute-local', '--local-ai', '--approved-ai']]) {
       const run = spawnSync(process.execPath, [fileURLToPath(new URL('../scripts/discovery.mjs', import.meta.url)), ...args], {
         cwd: directory, encoding: 'utf8', env: { ...process.env, DISCOVERY_OUTPUT: directory, PIPELINE_SUPABASE_URL: 'https://secret.invalid', PIPELINE_SUPABASE_KEY: 'secret-value' },
       });

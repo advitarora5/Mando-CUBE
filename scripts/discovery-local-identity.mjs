@@ -2,11 +2,22 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeName } from '../src/domain/ingestion/normalize.ts';
 import { guessDomains } from '../src/pipeline/website.ts';
-import { assertLocalAdmissionUrl, assertLocalAdmissionStore, localIdentityAdmission } from '../src/pipeline/local-identity-admission.ts';
+import { assertLocalAdmissionUrl, assertLocalAdmissionStore, assertApprovedIdentityTarget, localIdentityAdmission, approvedIdentityAdmission } from '../src/pipeline/local-identity-admission.ts';
+import { assertApprovedTarget } from './discovery-plan.mjs';
 
 export function assertLocalIdentityMode({ execute, approved }, env) {
   if (!execute || approved || env.PIPELINE_ALLOW_REMOTE) throw Error('AI discovery is local-only');
   assertLocalAdmissionUrl(env.PIPELINE_SUPABASE_URL || '');
+  const host = env.OLLAMA_HOST || 'http://127.0.0.1:11434';
+  assertLocalAdmissionUrl(host);
+  if (env.OLLAMA_MODEL && env.OLLAMA_MODEL !== 'qwen2.5:7b') throw Error('Required model is qwen2.5:7b');
+  return { host, model: 'qwen2.5:7b', maxChecks: 3, timeoutMs: 240000 };
+}
+
+export function assertApprovedIdentityMode({ execute, approved }, env) {
+  if (!execute || !approved || env.DISCOVERY_AI_EXECUTION_ENABLED !== 'true' || env.DISCOVERY_SCHEMA_CONFIRMED !== 'true') throw Error('Approved AI execution or schema readiness is not confirmed');
+  assertApprovedTarget(env);
+  if (!/^[a-f0-9]{64}$/.test(env.DISCOVERY_APPROVED_MODEL_DIGEST || '')) throw Error('An approved local model revision is required');
   const host = env.OLLAMA_HOST || 'http://127.0.0.1:11434';
   assertLocalAdmissionUrl(host);
   if (env.OLLAMA_MODEL && env.OLLAMA_MODEL !== 'qwen2.5:7b') throw Error('Required model is qwen2.5:7b');
@@ -30,14 +41,16 @@ export async function selectLocalIdentityCandidates(store) {
   return [{ name, corporate_urls }];
 }
 
-export async function prepareLocalDiscoveryIdentity(ctx, output, config, preflight = false) {
-  assertLocalAdmissionStore(ctx);
+export async function prepareLocalDiscoveryIdentity(ctx, output, config, preflight = false, approvedEnv = null) {
+  if (approvedEnv) assertApprovedIdentityTarget(ctx, approvedEnv);
+  else assertLocalAdmissionStore(ctx);
   const candidates = preflight ? [] : await selectLocalIdentityCandidates(ctx.store);
   const directory = join(output, 'identity');
   mkdirSync(directory, { recursive: true, mode: 0o700 });
-  return localIdentityAdmission(ctx, candidates, { ...config,
+  const options = { ...config,
     save: (name, value) => {
       if (!['identity-packets', 'identity-results', 'identity-outcomes', 'identity-call-counts'].includes(name)) throw Error('Unexpected identity artifact');
       writeFileSync(join(directory, `${name}.json`), JSON.stringify(value, null, 2), { mode: 0o600 });
-    } });
+    } };
+  return approvedEnv ? approvedIdentityAdmission(ctx, candidates, options, approvedEnv) : localIdentityAdmission(ctx, candidates, options);
 }

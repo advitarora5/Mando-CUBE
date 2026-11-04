@@ -14,24 +14,27 @@ const save = summary => {
 const args = process.argv.slice(2);
 let failureStage = 'configuration';
 try {
-  let limit = 10, execute = false, approved = false, localAi = false, admissionOnly = false;
+  let limit = 10, execute = false, approved = false, localAi = false, approvedAi = false, admissionOnly = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--execute-local') execute = true;
     else if (args[i] === '--execute-approved') { execute = true; approved = true; }
     else if (args[i] === '--local-ai') localAi = true;
+    else if (args[i] === '--approved-ai') approvedAi = true;
     else if (args[i] === '--ai-admission-only') admissionOnly = true;
     else if (args[i] === '--limit') limit = Number(args[++i]);
     else throw Error(`Unknown argument: ${args[i]}`);
   }
   const plan = discoveryPlan(limit);
+  if (localAi && approvedAi) throw Error('Choose one identity execution mode');
   if (admissionOnly) {
-    if (!localAi || !execute || approved) throw Error('Admission-only discovery requires explicit local AI execution');
+    if (!(localAi || approvedAi) || !execute || (localAi && approved)) throw Error('Admission-only discovery requires explicit identity execution');
     plan.steps = [{ plan: 'match' }, { plan: 'score' }];
   }
   let identityConfig = null, prepareLocalDiscoveryIdentity;
-  if (localAi) {
+  if (localAi || approvedAi) {
     const identity = await import('./discovery-local-identity.mjs');
-    identityConfig = identity.assertLocalIdentityMode({ execute, approved }, process.env);
+    identityConfig = approvedAi ? identity.assertApprovedIdentityMode({ execute, approved }, process.env)
+      : identity.assertLocalIdentityMode({ execute, approved }, process.env);
     prepareLocalDiscoveryIdentity = identity.prepareLocalDiscoveryIdentity;
   }
   let summary = { status: 'prepared', ...plan };
@@ -46,13 +49,13 @@ try {
       { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
     if (identityConfig) {
       failureStage = 'local_model_preflight';
-      await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true);
+      await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true, approvedAi ? process.env : null);
     }
     failureStage = 'run_bounds';
     const maxNew = Number(process.env.DISCOVERY_MAX_NEW || 3), maxRequests = Number(process.env.DISCOVERY_MAX_REQUESTS || 20);
     if (![maxNew, maxRequests].every(n => Number.isInteger(n) && n >= 1 && n <= 100)) throw Error('Invalid run bounds');
     const settings = ctx.store.settings.bind(ctx.store), sources = ctx.store.sources.bind(ctx.store);
-    ctx.store.settings = async () => { const current = await settings(); return { ...current, max_new_companies_per_run: Math.min(current.max_new_companies_per_run, maxNew) }; };
+    ctx.store.settings = async () => { const current = await settings(); return { ...current, max_new_companies_per_run: Math.min(current.max_new_companies_per_run, identityConfig ? 1 : maxNew) }; };
     ctx.store.sources = async () => (await sources()).map(s => ({ ...s,
       max_requests_per_run: Math.min(s.max_requests_per_run, maxRequests),
       config: ['workday-tenant-crawl', 'workday-tenant-wayback'].includes(s.id)
@@ -63,13 +66,13 @@ try {
     // Discovery scores only companies touched by matching. Periodic full rescoring
     // remains the responsibility of the existing daily/rescore plans.
     const prepareScoreScope = discoveryScoreScope(ctx.store);
-    summary = { ...plan, local_ai: localAi, status: 'running', jobs: [] };
+    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: 'running', jobs: [] };
     save(summary);
     failureStage = 'source_preflight';
     const result = await executeDiscovery(ctx, async (...options) => {
       failureStage = options[1].plan;
       prepareScoreScope(options[1].plan);
-      if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig);
+      if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, false, approvedAi ? process.env : null);
       const report = options[1].plan === 'collect'
         ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]))
         : await runPipeline(...options);
@@ -78,7 +81,7 @@ try {
       return report;
     }, plan);
     // Persist counts and statuses only; raw errors/provider payloads may contain private data.
-    summary = { ...plan, local_ai: localAi, status: result.status, jobs: result.reports.flatMap(r => r.jobs.map(summarizeJob)) };
+    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: result.status, jobs: result.reports.flatMap(r => r.jobs.map(summarizeJob)) };
     if (result.status !== 'succeeded') process.exitCode = 1;
   }
   save(summary);
