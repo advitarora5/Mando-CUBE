@@ -37,6 +37,18 @@ test('candidate selection protects human decisions and disabled siblings while b
   assert.deepEqual((await selectLocalIdentityCandidates(store)).map(candidate => candidate.name), ['New']);
 });
 
+test('unchanged held candidate yields to another candidate until cooldown expires or evidence changes', async () => {
+  const sites = ['alpha', 'beta'].map(normalized_name => ({ id: normalized_name, normalized_name, capture_id: 'old', enabled: true, company_id: null }));
+  const store = { reviewItems: async () => [], workdaySites: async () => sites,
+    unassignedSignals: async () => [{ id: 'a', company_name: 'Alpha' }, { id: 'b', company_name: 'Beta' }] };
+  const first = (await selectLocalIdentityCandidates(store, { now: 1000 }))[0];
+  const retries = { alpha: { signature: first.retry_signature, retry_after: 5000 } };
+  assert.equal((await selectLocalIdentityCandidates(store, { retries, now: 2000 }))[0].name, 'Beta');
+  assert.equal((await selectLocalIdentityCandidates(store, { retries, now: 5000 }))[0].name, 'Alpha');
+  sites[0].capture_id = 'new-evidence';
+  assert.equal((await selectLocalIdentityCandidates(store, { retries, now: 2000 }))[0].name, 'Alpha');
+});
+
 test('AI capability is rejected by the runner before logging or writes on a remote store', async () => {
   const store = new SupabaseStore('https://remote.supabase.co', 'fictional-key', 'remote');
   const ctx = makeCtx({ store });
