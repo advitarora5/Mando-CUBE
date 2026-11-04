@@ -38,7 +38,12 @@ export function assertSources(sources) {
 
 export async function executeDiscovery(ctx, run, plan) {
   // Preflight all dependencies before starting any collection or writing run logs.
-  assertSources(await ctx.store.sources());
+  // The bounded admission-only plan consumes saved evidence, not collectors.
+  // Keep the complete source gate for every other plan, including full discovery.
+  const admissionOnly = plan.steps.length === 2
+    && plan.steps[0].plan === 'match' && plan.steps[1].plan === 'score'
+    && plan.steps.every(step => !step.source);
+  if (!admissionOnly) assertSources(await ctx.store.sources());
   const reports = [];
   for (const step of plan.steps) {
     const report = await run(ctx, { ...step, limit: plan.limit, dryRun: false, trigger: 'manual' });

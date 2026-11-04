@@ -27,6 +27,28 @@ test('missing sources stop before any stage executes', async () => {
   assert.equal(calls, 0);
 });
 
+test('admission-only processes stored candidates and scores without unused collectors', async () => {
+  const calls = [];
+  const ctx = { store: { sources: async () => { throw Error('Collectors must not be read'); } } };
+  const result = await executeDiscovery(ctx, async (_, opts) => {
+    calls.push(opts.plan);
+    return { jobs: [{ status: 'succeeded' }] };
+  }, { ...discoveryPlan(2), steps: [{ plan: 'match' }, { plan: 'score' }] });
+  assert.deepEqual(calls, ['match', 'score']);
+  assert.equal(result.status, 'succeeded');
+});
+
+test('missing archive sources still block full discovery and collection variants before writes', async () => {
+  const sources = DISCOVERY_SOURCES.filter(id => !['workday-tenant-crawl', 'workday-tenant-wayback'].includes(id))
+    .map(id => ({ id, enabled: true }));
+  for (const steps of [discoveryPlan().steps, [{ plan: 'collect', source: 'workday-tenant-crawl' }, { plan: 'score' }]]) {
+    let calls = 0;
+    await assert.rejects(executeDiscovery({ store: { sources: async () => sources } }, async () => { calls++; },
+      { ...discoveryPlan(), steps }), /workday-tenant-crawl.*workday-tenant-wayback/);
+    assert.equal(calls, 0);
+  }
+});
+
 test('approved target requires all activation gates and an exact HTTPS project URL', () => {
   const ref = 'a'.repeat(20);
   const env = { DISCOVERY_EXECUTION_ENABLED: 'true', DISCOVERY_SINGLE_WRITER_CONFIRMED: 'true',
