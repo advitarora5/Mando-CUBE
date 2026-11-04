@@ -49,6 +49,20 @@ test('unchanged held candidate yields to another candidate until cooldown expire
   assert.equal((await selectLocalIdentityCandidates(store, { retries, now: 2000 }))[0].name, 'Alpha');
 });
 
+test('creating a review and assigning its signals does not bypass the unresolved cooldown', async () => {
+  let reviews = [], signals = [{ id: 'a', company_name: 'Alpha' }, { id: 'b', company_name: 'Beta' }];
+  const store = { reviewItems: async () => reviews,
+    workdaySites: async () => ['alpha', 'beta'].map(normalized_name => ({ id: normalized_name, normalized_name, capture_id: 'same-evidence', enabled: true, company_id: null })),
+    unassignedSignals: async () => signals };
+  const first = (await selectLocalIdentityCandidates(store))[0];
+  const retries = { alpha: { signature: first.retry_signature, retry_after: 5000 } };
+  reviews = [{ id: 'new-review', normalized_name: 'alpha', candidate_name: 'Alpha', candidate_domain: null, status: 'pending', reason: 'no_website', created_at: '2026-01-01' }];
+  signals = signals.slice(1);
+  assert.equal((await selectLocalIdentityCandidates(store, { retries, now: 2000 }))[0].name, 'Beta');
+  reviews[0].candidate_domain = 'new-evidence.example';
+  assert.equal((await selectLocalIdentityCandidates(store, { retries, now: 2000 }))[0].name, 'Alpha');
+});
+
 test('AI capability is rejected by the runner before logging or writes on a remote store', async () => {
   const store = new SupabaseStore('https://remote.supabase.co', 'fictional-key', 'remote');
   const ctx = makeCtx({ store });

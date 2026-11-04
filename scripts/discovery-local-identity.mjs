@@ -35,8 +35,9 @@ export async function selectLocalIdentityCandidates(store, { retries = {}, now =
     ...signals.map(signal => signal.company_name).filter(Boolean)];
   const signature = name => createHash('sha256').update(JSON.stringify({
     sites: sites.filter(s => s.normalized_name === normalizeName(name)).map(s => [s.id, s.capture_id, s.enabled, s.company_id]).sort(),
-    reviews: reviews.filter(r => r.normalized_name === normalizeName(name)).map(r => [r.id, r.status, r.reason, r.candidate_domain]).sort(),
-    signals: signals.filter(s => normalizeName(s.company_name || '') === normalizeName(name)).map(s => s.id).sort(),
+    // Assigning signals to a new review is bookkeeping, not new identity evidence.
+    // Human decisions are protected above; only a new domain hypothesis changes this part.
+    domains: [...new Set(reviews.filter(r => r.normalized_name === normalizeName(name)).map(r => r.candidate_domain).filter(Boolean))].sort(),
   })).digest('hex');
   const name = ordered.find(name => {
     const key = normalizeName(name), previous = retries[key];
