@@ -87,7 +87,7 @@ export function fail(result: CollectResult, failure: HttpFail): boolean {
 type SecEntry = { title: string; ticker?: string; cik_str?: number };
 
 // Names for the resolver, in SEC list order (roughly largest first), from the latest SEC capture.
-export async function resolverNames(ctx: PipelineContext, max: number): Promise<{ name: string; normalized: string }[]> {
+export async function resolverNames(ctx: PipelineContext, max: number, excluded: ReadonlySet<string> = new Set()): Promise<{ name: string; normalized: string }[]> {
   // Prefer the list collected in this run: an unchanged list reuses an older row, so "latest" can be stale.
   const collectedId = ctx.collected?.["sec-company-list"];
   const capture = (collectedId ? await ctx.store.captureById(collectedId) : null) ?? await ctx.store.latestCapture("sec-company-list");
@@ -99,7 +99,7 @@ export async function resolverNames(ctx: PipelineContext, max: number): Promise<
   const candidates: { name: string; normalized: string }[] = [];
   for (const entry of entries) {
     const normalized = normalizeName(entry?.title);
-    if (!normalized || seen.has(normalized) || isExcludedCompany(entry.title)) continue;
+    if (!normalized || seen.has(normalized) || excluded.has(normalized) || isExcludedCompany(entry.title)) continue;
     seen.add(normalized);
     candidates.push({ name: entry.title, normalized });
   }
@@ -117,14 +117,21 @@ export async function resolverNames(ctx: PipelineContext, max: number): Promise<
 
 // Interleave new names with the oldest due attempts. Rechecks must not consume
 // the whole candidate batch and prevent discovery from moving through the SEC list.
-export async function resolverCandidates(ctx: PipelineContext, max: number) {
+export async function resolverCandidates(ctx: PipelineContext, max: number, discoveryOnly = false) {
   if (max <= 0) return [];
   const day = 86400000, now = ctx.now().getTime();
-  const fresh = await resolverNames(ctx, max);
+  const excluded = new Set<string>();
+  if (discoveryOnly) {
+    const [companies, sites, reviews] = await Promise.all([ctx.store.companies(), ctx.store.workdaySites(false), ctx.store.reviewItems()]);
+    for (const c of companies) excluded.add(normalizeName(c.name));
+    for (const s of sites) excluded.add(s.normalized_name);
+    for (const r of reviews) excluded.add(r.normalized_name);
+  }
+  const fresh = await resolverNames(ctx, max, excluded);
   const due = (await ctx.store.dueResolverAttempts({
     foundBefore: new Date(now - RESOLVER_REFRESH_DAYS * day).toISOString(),
     missBefore: new Date(now - RESOLVER_MISS_RETRY_DAYS * day).toISOString(),
-  }, max)).filter(a => !isExcludedCompany(a.company_name))
+  }, max + excluded.size)).filter(a => !excluded.has(a.normalized_name) && !isExcludedCompany(a.company_name))
     .map(a => ({ name: a.company_name, normalized: a.normalized_name }));
   const selected: typeof fresh = [];
   for (let i = 0; selected.length < max && (i < fresh.length || i < due.length); i++) {
@@ -143,7 +150,7 @@ export class WorkdayResolver implements Collector {
     // Full-name guesses include the observed wd503 pod; weaker first-word guesses stay bounded to three.
     const podsFor = (kind: string) => WORKDAY_PODS.slice(0, kind === "full_name" ? Number(source.config.full_name_pods ?? 7) : Number(source.config.first_word_pods ?? 3));
     // limit = sites to find; about one name in four has a guessable tenant, so up to six names per wanted site are tried.
-    const names = await resolverCandidates(ctx, limits.maxItems * Number(source.config.names_per_site ?? 6));
+    const names = await resolverCandidates(ctx, limits.maxItems * Number(source.config.names_per_site ?? 6), source.config.discovery_only === true);
     const knownSites = await ctx.store.workdaySites(true);
     const corporateEnabled = source.config.corporate_discovery === true;
     const companies = corporateEnabled ? await ctx.store.companies() : [];

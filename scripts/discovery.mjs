@@ -62,7 +62,7 @@ try {
         // One archive attempt per run: preserve the real outage status instead of
         // spending the deadline in nested retries against the same busy service.
         ? { ...s.config, index_page_size: 1, index_candidate_limit: Math.max(6, plan.limit * 3), request_timeout_ms: 12000, index_retries: 0, http_retries: 0, index_fail_fast: true }
-        : s.config }));
+        : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true } : s.config }));
     // Discovery scores only companies touched by matching. Periodic full rescoring
     // remains the responsibility of the existing daily/rescore plans.
     const prepareScoreScope = discoveryScoreScope(ctx.store);
