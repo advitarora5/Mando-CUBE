@@ -3,7 +3,7 @@ import { discoveryPlan, assertLocalTarget, assertApprovedTarget, executeDiscover
 import { resolve } from 'node:path';
 import { discoveryScoreScope } from './discovery-score-scope.mjs';
 import { withSourceBudget } from './discovery-source-budget.mjs';
-import { summarizeJob } from './discovery-report.mjs';
+import { discoveryRollup, summarizeJob } from './discovery-report.mjs';
 
 const output = resolve(process.env.DISCOVERY_OUTPUT || 'var/discovery');
 const save = summary => {
@@ -77,11 +77,13 @@ try {
         ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]))
         : await runPipeline(...options);
       summary.jobs.push(...report.jobs.map(summarizeJob));
+      summary.rollup = discoveryRollup(summary.jobs);
       save(summary);
       return report;
     }, plan);
     // Persist counts and statuses only; raw errors/provider payloads may contain private data.
-    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: result.status, jobs: result.reports.flatMap(r => r.jobs.map(summarizeJob)) };
+    const jobs = result.reports.flatMap(r => r.jobs.map(summarizeJob));
+    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: result.status, jobs, rollup: discoveryRollup(jobs) };
     if (result.status !== 'succeeded') process.exitCode = 1;
   }
   save(summary);

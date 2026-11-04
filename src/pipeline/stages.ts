@@ -1,10 +1,11 @@
 // The pipeline stages. Each one reads from and writes to the store only, so any stage can run on its own.
 // Failures are counted and logged per item; a stage never throws out of a run.
+import { createHash } from "node:crypto";
 import { companyAliases } from "../data/company-aliases.ts";
 import { decideMatch, TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
 import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
-import { financialsFor } from "./financials.ts";
+import { financialsUnavailable, lookupFinancials } from "./financials.ts";
 import { isSignalFresh, mayScore } from "../domain/ingestion/settings.ts";
 import { categories } from "../domain/contracts/company.ts";
 import { resolveWebsite, WebsiteHttp, WEBSITE_LIMIT, websiteSignature, loadEmployerLinks, confirmedName } from "./website.ts";
@@ -13,7 +14,8 @@ import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
 import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
-export type StageResult = { cache_hit?: boolean; counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
+// candidate_keys: short hashes of the names a match pass checked, so a batch can count unique candidates without listing them.
+export type StageResult = { cache_hit?: boolean; candidate_keys?: string[]; counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
 const result = (): StageResult => ({ counts: {}, errors: [], blocked: null, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0 });
 const bump = (r: StageResult, key: string, n = 1) => { r.counts[key] = (r.counts[key] ?? 0) + n; };
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -141,6 +143,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
   }
   if (opts.localIdentity) for (const name of groups.keys()) if (!opts.localIdentity.names.has(name)) groups.delete(name);
   bump(r, "candidates", groups.size);
+  r.candidate_keys = [...groups.keys()].map(name => createHash("sha256").update(name).digest("hex").slice(0, 16));
   let created = 0, lookups = 0;
   const deadline = Date.now() + (opts.localIdentity ? 30 : 5) * 60 * 1000;
   const initialSpend = ctx.spend.spent("treg");
@@ -268,22 +271,30 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       if (!signals.length && !contacts.length) bump(r, "no_evidence");
       // The employee count has no source link on the company row, so the +3 size bonus is not awarded automatically.
       // ponytail: SEC facts are refetched on every score pass (once per company per run); cache them in a table if that gets slow.
-      const financials = await financialsFor(ctx, company.name);
-      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials });
+      const lookup = await lookupFinancials(ctx, company.name);
+      r.requests += lookup.requests;
+      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials: lookup.financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const latest = await ctx.store.latestScore(company.id);
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
-      if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
+      // A lookup that could not run is not evidence that capacity disappeared: keep the saved assessment until it can.
+      const deferred = financialsUnavailable(lookup.status) && !!latest && Number(assessment.result.row.budget_score) < Number(latest.budget_score);
+      if (deferred) bump(r, "financials_deferred");
+      else if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
       else {
         // An unchanged score that is only re-saved because it is due is a refresh; anything else was started by the caller.
         const trigger: ScoreTrigger = sameScore(latest, assessment.result.row) ? "periodic_refresh" : opts.trigger ?? "pipeline_run";
         await ctx.store.insertScore(assessment.result.row, now.toISOString(), buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId }));
         bump(r, latest ? "rescored" : "scored");
       }
-      if (assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
+      if (!deferred && assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
         await ctx.store.setEnrichment(company.id, "pending", "Budget + Release + Timing reached the ready-for-contacts threshold.");
         bump(r, "ready_for_contacts");
       }
+      // Coverage comes after the writes, so a failing store still leaves this stage with no work and a failed status.
+      bump(r, `financials_${lookup.status}`);
+      bump(r, contacts.length ? "with_contacts" : "without_contacts");
+      if (!deferred) for (const category of categories) if (assessment.categories[category].score === 0) bump(r, `zero_${category}`);
     } catch (error) {
       bump(r, "error_score");
       r.errors.push(`score ${company.name}: ${message(error)}`);

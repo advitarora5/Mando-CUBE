@@ -34,3 +34,15 @@ test('missing checkpoints stop safely and a failed score retains recorded admiss
   const partial=await runCandidateBatch({maxCandidates:5,deadlineMs:1000,run:async()=>{const a=attempt();a.jobs[1].status='failed';return a;}});
   assert.equal(partial.admitted,1);assert.equal(partial.attempts.length,1);
 });
+test('batch rollup counts a retried candidate once across workers and is saved at each checkpoint',async()=>{
+  const same='a'.repeat(16),other='b'.repeat(16);
+  const worker=(key,admitted)=>({status:'succeeded',jobs:[{job:'match',status:'succeeded',candidate_keys:[key],counts:{candidates:1,new_companies:admitted,joined_pending_review:admitted?0:1}},{job:'score',status:'succeeded',counts:{without_contacts:admitted,financials_no_contact:admitted}}]});
+  const queue=[worker(same,0),worker(same,0),worker(other,1)],saved=[];
+  const r=await runCandidateBatch({maxCandidates:3,deadlineMs:3000000,run:async()=>queue.shift(),save:s=>saved.push(structuredClone(s))});
+  assert.equal(r.candidates_checked,3);
+  assert.deepEqual(r.rollup.candidates,{checked:3,unique:2});
+  assert.equal(r.rollup.admissions.new_companies,1);
+  assert.equal(r.rollup.held.still_held,2);
+  assert.equal(r.rollup.contacts.scored_without_contacts,1);
+  assert.equal(saved[0].rollup.candidates.checked,1,'an interrupted batch still has a rollup on disk');
+});

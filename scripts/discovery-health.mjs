@@ -1,6 +1,7 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { DISCOVERY_SOURCES } from './discovery-plan.mjs';
+import { discoveryRollup } from './discovery-report.mjs';
 
 const labels = ['SEC names', 'Workday site resolver', 'Common Crawl', 'Wayback archive', 'Workday job postings'];
 const statuses = new Set(['succeeded', 'partial', 'blocked', 'failed', 'needs_attention', 'time_limit', 'interrupted', 'overlap_blocked']);
@@ -39,8 +40,27 @@ export function discoveryHealthMarkdown(summary) {
     const held = sum(match, `pending_reason_${reason}`);
     if (held) lines.push(`Existing reviews still held (${reason}): **${held}**.`, '');
   }
+  lines.push(...coverageLines(discoveryRollup(jobs)));
   lines.push('A successful scoring stage with zero assessments does not establish that new admissions were scored.', '');
   return lines.join('\n');
+}
+
+const categoryLabels = { authority: 'Authority', reachability: 'Reachability', budget: 'Budget', release: 'Release', timing: 'Timing' };
+const financialLabels = { found: 'filing found', no_sec_match: 'no SEC name match', no_filing_facts: 'no US GAAP facts', no_operating_income: 'no operating income reported', stale_filing: 'stale filing', no_contact: 'lookup off: no contact set', no_sec_list: 'lookup off: no SEC list', fetch_failed: 'SEC request failed' };
+
+// Fixed labels and numbers only, like the rest of this report.
+function coverageLines({ candidates, held, contacts, scoring }) {
+  const scored = contacts.scored_with_contacts + contacts.scored_without_contacts;
+  const named = (labels, values) => Object.entries(labels).map(([key, label]) => `${label} ${count(values[key])}`).join(', ');
+  const lines = [`Candidates checked: **${candidates.checked}**; unique: **${candidates.unique ?? 'not measured'}**. Held: **${held.new_reviews}** new, **${held.still_held}** still held.`, ''];
+  if (!scored) return lines;
+  lines.push(`Contact coverage: **${contacts.scored_with_contacts}** of **${scored}** scored companies have contacts.`, '',
+    `Categories scoring zero: ${named(categoryLabels, scoring.zero_points)}.`, '',
+    `Financial evidence: ${named(financialLabels, scoring.financials)}.`, '');
+  const off = count(scoring.financials.no_contact) + count(scoring.financials.no_sec_list) + count(scoring.financials.fetch_failed);
+  if (off) lines.push(`**${off}** scored companies could not be checked for filing evidence, so their Budget may omit it. This is not evidence that capacity is absent.`, '');
+  if (count(scoring.financials.deferred)) lines.push(`Saved assessments kept instead of being lowered during the outage: **${count(scoring.financials.deferred)}**.`, '');
+  return lines;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

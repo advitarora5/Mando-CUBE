@@ -63,30 +63,52 @@ export function cikIndex(secListJson: string): Map<string, number> {
   return index;
 }
 
-const cache = new WeakMap<PipelineContext, { index: Map<string, number> | null; byCik: Map<number, Financials | null> }>();
+// Why a company has filing figures or not. The run reports these counts, so missing capacity is never silent.
+export type FinancialsStatus = "found" | "no_contact" | "no_sec_list" | "fetch_failed" | "no_sec_match" | "no_filing_facts" | "no_operating_income" | "stale_filing";
+export type FinancialsLookup = { financials: Financials | null; status: FinancialsStatus; requests: number };
 
-// Financials for one company, or null. Needs the SEC list capture and PIPELINE_CONTACT (the SEC answers 403 without one).
-export async function financialsFor(ctx: PipelineContext, companyName: string): Promise<Financials | null> {
-  if (!ctx.contact) return null;
+// The lookup could not run, which says nothing about the company. Every other status is an answer about its filings.
+export const financialsUnavailable = (status: FinancialsStatus) => status === "no_contact" || status === "no_sec_list" || status === "fetch_failed";
+
+export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<FinancialsLookup, "financials" | "status"> {
+  const financials = parseFinancials(rawFacts, cik, now);
+  if (financials) return { financials, status: "found" };
+  const facts = rawFacts as Facts;
+  // IFRS-only filers have no us-gaap block. Banks and insurers often report no OperatingIncomeLoss. Neither is estimated.
+  if (!facts?.["us-gaap"]) return { financials: null, status: "no_filing_facts" };
+  return { financials: null, status: newest(facts, OPERATING).length ? "stale_filing" : "no_operating_income" };
+}
+
+type LookupState = { index: Map<string, number> | null; byCik: Map<number, Pick<FinancialsLookup, "financials" | "status">>; stopped: boolean };
+const cache = new WeakMap<PipelineContext, LookupState>();
+
+// Financials for one company, with the reason when there are none. Needs the SEC list capture and PIPELINE_CONTACT
+// (the SEC answers 403 without one). The first failed SEC call stops further calls for this context.
+export async function lookupFinancials(ctx: PipelineContext, companyName: string): Promise<FinancialsLookup> {
+  if (!ctx.contact) return { financials: null, status: "no_contact", requests: 0 };
   let state = cache.get(ctx);
-  if (!state) { state = { index: null, byCik: new Map() }; cache.set(ctx, state); }
+  if (!state) { state = { index: null, byCik: new Map(), stopped: false }; cache.set(ctx, state); }
   if (!state.index) {
     const capture = await ctx.store.latestCapture("sec-company-list");
     state.index = capture ? cikIndex(capture.body) : new Map();
   }
+  if (!state.index.size) return { financials: null, status: "no_sec_list", requests: 0 };
   const cik = state.index.get(normalizeName(companyName));
-  if (!cik) return null;
-  if (state.byCik.has(cik)) return state.byCik.get(cik)!;
-  let found: Financials | null = null;
+  if (!cik) return { financials: null, status: "no_sec_match", requests: 0 };
+  const known = state.byCik.get(cik);
+  if (known) return { ...known, requests: 0 };
+  if (state.stopped) return { financials: null, status: "fetch_failed", requests: 0 };
+  let found: Pick<FinancialsLookup, "financials" | "status"> = { financials: null, status: "fetch_failed" };
   try {
     // The SEC wants "Name contact" as the User-Agent; the pipeline's standard agent string is answered with 403.
     const res = await ctx.fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${String(cik).padStart(10, "0")}.json`, {
       headers: { "user-agent": `Mando-CUBE ${ctx.contact}`, accept: "application/json" }, signal: AbortSignal.timeout(30000),
     });
-    if (res.ok) found = parseFinancials(((await res.json()) as { facts?: unknown }).facts, cik, ctx.now());
-    else ctx.log.warn(`SEC company facts ${cik}: HTTP ${res.status}`);
-  } catch (error) { ctx.log.warn(`SEC company facts ${cik}: ${(error as Error).message}`); }
+    if (res.ok) found = classifyFacts(((await res.json()) as { facts?: unknown }).facts, cik, ctx.now());
+    else if (res.status === 404) found = { financials: null, status: "no_filing_facts" }; // the SEC has no XBRL facts for this CIK
+    else { ctx.log.warn(`SEC company facts ${cik}: HTTP ${res.status}`); state.stopped = true; }
+  } catch (error) { ctx.log.warn(`SEC company facts ${cik}: ${(error as Error).message}`); state.stopped = true; }
   await ctx.sleep(150); // SEC fair access: at most 10 requests a second
   state.byCik.set(cik, found);
-  return found;
+  return { ...found, requests: 1 };
 }

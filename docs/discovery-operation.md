@@ -80,6 +80,21 @@ interruption is a failed/incomplete result; an in-flight database write may have
 The process exits before releasing its lock. Existing deduplication and review decisions
 remain responsible for safe repeated execution. Never interpret a timeout as a rollback.
 
+## Reading the coverage counts
+
+`summary.json`, `batch-summary.json` and the health report carry a `rollup` of unique candidates,
+admissions, held cases, contact coverage, categories scoring zero and financial evidence status.
+Candidate names are stored as short hashes, and only counts reach the health report.
+
+A new company with a Workday customer signal and nothing else scores 13: Release 8 plus Timing 5.
+Read `zero_points` and `financials` before treating that as a judgment about the company.
+`no_contact`, `no_sec_list` and `fetch_failed` mean the filing lookup could not run. In those cases a
+saved assessment is kept rather than lowered (`financials_deferred`). The first failed SEC call stops
+further SEC calls for that run. `no_filing_facts` and `no_operating_income` are answers about the
+filing: IFRS filers and many banks and insurers earn no capacity points, and nothing is estimated.
+Filing evidence can move a company past `ready_for_contacts_threshold`; paid email lookup still needs
+its separate budget.
+
 ## GitHub workflow prepared for later approval
 
 .github/workflows/discovery-execute.yml has workflow_dispatch only. Its execution job

@@ -37,6 +37,7 @@ PR descriptions or run reports. See [rollout preparation](discovery-rollout.md).
 | `PIPELINE_ALLOW_REMOTE` | Must equal that reference |
 | `PIPELINE_SUPABASE_URL` | Exact `https://<approved-ref>.supabase.co`, matching Vercel's project |
 | `PIPELINE_SUPABASE_KEY` | Authorized server-side key configured privately |
+| `PIPELINE_CONTACT` | Contact for the SEC User-Agent. Without it, filing evidence is not checked and Budget capacity stays 0 |
 | `DISCOVERY_APPROVED_MODEL_DIGEST` | Exact reviewed 64-character model digest from local `/api/tags` |
 | `OLLAMA_HOST` | Loopback HTTP URL with explicit port; default `http://127.0.0.1:11434` |
 | `OLLAMA_MODEL` | `qwen2.5:7b` (or absent, which selects that same model) |

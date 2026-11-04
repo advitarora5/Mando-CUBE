@@ -26,6 +26,7 @@ not the deployed Vercel dashboard. No new dashboard button or page is needed.
 | GitHub variable | `PIPELINE_ALLOW_REMOTE` | Exactly the same approved project reference |
 | GitHub secret | `PIPELINE_SUPABASE_URL` | Exact `https://<approved-ref>.supabase.co`, matching Vercel's project |
 | GitHub secret | `PIPELINE_SUPABASE_KEY` | Authorized server-side database key, entered privately by the owner |
+| GitHub variable | `PIPELINE_CONTACT` | Contact for the SEC User-Agent. Required for filing evidence; the ingestion workflows already use this variable |
 
 The approved entry point checks flags and the exact target before starting its worker.
 It fixes discovery to two items/sites per source, at most three admissions per pass,

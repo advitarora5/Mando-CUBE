@@ -37,6 +37,7 @@ jobs:
           PIPELINE_SUPABASE_URL: ${{ secrets.PIPELINE_SUPABASE_URL }}
           PIPELINE_SUPABASE_KEY: ${{ secrets.PIPELINE_SUPABASE_KEY }}
           PIPELINE_ALLOW_REMOTE: ${{ vars.PIPELINE_ALLOW_REMOTE }}
+          PIPELINE_CONTACT: ${{ vars.PIPELINE_CONTACT }}
         run: node scripts/discovery-execute-approved.mjs
       - name: Show discovery health
         if: always()
