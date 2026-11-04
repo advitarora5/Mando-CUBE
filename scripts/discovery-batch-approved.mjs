@@ -3,7 +3,7 @@ import { resolve, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { assertApprovedTarget } from './discovery-plan.mjs';
 import { supervise } from './discovery-supervisor.mjs';
-import { runCandidateBatch } from './discovery-batch.mjs';
+import { runCandidateBatch, batchDeadline } from './discovery-batch.mjs';
 
 // Preparation imports no provider or database clients and performs no writes.
 const args = process.argv.slice(2);
@@ -23,7 +23,7 @@ if (!args.length) {
     writeFileSync(lock, JSON.stringify({ batch_id: id, pid: process.pid, started_at: new Date().toISOString() }));
     mkdirSync(directory, { recursive: true });
     const save = summary => writeFileSync(join(directory, 'batch-summary.json'), JSON.stringify({ ...summary, batch_id: id }, null, 2));
-    const result = await runCandidateBatch({ maxCandidates: 5, deadlineMs: 50 * 60000, save,
+    const result = await runCandidateBatch({ maxCandidates: 5, deadlineMs: batchDeadline(process.env.DISCOVERY_STOP_AT), save,
       run: (i, timeoutMs) => supervise({ command: process.execPath,
         args: ['scripts/discovery.mjs', '--execute-approved', '--approved-ai', '--limit', '2', ...(i ? ['--ai-admission-only'] : [])],
         root: directory, timeoutMs,

@@ -1,4 +1,11 @@
 // Sequential admission attempts. Each worker retains the one-company safety cap.
+export function batchDeadline(stopAt, now = Date.now()) {
+  if (!stopAt) return 50 * 60000;
+  const end = Date.parse(stopAt);
+  if (!Number.isFinite(end) || end <= now) throw Error('Batch stop time reached or invalid');
+  return Math.min(50 * 60000, end - now);
+}
+
 export async function runCandidateBatch({ maxCandidates, deadlineMs, run, now = Date.now, save = () => {} }) {
   if (!Number.isInteger(maxCandidates) || maxCandidates < 1 || maxCandidates > 5 || !Number.isInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 50 * 60000) throw Error('Invalid batch bounds');
   const started = now();

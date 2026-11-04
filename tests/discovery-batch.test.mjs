@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runCandidateBatch} from '../scripts/discovery-batch.mjs';
+import {runCandidateBatch,batchDeadline} from '../scripts/discovery-batch.mjs';
 const attempt = (checked=1, admitted=1) => ({status:'succeeded', jobs:[{job:'match',status:'succeeded',counts:{candidates:checked,new_companies:admitted}},{job:'score',status:'succeeded',counts:{scored:admitted}}]});
+test('overnight cutoff can only shorten batches and rejects expired or malformed windows',()=>{
+  const now=Date.parse('2026-11-04T13:40:00Z');
+  assert.equal(batchDeadline('2026-11-04T13:45:00Z',now),300000);
+  assert.equal(batchDeadline('2026-11-05T13:45:00Z',now),3000000);
+  for(const end of ['garbage','2026-11-04T13:40:00Z','2026-11-04T12:00:00Z'])assert.throws(()=>batchDeadline(end,now));
+});
 test('five-candidate batch runs sequentially and never exceeds five admissions',async()=>{
   let active=0,calls=0;
   const r=await runCandidateBatch({maxCandidates:5,deadlineMs:3000000,run:async()=>{assert.equal(active++,0);calls++;await Promise.resolve();active--;return attempt();}});
