@@ -22,6 +22,14 @@ export function assertLocalAdmissionStore(ctx: PipelineContext): void {
   assertLocalAdmissionUrl(ctx.store.databaseUrl);
 }
 
+// Evidence-derived URLs are candidate hypotheses, never proof of identity.
+// Keep name guesses from crowding them out of the three-URL safety bound.
+export function identityCorporateUrls(evidenceUrls: string[], guessedUrls: string[]): string[] {
+  return [...new Set([...evidenceUrls, ...guessedUrls])].filter(url => {
+    try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password && !u.port; } catch { return false; }
+  }).slice(0, 3);
+}
+
 export type LocalAdmissionCandidate = { name: string; corporate_urls?: string[] };
 export type LocalIdentityAdmission = {
   names: Set<string>;
@@ -140,8 +148,10 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
       const domains = [...reviews.filter(r => r.normalized_name === normalized).map(r => r.candidate_domain),
         ...known.filter(c => normalizeName(c.name) === normalized).map(c => c.domain), ...refs.map(r => r.domain)].filter((d): d is string => !!d);
       const cached = await context.store.websiteResolution(normalized);
-      const urls = [...explicit, ...(captures ?? []).map(c => c.url), ...(cached?.domain ? [`https://${cached.domain}/`] : []),
-        ...corporateCandidates(name, domains, undefined)];
+      const urls = identityCorporateUrls([
+        ...refs.map(r => `https://${r.domain}/`), ...(captures ?? []).map(c => c.url),
+        ...domains.map(domain => `https://${domain}/`), ...(cached?.domain ? [`https://${cached.domain}/`] : []),
+      ], [...explicit, ...corporateCandidates(name, domains, undefined)]);
       const frozen = opts.packets?.filter(p => normalizeName(p.target_name) === normalized);
       const candidatesByUrl = [...new Set(frozen ? frozen.map(p => p.corporate_url) : urls)].filter(url => {
         try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password && !u.port; } catch { return false; }
