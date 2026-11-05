@@ -113,7 +113,7 @@ export async function extractStage(ctx: PipelineContext, opts: { limit: number; 
 // Display name: SEC titles arrive in capitals ("MARSH & MCLENNAN COMPANIES, INC."); prefer the resolver's spelling.
 export function displayName(name: string, resolved: string | null): string {
   if (resolved && normalizeName(resolved) && isSimilarName(resolved, name)) return resolved;
-  const trimmed = name.replace(/\s*\/[A-Z]{2}\/?\s*$/, "").trim();
+  const trimmed = name.replace(/\s*\/[a-z]{2,3}\/?\s*$/i, "").trim();
   if (trimmed !== trimmed.toUpperCase()) return trimmed;
   // All capitals (SEC style): title-case each word, but keep a short leading acronym (KLA, 3M, ASML) and legal forms.
   // Four-letter leading words are almost always ordinary ones (BANK, HOME, FORD), so only known acronyms stay capitalized.

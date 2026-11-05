@@ -86,11 +86,15 @@ export function fail(result: CollectResult, failure: HttpFail): boolean {
 
 type SecEntry = { title: string; ticker?: string; cik_str?: number };
 
+// Prefer the list collected in this run: an unchanged list reuses an older row, so "latest" can be stale.
+export async function secListCapture(ctx: PipelineContext) {
+  const collectedId = ctx.collected?.["sec-company-list"];
+  return (collectedId ? await ctx.store.captureById(collectedId) : null) ?? await ctx.store.latestCapture("sec-company-list");
+}
+
 // Names for the resolver, in SEC list order (roughly largest first), from the latest SEC capture.
 export async function resolverNames(ctx: PipelineContext, max: number, excluded: ReadonlySet<string> = new Set()): Promise<{ name: string; normalized: string }[]> {
-  // Prefer the list collected in this run: an unchanged list reuses an older row, so "latest" can be stale.
-  const collectedId = ctx.collected?.["sec-company-list"];
-  const capture = (collectedId ? await ctx.store.captureById(collectedId) : null) ?? await ctx.store.latestCapture("sec-company-list");
+  const capture = await secListCapture(ctx);
   if (!capture) return [];
   let entries: SecEntry[] = [];
   try { entries = Object.values(JSON.parse(capture.body) as Record<string, SecEntry>); } catch { return []; }

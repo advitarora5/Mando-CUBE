@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { discoveryPlan, assertLocalTarget, assertApprovedTarget, executeDiscovery } from './discovery-plan.mjs';
 import { resolve } from 'node:path';
 import { discoveryScoreScope } from './discovery-score-scope.mjs';
-import { withSourceBudget } from './discovery-source-budget.mjs';
+import { sourceBudgetMs, withSourceBudget } from './discovery-source-budget.mjs';
 import { discoveryRollup, summarizeJob } from './discovery-report.mjs';
 
 const output = resolve(process.env.DISCOVERY_OUTPUT || 'var/discovery');
@@ -61,7 +61,7 @@ try {
       config: ['workday-tenant-crawl', 'workday-tenant-wayback'].includes(s.id)
         // One archive attempt per run: preserve the real outage status instead of
         // spending the deadline in nested retries against the same busy service.
-        ? { ...s.config, index_page_size: 1, index_candidate_limit: Math.max(6, plan.limit * 3), request_timeout_ms: 12000, index_retries: 0, http_retries: 0, index_fail_fast: true }
+        ? { ...s.config, index_page_size: 1, index_candidate_limit: Math.max(30, plan.limit * 6), request_timeout_ms: s.id === 'workday-tenant-wayback' ? 65000 : 30000, index_retries: 0, http_retries: 0, index_fail_fast: true }
         : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true } : s.config }));
     // Discovery scores only companies touched by matching. Periodic full rescoring
     // remains the responsibility of the existing daily/rescore plans.
@@ -74,7 +74,7 @@ try {
       prepareScoreScope(options[1].plan);
       if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, false, approvedAi ? process.env : null);
       const report = options[1].plan === 'collect'
-        ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]))
+        ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]), sourceBudgetMs(options[1].source))
         : await runPipeline(...options);
       summary.jobs.push(...report.jobs.map(summarizeJob));
       summary.rollup = discoveryRollup(summary.jobs);

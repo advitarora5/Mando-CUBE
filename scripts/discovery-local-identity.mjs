@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { normalizeName } from '../src/domain/ingestion/normalize.ts';
 import { guessDomains } from '../src/pipeline/website.ts';
+import { tenantName } from '../src/pipeline/collectors/crawl.ts';
 import { assertLocalAdmissionUrl, assertLocalAdmissionStore, assertApprovedIdentityTarget, localIdentityAdmission, approvedIdentityAdmission } from '../src/pipeline/local-identity-admission.ts';
 import { assertApprovedTarget } from './discovery-plan.mjs';
 
@@ -27,12 +28,18 @@ export function assertApprovedIdentityMode({ execute, approved }, env) {
 
 // First local pilot: one candidate, all enabled sibling sites checked by the
 // existing identity policy. Human-only and rejected decisions remain protected.
-export async function selectLocalIdentityCandidates(store, { retries = {}, now = Date.now() } = {}) {
+export async function selectLocalIdentityCandidates(store, { retries = {}, now = Date.now(), heldFirst = false } = {}) {
   const [reviews, sites, signals] = await Promise.all([store.reviewItems(), store.workdaySites(false), store.unassignedSignals()]);
   const protectedNames = new Set(reviews.filter(r => r.status !== 'pending' || r.reason === 'similar_name').map(r => r.normalized_name));
   const eligible = new Set(sites.filter(site => site.enabled && !site.company_id && !sites.some(other => other.normalized_name === site.normalized_name && !other.enabled)).map(site => site.normalized_name));
-  const ordered = [...reviews.filter(r => r.status === 'pending').sort((a, b) => a.created_at.localeCompare(b.created_at)).map(r => r.candidate_name),
-    ...signals.map(signal => signal.company_name).filter(Boolean)];
+  const held = reviews.filter(r => r.status === 'pending').sort((a, b) => a.created_at.localeCompare(b.created_at)).map(r => r.candidate_name);
+  const heldNames = new Set(held.map(normalizeName));
+  // New candidates go first, or a queue of unchanged holds would use every batch's model checks. Among them, named
+  // companies go before those still carrying only a tenant slug: those names came from the SEC list and have filings.
+  const slugNamed = name => sites.some(s => s.normalized_name === normalizeName(name) && s.tenant && s.company_name === tenantName(s.tenant));
+  const fresh = [...new Set(signals.map(signal => signal.company_name).filter(Boolean))].filter(name => !heldNames.has(normalizeName(name)))
+    .sort((a, b) => slugNamed(a) - slugNamed(b));
+  const ordered = heldFirst ? [...held, ...fresh] : [...fresh, ...held];
   const signature = name => createHash('sha256').update(JSON.stringify({
     sites: sites.filter(s => s.normalized_name === normalizeName(name)).map(s => [s.id, s.capture_id, s.enabled, s.company_id]).sort(),
     // Assigning signals to a new review is bookkeeping, not new identity evidence.
@@ -65,7 +72,7 @@ export async function prepareLocalDiscoveryIdentity(ctx, output, config, preflig
     try { retryState = JSON.parse(readFileSync(retryPath, 'utf8')); }
     catch (error) { if (error.code !== 'ENOENT') throw Error('Identity retry state unreadable; inspect before execution'); }
   }
-  const candidates = preflight ? [] : await selectLocalIdentityCandidates(ctx.store, { retries: retryState[targetKey] ?? {}, now: +ctx.now() });
+  const candidates = preflight ? [] : await selectLocalIdentityCandidates(ctx.store, { retries: retryState[targetKey] ?? {}, now: +ctx.now(), heldFirst: process.env.DISCOVERY_HELD_FIRST === 'true' });
   const directory = join(output, 'identity');
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const options = { ...config,

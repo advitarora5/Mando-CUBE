@@ -217,6 +217,9 @@ test('regression (round 1): display names keep acronyms and legal suffixes reada
   assert.equal(displayName('HOME DEPOT, INC.', null), 'Home Depot, Inc.');
   assert.equal(displayName('NEW YORK TIMES CO', null), 'New York Times Co');
   assert.equal(displayName('ING GROEP NV', null), 'ING Groep NV');
+  assert.equal(displayName('Fernhill Scientific, Inc./tx', null), 'Fernhill Scientific, Inc.', 'SEC state tags go, in any case');
+  assert.equal(displayName('FERNHILL INC/DE', null), 'Fernhill Inc');
+  assert.equal(displayName('Fernhill Group PLC./ADR', null), 'Fernhill Group PLC.');
   assert.equal(displayName('KLA CORP', null), 'KLA Corp');
   assert.equal(displayName('UNILEVER PLC', null), 'Unilever PLC');
   assert.equal(displayName('EQUINOR ASA', null), 'Equinor ASA');

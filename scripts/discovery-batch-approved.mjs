@@ -25,9 +25,10 @@ if (!args.length) {
     const save = summary => writeFileSync(join(directory, 'batch-summary.json'), JSON.stringify({ ...summary, batch_id: id }, null, 2));
     const result = await runCandidateBatch({ maxCandidates: 5, deadlineMs: batchDeadline(process.env.DISCOVERY_STOP_AT), save,
       run: (i, timeoutMs) => supervise({ command: process.execPath,
-        args: ['scripts/discovery.mjs', '--execute-approved', '--approved-ai', '--limit', '2', ...(i ? ['--ai-admission-only'] : [])],
+        args: ['scripts/discovery.mjs', '--execute-approved', '--approved-ai', '--limit', '5', ...(i ? ['--ai-admission-only'] : [])],
         root: directory, timeoutMs,
-        env: { DISCOVERY_MAX_NEW: '1', DISCOVERY_MAX_REQUESTS: '20', PIPELINE_SEC_FILE: resolve('sec.json') } }) });
+        // The last check of each batch goes to the oldest held candidate that is due, so holds are retried without blocking new names.
+        env: { DISCOVERY_MAX_NEW: '1', DISCOVERY_MAX_REQUESTS: '60', PIPELINE_SEC_FILE: resolve('sec.json'), DISCOVERY_HELD_FIRST: i === 4 ? 'true' : 'false' } }) });
     console.log(JSON.stringify({ ...result, batch_id: id }, null, 2));
     if (!['completed', 'no_eligible_candidates'].includes(result.status)) process.exitCode = 1;
   } catch {

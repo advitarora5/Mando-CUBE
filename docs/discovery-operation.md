@@ -14,13 +14,24 @@ With credentials for the isolated local database configured privately:
 node --env-file=.env.pipeline.local scripts/discovery-execute-local.mjs
 ```
 
-The initial operating configuration requests two items/sites per source, limits each
-source to at most 20 requests, and admits at most three new companies per matching pass.
+The local entry point requests two items/sites per source, limits each source to at most
+20 requests, and admits at most three new companies per matching pass. The approved batch
+requests five per source with 60 requests each, and still checks at most five candidates.
 The supervisor stops its worker after five minutes. Providers may return fewer results.
-Each collection stage also has a 25-second cooperative time budget: requests are
-cancelled, retry waits wake, and buffered items are retained before the next source runs.
+Each collection stage also has a cooperative time budget, 75 seconds or 120 for the two
+archives (`scripts/discovery-source-budget.mjs`): requests are cancelled, retry waits wake,
+and buffered items are retained before the next source runs.
 
-Unattended archive requests use a 12-second request timeout with no in-run HTTP
+Tenant discovery works through what the archives list, public companies first. A tenant
+whose name is exactly one SEC company's full name takes that title, which also lets its
+filings reach Budget, but it remains a name guess that the corporate site must confirm.
+The Wayback query collapses on the start of the index key, because a plain wildcard returns
+every captured URL and stops within the first few dozen tenants, all starting with "a".
+Measured on 2026-11-05, the six smaller pods answered in 6-47 seconds with 90-294 tenants
+each. `wd3`, `wd1` and `wd5` hit the index's 60-second limit, so they go last and Common Crawl
+covers them.
+
+Unattended archive requests use a 30-second request timeout (65 for Wayback) with no in-run HTTP
 or gateway retries. An index failure stops enumeration against that service for
 the current batch; the next invocation can try again. This keeps an archive outage
 from consuming the source deadline in nested retries. Interactive collector defaults
@@ -57,7 +68,7 @@ stored signal confidence. All enabled sibling sites must be verified by the exis
 policy before admission. A human-only similar-name review is not automatically resolved.
 
 The local AI supervisor has a ten-minute overall deadline and an admission cap of
-one; individual collection budgets remain 25 seconds. The local AI profile allows
+one; individual collection budgets are the same as above. The local AI profile allows
 up to four minutes per model request; the dedicated admission CLI retains its two-minute
 default. This longer deadline is local
 only. Slow model calls may exhaust the window. Scoring follows matching and stays

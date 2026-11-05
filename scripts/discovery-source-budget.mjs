@@ -1,3 +1,7 @@
+// Long enough to use a source's request allowance at one request a second. The archives also need one slow index query,
+// which answers in up to 60 seconds and is then cached for a day.
+export const sourceBudgetMs = source => (['workday-tenant-crawl', 'workday-tenant-wayback'].includes(source) ? 120000 : 75000);
+
 export async function withSourceBudget(ctx, run, milliseconds = 25000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), milliseconds);
