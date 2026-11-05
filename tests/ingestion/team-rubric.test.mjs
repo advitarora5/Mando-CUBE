@@ -131,7 +131,7 @@ test('company assessment: links and reasons of at most 240 characters, 14-day ex
   const vp = contact({ title: 'VP, HRIS and Workday', email: 'p@x.com', email_source: 'https://x.com/team', phone: '+1 555', phone_source: 'https://x.com/team', linkedin_status: 'confirmed' });
   const longQuote = 'We go live on Workday HCM on December 1, 2026 across all regions and entities worldwide. '.repeat(5);
   const a = scoreCompany('c', [sig('known_customer'), sig('go_live', { signal_date: '2026-12-01', quote: longQuote }), sig('budget_clue', { signal_date: '2026-06-01' })], [vp], defaultSettings, NOW);
-  assert.equal(a.result.row.rubric_version, 'mando-team-70:pipeline-v2');
+  assert.equal(a.result.row.rubric_version, 'mando-team-70:pipeline-v3');
   for (const cat of ['authority', 'reachability', 'budget', 'release', 'timing']) {
     const e = a.result.row[`${cat}_evidence`];
     assert.match(e, /^https?:\/\/\S+ \| Assessment status: \w+\. .+/, cat);

@@ -1,13 +1,20 @@
-// Budget capacity inputs from SEC XBRL "company facts": annual operating income and revenue from the latest 10-K/20-F,
+// Budget capacity inputs from SEC XBRL "company facts": annual operating income and revenue from the latest 10-K/20-F/40-F,
 // under US GAAP or IFRS, in whatever currency the filer reports. Capacity asks only "positive?" and "grew?", so nothing
 // is converted: years are compared within one currency. A company is matched by exact normalized name to one SEC CIK;
 // anything ambiguous, stale or missing returns null and Budget stays "Needs evidence" for that part. Never estimated.
+// A filer with no usable operating figure (banks and insurers often have none) falls back to pre-tax income, labeled as such.
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { Financials } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineContext } from "./types.ts";
 
 type Concept = [taxonomy: string, tag: string];
 const OPERATING: Concept[] = [["us-gaap", "OperatingIncomeLoss"], ["ifrs-full", "ProfitLossFromOperatingActivities"]];
+const PRE_TAX: Concept[] = [
+  ["us-gaap", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"],
+  ["us-gaap", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
+  ["us-gaap", "IncomeLossIncludingPortionAttributableToNoncontrollingInterestBeforeIncomeTaxes"],
+  ["ifrs-full", "ProfitLossBeforeTax"],
+];
 const REVENUE: Concept[] = [
   ["us-gaap", "Revenues"], ["us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"], ["us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax"], ["us-gaap", "SalesRevenueNet"],
   ["ifrs-full", "Revenue"], ["ifrs-full", "RevenueFromContractsWithCustomers"],
@@ -25,7 +32,7 @@ type Facts = Record<string, Record<string, { units?: Record<string, Fact[]> }> |
 function annualSeries(rows: Fact[]): Year[] {
   const byEnd = new Map<string, Fact>();
   for (const r of rows) {
-    if (!r.start || !/^(10-K|20-F)/.test(r.form) || days(r.start, r.end) < 340 || days(r.start, r.end) > 390) continue;
+    if (!r.start || !/^(10-K|20-F|40-F)/.test(r.form) || days(r.start, r.end) < 340 || days(r.start, r.end) > 390) continue;
     const kept = byEnd.get(r.end);
     if (!kept || r.filed > kept.filed) byEnd.set(r.end, r);
   }
@@ -45,23 +52,27 @@ function conceptSeries(facts: Facts, [taxonomy, tag]: Concept, currency?: string
 function newest(facts: Facts, concepts: Concept[], currency?: string): Series | null {
   return concepts.map(concept => conceptSeries(facts, concept, currency)).filter((s): s is Series => !!s).sort((a, b) => b.years[0].end.localeCompare(a.years[0].end))[0] ?? null;
 }
+const isCurrent = (series: Series | null, now: Date): series is Series => !!series && days(series.years[0].end, now.toISOString().slice(0, 10)) <= MAX_AGE_DAYS;
 const priorOf = (series: Year[]) => series.find(y => days(y.end, series[0].end) > 350 && days(y.end, series[0].end) < 380)?.val ?? null;
 
 export function parseFinancials(rawFacts: unknown, cik: number, now: Date): Financials | null {
   const facts = rawFacts as Facts;
   const operating = newest(facts, OPERATING);
-  if (!operating) return null;
-  const op = operating.years;
-  if (days(op[0].end, now.toISOString().slice(0, 10)) > MAX_AGE_DAYS) return null;
-  const rev = newest(facts, REVENUE, operating.currency)?.years ?? [];
-  // Revenue must be for the same fiscal year as operating income, or its growth says nothing about it.
-  const sameYear = rev.length && rev[0].end === op[0].end;
   // Some banks tag total income as their operating figure (ING: both EUR 25.68B, pre-tax profit EUR 11.79B). That is not profit.
-  if (sameYear && rev[0].val === op[0].val) return null;
+  const revenueLatest = (series: Series) => newest(facts, REVENUE, series.currency)?.years[0];
+  const isTotalIncome = (series: Series) => { const r = revenueLatest(series); return r?.end === series.years[0].end && r.val === series.years[0].val; };
+  const usable = isCurrent(operating, now) && !isTotalIncome(operating) ? operating : null;
+  const income = usable ?? newest(facts, PRE_TAX);
+  if (!isCurrent(income, now)) return null;
+  const years = income.years;
+  const rev = newest(facts, REVENUE, income.currency)?.years ?? [];
+  // Revenue must be for the same fiscal year as the income figure, or its growth says nothing about it.
+  const sameYear = rev.length && rev[0].end === years[0].end;
   return {
-    fiscal_year_end: op[0].end, currency: operating.currency, operating_income: op[0].val, prior_operating_income: priorOf(op),
+    fiscal_year_end: years[0].end, currency: income.currency, operating_income: years[0].val, prior_operating_income: priorOf(years),
     revenue: sameYear ? rev[0].val : null, prior_revenue: sameYear ? priorOf(rev) : null,
-    source_url: `https://www.sec.gov/Archives/edgar/data/${cik}/${op[0].accn.replace(/-/g, "")}/`,
+    source_url: `https://www.sec.gov/Archives/edgar/data/${cik}/${years[0].accn.replace(/-/g, "")}/`,
+    ...(usable ? {} : { pre_tax: true }),
   };
 }
 
@@ -95,9 +106,8 @@ export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<F
   const facts = rawFacts as Facts;
   // Banks and insurers often report no operating income. It is not estimated.
   if (!facts?.["us-gaap"] && !facts?.["ifrs-full"]) return { financials: null, status: "no_filing_facts" };
-  const operating = newest(facts, OPERATING);
-  const isCurrent = operating && days(operating.years[0].end, now.toISOString().slice(0, 10)) <= MAX_AGE_DAYS;
-  return { financials: null, status: operating && !isCurrent ? "stale_filing" : "no_operating_income" };
+  const figure = newest(facts, OPERATING) ?? newest(facts, PRE_TAX);
+  return { financials: null, status: figure && !isCurrent(figure, now) ? "stale_filing" : "no_operating_income" };
 }
 
 type LookupState = { index: Map<string, number> | null; byCik: Map<number, Pick<FinancialsLookup, "financials" | "status">>; stopped: boolean };

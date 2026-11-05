@@ -111,7 +111,10 @@ the Workday side does not count, because it says nothing about whether a same-wo
 Guessed websites are never treated as proof either: a same-name `.org` is skipped once that name's
 `.com` answers, and a name with a legal form (Inc, Corp, PLC) is never checked against a guessed
 `.org` or `.edu`, because the model has accepted a namesake charity on one shared word. A site
-observed in the evidence, or a name with no legal form (a health system), is still checked. Up to three corporate URLs
+observed in the evidence, or a name with no legal form (a health system), is still checked.
+A careers host (`jobs.`, `careers.`, `search-careers.`) also brings its parent domain as a hypothesis, because a company
+is better stored under its main site. If the parent failed only the full-name check and the careers host passed with the
+name, the parent is stored: `careers.manulife.com` passing makes `manulife.com` the company's domain. Up to three corporate URLs
 and three exact sites are evaluated per candidate, within `--max-checks` (default 50,
 maximum 100) and the matching time/request caps. Every observed enabled sibling site
 must pass for one unambiguous corporate domain; disabled siblings or more than three
@@ -250,7 +253,7 @@ from website_resolutions order by checked_at desc;
 | Score | `src/domain/ingestion/pipeline-score.ts` on the shared `buildAssessment` / `evaluateTier` | Only companies in scope (`scoring_scope = pipeline_only` -> pipeline companies only; matched existing companies only receive signals). No evidence = "Assessment status: unknown. Needs evidence: ..." (shown as Not Enough Evidence, never a silent 0). A row is appended when numbers, tier or sources change, and at least every 14 days. |
 | Enrich | `src/pipeline/enrich.ts` | Only companies with Budget + Release + Timing ≥ `ready_for_contacts_threshold` (25). Free people search first; then one verified work-email lookup per contact within the treg cap. Never pays for LinkedIn; "valid" only = verified; risky stored unverified; invalid not stored; never guesses; same contact + step never paid twice. No budget -> `enrichment_requests.status = skipped_budget`, Authority/Reachability stay "Needs evidence", the run continues. |
 
-Scoring = the **Mando team scoring rubric** (provisional revision of 2026-10-13), rubric version `mando-team-70:pipeline-v2`.
+Scoring = the **Mando team scoring rubric** (provisional revision of 2026-10-13), rubric version `mando-team-70:pipeline-v3`.
 Weights 25/25/20/15/15; **Qualified 70+, Maybe 55+** for rows of this version (`tierThresholdsFor` in
 `src/domain/scoring/rubric.ts`; rows of older versions keep 80/55). Code: `src/domain/ingestion/pipeline-score.ts`, tests:
 `tests/ingestion/team-rubric.test.mjs`. How each rule maps onto what the pipeline collects:
@@ -259,7 +262,7 @@ Weights 25/25/20/15/15; **Qualified 70+, Maybe 55+** for rows of this version (`
 |---|---|---|
 | Authority /25 | Role base 22/20/18/15/10/5/0; +3 employer 3,000+; +2 personal Workday responsibility; bonuses only for confirmed current contacts; best contact | Base from the title (`authorityBand`). Contacts found by the people search count as **current role unconfirmed** (5, no bonuses) until a person confirms them (`linkedin_status` confirmed/provided). +2 when the title names Workday. +3 only with a sourced employee count (company rows have none yet, so not awarded). |
 | Reachability /25 | Email+phone 20, either 15, confirmed LinkedIn only 10, general inbox 5; +3 LinkedIn alongside, +3 dated initiative, +2 leading active Workday work, +5 willing introduction | Published (sourced) or provider-verified ("valid") work email; published direct phone (a live line alone does not count); LinkedIn only when confirmed. +5 only when `mutual_connection` records willingness; +2 is not collected. |
-| Budget /20 | Operating-income capacity 10 (+1 +1) + one investment band 8/6/3; funded expansion 20; freeze 0 | Capacity comes from SEC company facts, from the newest 10-K or 20-F under US GAAP or IFRS, in the filer's reporting currency. Nothing is converted, because the rubric asks only whether the figure is positive and grew, and years are compared within one currency. Not collected (0, shown in the reason) with no filing, a stale one, or no operating figure; banks usually report none, and a figure identical to revenue is total income, so it is rejected. Investment: dated budget clue within 24 months 8, undated/older 3, active Workday implementation 6. Labelled as a proxy. |
+| Budget /20 | Operating-income capacity 10 (+1 +1) + one investment band 8/6/3; funded expansion 20; freeze 0 | Capacity comes from SEC company facts, from the newest 10-K, 20-F or 40-F under US GAAP or IFRS, in the filer's reporting currency. Nothing is converted, because the rubric asks only whether the figure is positive and grew, and years are compared within one currency. A filer with no usable operating figure (banks usually report none, a figure identical to revenue is total income, and a tag can stop being filed) uses pre-tax income on the same bands, labeled "pre-tax income" in the reason; a real operating loss is never replaced. Not collected (0, shown in the reason) with no filing or a stale one. Investment: dated budget clue within 24 months 8, undated/older 3, active Workday implementation 6. Labelled as a proxy. |
 | Timing /15 | Strongest single trigger 15/12/10/8/5 | Go-live within the next 6 months 15, previous 6 months 12, 6-12 months 10; employer Workday hiring within 12 months 8; known customer, skill-only posting or undated go-live 5. |
 | Release /15 | Confirmed deployment; 42-84 days before a confirmed release 12 (+3 documented preparation = 15), 85-126 days 10, otherwise 8 | Deployment = known customer, release planning or a past go-live. Bands use `releases.ts` confirmed dates; an estimated next release (2027R1 today) gives 8. |
 
