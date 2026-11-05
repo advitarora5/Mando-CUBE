@@ -151,7 +151,7 @@ export function budgetFromSignals(signals: ScoringSignal[], now: Date, financial
   const investment = best?.points ?? 0;
   const score = Math.min(rubric.budget.weight, capacity + investment);
   const figure = financials?.pre_tax ? "pre-tax income" : "operating income";
-  const filing = financials ? `${capacity ? "positive " : "non-positive "}${figure} ${money(financials.operating_income, financials.currency)} (FY ending ${financials.fiscal_year_end}${financials.pre_tax ? ", no operating income filed" : ""})` : "operating income not collected";
+  const filing = financials ? `${capacity ? "positive " : "non-positive "}${figure} ${money(financials.operating_income, financials.currency)} (FY ending ${financials.fiscal_year_end}${financials.pre_tax ? ", no current operating income figure" : ""})` : "operating income not collected";
   // The filing is the larger, verifiable part; the investment signal's link is used only when there is no capacity.
   const source = capacity > 0 && financials ? financials.source_url : best?.signal.source_url ?? financials!.source_url;
   return { score, source, status: !financials ? "partial" : score ? "met" : "not_met", detail: { capacity, investment },

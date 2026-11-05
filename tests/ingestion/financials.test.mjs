@@ -134,7 +134,7 @@ test('pre-tax: a filer with no operating figure uses pre-tax income, on the same
   assert.equal(capacityPoints(f), 12);
   const budget = budgetFromSignals([], NOW, f);
   assert.equal(budget.status, 'met');
-  assert.match(budget.reason, /positive pre-tax income \$8\.0B \(FY ending 2025-12-31, no operating income filed\)/);
+  assert.match(budget.reason, /positive pre-tax income \$8\.0B \(FY ending 2025-12-31, no current operating income figure\)/);
   assert.doesNotMatch(budget.reason, /positive operating income/);
 });
 
