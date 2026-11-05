@@ -213,7 +213,7 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
       }).slice(0, 3);
       const confirmed = new Set<string>();
       let incomplete = false, nameUnverified = false;
-      const comAnswered = new Set<string>();
+      const comAnswered = new Set<string>(), matchedWithoutName = new Set<string>();
       for (const corporateUrl of candidatesByUrl) {
         if (!frozen) {
           const observed = observedUrls.includes(corporateUrl);
@@ -242,7 +242,12 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
           resolution.evidence.checks.push({ domain: normalizeDomain(packet.corporate_url) ?? "", url: packet.corporate_url,
             reason: `${result.status}: ${result.verdict}; ${detail}` });
           if (result.status !== "done" || result.verdict !== "same_company") { everySiteMatched = false; break; }
-          if (site.match_kind === "first_word" && !targetNameWritten(packet, name)) { nameUnverified = true; everySiteMatched = false; break; }
+          if (site.match_kind === "first_word" && !targetNameWritten(packet, name)) {
+            nameUnverified = true; everySiteMatched = false;
+            const matched = normalizeDomain(packet.corporate_url);
+            if (matched) matchedWithoutName.add(matched);
+            break;
+          }
           const observed = normalizeDomain(packet.corporate_url);
           if (domain && domain !== observed) { everySiteMatched = false; break; }
           domain = observed;
@@ -250,8 +255,13 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
         if (everySiteMatched && domain) confirmed.add(domain);
       }
       // A domain already confirmed against every site stands even if the budget ran out on a later candidate URL.
+      // The owner of a parent domain controls its subdomains. So when careers.manulife.com carries the full name and
+      // manulife.com matched but does not spell it out, the name check on the subdomain also answers for its exact parent.
       const confirmedDomain = confirmedCorporateDomain(confirmed);
-      if (confirmedDomain) return finish("AI confirmed the corporate identity against every observed enabled Workday site", confirmedDomain);
+      if (confirmedDomain) {
+        const parent = confirmedDomain.slice(confirmedDomain.indexOf(".") + 1);
+        return finish("AI confirmed the corporate identity against every observed enabled Workday site", matchedWithoutName.has(parent) ? parent : confirmedDomain);
+      }
       if (confirmed.size > 1) return finish("multiple corporate domains matched; human review required");
       if (incomplete) return finish("AI check limit reached; candidate remains held");
       if (nameUnverified) return finish("corporate and Workday sites match, but the candidate's name is a first-word guess not written in their evidence; human review required");

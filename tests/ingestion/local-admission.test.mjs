@@ -172,6 +172,36 @@ test('a careers host in the evidence leads to its parent even when no guess name
   assert.equal(calls(), 2);
 });
 
+const shortName = '<html><title>Fernhill</title><body>Fernhill builds switchgear.</body></html>';
+
+test('first-word guess: a parent that matched but omits the full name becomes the domain when its careers subdomain carries the name', async () => {
+  // Fictional version of a real case: the bank's homepage says "Manulife", its careers subdomain "Manulife Financial".
+  const http = fakeHttp({ 'https://fernhill.com/': shortName, 'https://careers.fernhill.com/': named });
+  const { result, calls } = await admit({ sites: [site('Staff', { match_kind: 'first_word' })], verdicts: ['same_company'], http, refs: [{ domain: 'careers.fernhill.com' }, { domain: 'fernhill.com' }] });
+  assert.equal(result.status, 'confirmed');
+  assert.equal(result.domain, 'fernhill.com');
+  assert.equal(calls(), 2);
+});
+
+test('first-word guess: a matching domain without the name gains nothing from an unrelated domain that has it', async () => {
+  const http = fakeHttp({ 'https://fernhill.com/': shortName, 'https://fernhillelectric.com/': named });
+  const { result } = await admit({ sites: [site('Staff', { match_kind: 'first_word' })], verdicts: ['same_company'], http, refs: [{ domain: 'fernhill.com' }, { domain: 'fernhillelectric.com' }] });
+  assert.equal(result.domain, 'fernhillelectric.com');
+});
+
+test('first-word guess: a parent the model rejected is not used, even when its subdomain carries the name', async () => {
+  const http = fakeHttp({ 'https://fernhill.com/': shortName, 'https://careers.fernhill.com/': named });
+  const { result } = await admit({ sites: [site('Staff', { match_kind: 'first_word' })], verdicts: ['different_company', 'same_company'], http, refs: [{ domain: 'fernhill.com' }, { domain: 'careers.fernhill.com' }] });
+  assert.equal(result.domain, 'careers.fernhill.com');
+});
+
+test('first-word guess: with no confirmed subdomain, a match without the name still stays held', async () => {
+  const http = fakeHttp({ 'https://fernhill.com/': shortName });
+  const { result } = await admit({ sites: [site('Staff', { match_kind: 'first_word' })], verdicts: ['same_company'], http, refs: [{ domain: 'fernhill.com' }] });
+  assert.equal(result.status, 'unresolved'); assert.equal(result.domain, null);
+  assert.match(result.reason, /first-word guess/);
+});
+
 test('a careers host stays the company domain only when its parent cannot be confirmed', async () => {
   const http = fakeHttp({ 'https://jobs.fernhillgroup.com/': named, 'https://fernhillgroup.com/': 'website HTTP 403' });
   const { result } = await admit({ sites: [site('Staff')], verdicts: ['same_company'], http, refs: [{ domain: 'jobs.fernhillgroup.com' }], corporate_urls: ['https://fernhill.com/'] });
