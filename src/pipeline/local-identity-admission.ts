@@ -72,8 +72,10 @@ function worthCheckingAfterConfirmation(url: string, confirmed: Set<string>, obs
 // match while saying nothing about Emerson Electric. So the corporate page must carry the target's own name.
 // The Workday side does not count: Cadence Design Systems' postings say nothing about whether cadence.org is theirs.
 // Compared as whole words, joined so a slug ("lamresearch") still matches "Lam Research".
+// A dotted legal form ("N.V.") normalizes to separate letters, which no page writes joined to the name.
+const DOTTED_LEGAL_FORM = /\s*,?\s*\b(?:n\.\s?v|s\.\s?a|a\.\s?g|s\.\s?e|b\.\s?v|p\.\s?l\.\s?c|l\.\s?l\.\s?c|l\.\s?p)\.?\s*(?:\/[a-z]{2,3}\/?)?\s*$/i;
 export function targetNameWritten(packet: IdentityCase, target: string): boolean {
-  const wanted = normalizeName(target).replace(/ /g, "");
+  const wanted = normalizeName(target.replace(DOTTED_LEGAL_FORM, "")).replace(/ /g, "");
   if (!wanted) return false;
   const text = packet.sources.filter(source => source.side === "corporate")
     .flatMap(source => [source.text, ...sourceIdentityGroups(source).flatMap(group => group.names.map(name => name.value))]).join("\n");

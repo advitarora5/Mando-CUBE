@@ -247,6 +247,16 @@ test('the check limit does not hold a domain already confirmed against every sit
   assert.match(held.result.reason, /check limit/);
 });
 
+test('targetNameWritten ignores a dotted legal form, and only a legal form', () => {
+  const page = text => ({ sources: [{ side: 'corporate', text }] });
+  for (const name of ['Fernhill Semiconductors N.V.', 'FERNHILL SEMICONDUCTORS S.A.', 'Fernhill Semiconductors B.V.', 'Fernhill Semiconductors, S.A./ADR', 'Fernhill Semiconductors P.L.C.']) {
+    assert.equal(targetNameWritten(page('Welcome to Fernhill Semiconductors, makers of chips'), name), true, name);
+  }
+  assert.equal(targetNameWritten(page('Welcome to Oakmont, makers of chips'), 'Fernhill Semiconductors N.V.'), false, 'the name itself must still be there');
+  assert.equal(targetNameWritten(page('We looked at and around the market'), 'AT&T Inc.'), false, 'a name ending in a letter keeps it');
+  assert.equal(targetNameWritten(page('Our network at AT&T reaches everyone'), 'AT&T Inc.'), true);
+});
+
 test('targetNameWritten compares whole words and accepts a joined slug, never a fragment', () => {
   const packet = evidence('a', 'https://fernhill.example/', site('Staff'), 'Welcome to Fernhill Electric, Inc. and M&T Bank.', 'Hiring now.');
   for (const name of ['FERNHILL ELECTRIC CO', 'Fernhill Electric', 'fernhillelectric', 'M&T BANK CORP /DE/']) assert.equal(targetNameWritten(packet, name), true, name);
