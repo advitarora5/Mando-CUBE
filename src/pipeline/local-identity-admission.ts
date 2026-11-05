@@ -31,13 +31,20 @@ const hostCarriesName = (url: string, nameTerms: string[]) => {
   // Short terms must be a whole label: "ing" is not in marketing.com.
   return nameTerms.some(term => term.length >= 4 ? host.includes(term) : labels.includes(term));
 };
+// A careers host says where the company's real site probably is: jobs.thecignagroup.com points to thecignagroup.com,
+// search-careers.gm.com to gm.com. The parent is only another hypothesis, and goes through the same identity check.
+const CAREERS_LABEL = /^(jobs?|careers?|search-careers|workday|talent|apply|recruit(ing)?|hiring)$/i;
+const careersParent = (url: string) => {
+  const labels = new URL(url).hostname.split(".");
+  return labels.length >= 3 && CAREERS_LABEL.test(labels[0]) ? `https://${labels.slice(1).join(".")}/` : null;
+};
 export function identityCorporateUrls(evidenceUrls: string[], guessedUrls: string[], nameTerms: string[] = []): string[] {
   const safe = (url: string) => {
     try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password && !u.port; } catch { return false; }
   };
   const named = (url: string) => hostCarriesName(url, nameTerms);
   const isCom = (url: string) => new URL(url).hostname.endsWith(".com");
-  const evidence = evidenceUrls.filter(safe), guesses = guessedUrls.filter(safe);
+  const evidence = evidenceUrls.filter(safe).flatMap(url => { const parent = careersParent(url); return parent ? [url, parent] : [url]; }), guesses = guessedUrls.filter(safe);
   return [...new Set([...evidence.filter(named), ...guesses.filter(isCom), ...evidence.filter(url => !named(url)), ...guesses.filter(url => !isCom(url))])].slice(0, 3);
 }
 

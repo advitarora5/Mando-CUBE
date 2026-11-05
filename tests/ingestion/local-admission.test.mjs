@@ -164,6 +164,20 @@ test('after a careers subdomain is confirmed, its parent is still checked and be
   assert.equal(calls(), 2);
 });
 
+test('a careers host in the evidence leads to its parent even when no guess names it, and the parent becomes the company domain', async () => {
+  // Fictional version of a real case: the company stored a jobs subdomain because nothing proposed the corporate site itself.
+  const http = fakeHttp({ 'https://jobs.fernhillgroup.com/': named, 'https://fernhillgroup.com/': named });
+  const { result, calls } = await admit({ sites: [site('Staff')], verdicts: ['same_company'], http, refs: [{ domain: 'jobs.fernhillgroup.com' }], corporate_urls: ['https://fernhill.com/'] });
+  assert.equal(result.domain, 'fernhillgroup.com');
+  assert.equal(calls(), 2);
+});
+
+test('a careers host stays the company domain only when its parent cannot be confirmed', async () => {
+  const http = fakeHttp({ 'https://jobs.fernhillgroup.com/': named, 'https://fernhillgroup.com/': 'website HTTP 403' });
+  const { result } = await admit({ sites: [site('Staff')], verdicts: ['same_company'], http, refs: [{ domain: 'jobs.fernhillgroup.com' }], corporate_urls: ['https://fernhill.com/'] });
+  assert.equal(result.domain, 'jobs.fernhillgroup.com');
+});
+
 test('after a site is confirmed, its subdomains and unrelated posting links cost no model checks', async () => {
   for (const other of ['benefits.fernhill.com', 'www.eeoc.gov']) {
     const http = fakeHttp({ 'https://fernhill.com/': named, [`https://${other}/`]: named });
