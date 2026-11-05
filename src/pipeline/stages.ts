@@ -2,7 +2,7 @@
 // Failures are counted and logged per item; a stage never throws out of a run.
 import { createHash } from "node:crypto";
 import { companyAliases } from "../data/company-aliases.ts";
-import { decideMatch, TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
+import { decideMatch } from "../domain/ingestion/matching.ts";
 import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
 import { financialsUnavailable, lookupFinancials } from "./financials.ts";
@@ -115,11 +115,15 @@ export function displayName(name: string, resolved: string | null): string {
   if (resolved && normalizeName(resolved) && isSimilarName(resolved, name)) return resolved;
   const trimmed = name.replace(/\s*\/[A-Z]{2}\/?\s*$/, "").trim();
   if (trimmed !== trimmed.toUpperCase()) return trimmed;
-  // All capitals (SEC style): title-case each word, but keep a short leading acronym (ASML, KLA, 3M) and NV/SA/AG/SE.
-  const keepUpper = new Set(["NV", "SA", "AG", "SE", "LP", "LLC"]);
+  // All capitals (SEC style): title-case each word, but keep a short leading acronym (KLA, 3M, ASML) and legal forms.
+  // Four-letter leading words are almost always ordinary ones (BANK, HOME, FORD), so only known acronyms stay capitalized.
+  const keepUpper = new Set(["NV", "SA", "AG", "SE", "LP", "LLC", "PLC", "ASA"]);
+  const plainWords = new Set(["THE", "NEW", "OLD", "AIR", "BIG", "ALL", "ONE", "TWO", "TOP", "SUN", "RED", "OAK"]);
+  const lowerWords = new Set(["OF", "AND", "FOR", "THE"]);
   return trimmed.split(/(\s+)/).map((word, i) => {
     const bare = word.replace(/[^A-Z0-9]/g, "");
-    if (keepUpper.has(bare) || (i === 0 && bare.length > 0 && bare.length <= 4 && bare !== "THE")) return word;
+    if (keepUpper.has(bare) || (i === 0 && ((bare.length > 0 && bare.length <= 3 && !plainWords.has(bare)) || bare === "ASML"))) return word;
+    if (i > 0 && lowerWords.has(bare)) return word.toLowerCase();
     return word.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
   }).join("");
 }
@@ -193,11 +197,16 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         bump(r, "pending_reason_similar_name");
         bump(r, "joined_pending_review"); continue;
       }
-      const best = Math.max(0, ...signals.filter(s => isSignalFresh(s, settings, ctx.now())).map(s => s.confidence));
       // A slug-derived name (Common Crawl tenant) is replaced by the name the confirmed website uses.
-      const pageName = candidateSites.some(s => s.match_kind === "first_word") ? confirmedName(lookup) : null;
-      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", best_confidence: best }, known,
-        { canCreate: created < settings.max_new_companies_per_run, identityVerified: !!opts.localIdentity && lookup.status === "confirmed" }, companyAliases);
+      const nameIsGuess = candidateSites.some(s => s.match_kind === "first_word");
+      const pageName = nameIsGuess ? confirmedName(lookup) : null;
+      const freshEvidence = signals.some(s => isSignalFresh(s, settings, ctx.now()));
+      // AI confirmation already read current postings and checked a guessed name against them.
+      // Direct-link confirmation needs fresh evidence and, for a guessed tenant, the company's name on its
+      // website: emerson.edu linking the "emerson" tenant says nothing about Emerson Electric.
+      const workdayVerified = opts.localIdentity ? lookup.status === "confirmed" : freshEvidence && (!nameIsGuess || !!pageName);
+      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", workday_verified: workdayVerified }, known,
+        { canCreate: created < settings.max_new_companies_per_run }, companyAliases);
 
       if (opts.dryRun) { bump(r, `would_${decision.action}`); continue; }
       if (decision.action === "skip") { bump(r, "excluded"); continue; }
@@ -234,7 +243,6 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         bump(r, item.inserted ? `review_${decision.reason}` : "review_existing");
       }
       if (lookup.domain) bump(r, "with_website");
-      if (best >= TRUSTED_CONFIDENCE) bump(r, "trusted_candidates");
     } catch (error) { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
   }
   r.requests = http.requests;

@@ -4,7 +4,7 @@ import { SupabaseStore } from "./store/supabase.ts";
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
 import { corporateCandidates } from "./collectors/corporate-careers.ts";
 import { prepareIdentityCase } from "./identity-evidence.ts";
-import { IDENTITY_MODEL_OPTIONS, MAX_IDENTITY_AGE_MS, reusableIdentity, verifyIdentity, type IdentityCase, type IdentityResult } from "./identity.ts";
+import { IDENTITY_MODEL_OPTIONS, MAX_IDENTITY_AGE_MS, reusableIdentity, sourceIdentityGroups, verifyIdentity, type IdentityCase, type IdentityResult } from "./identity.ts";
 import { OllamaProvider } from "./llm.ts";
 import type { EmployerWebsiteLink, PipelineContext, WebsiteResolution, WorkdaySite } from "./types.ts";
 import type { WebsiteHttp } from "./website.ts";
@@ -23,11 +23,59 @@ export function assertLocalAdmissionStore(ctx: PipelineContext): void {
 }
 
 // Evidence-derived URLs are candidate hypotheses, never proof of identity.
-// Keep name guesses from crowding them out of the three-URL safety bound.
-export function identityCorporateUrls(evidenceUrls: string[], guessedUrls: string[]): string[] {
-  return [...new Set([...evidenceUrls, ...guessedUrls])].filter(url => {
+// Posting links often point elsewhere (eeoc.gov, cnn.com, urldefense.com), so within the three-URL bound the order is:
+// observed URLs that carry the company's name, .com guesses, other observed URLs, then other guesses.
+const hostCarriesName = (url: string, nameTerms: string[]) => {
+  if (!nameTerms.length) return true;
+  const host = new URL(url).hostname.toLowerCase(), labels = host.split(".");
+  // Short terms must be a whole label: "ing" is not in marketing.com.
+  return nameTerms.some(term => term.length >= 4 ? host.includes(term) : labels.includes(term));
+};
+export function identityCorporateUrls(evidenceUrls: string[], guessedUrls: string[], nameTerms: string[] = []): string[] {
+  const safe = (url: string) => {
     try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password && !u.port; } catch { return false; }
-  }).slice(0, 3);
+  };
+  const named = (url: string) => hostCarriesName(url, nameTerms);
+  const isCom = (url: string) => new URL(url).hostname.endsWith(".com");
+  const evidence = evidenceUrls.filter(safe), guesses = guessedUrls.filter(safe);
+  return [...new Set([...evidence.filter(named), ...guesses.filter(isCom), ...evidence.filter(url => !named(url)), ...guesses.filter(url => !isCom(url))])].slice(0, 3);
+}
+
+// The name a guessed host stands for, and whether that name's .com answered. A company whose .com exists does not
+// also live on a same-name .org: when cadence.com blocks us, cadence.org is a namesake, not a fallback.
+const hostLabel = (url: string) => new URL(url).hostname.split(".").at(-2) ?? "";
+const dnsMiss = (packet: IdentityCase) => packet.errors.some(error => /ENOTFOUND/.test(error));
+// A guess at a charity or college domain says nothing about a company with a legal form in its name, and the model can be
+// persuaded by one shared word (it accepted cadence.org for Cadence Design Systems). Such a pair stays with human review.
+// Sites actually observed in the evidence, and names without a legal form (Allina Health at allinahealth.org), still count.
+const LEGAL_FORM = /\b(inc|incorporated|corp|corporation|plc|llc|ltd|limited|co|company|nv|ag|sa|se|asa|ab|lp|holdings?)\b/i;
+export const namesakeGuess = (url: string, name: string) => /\.(org|edu|gov|mil)$/i.test(new URL(url).hostname) && LEGAL_FORM.test(name);
+
+// With a site confirmed, only two checks can still change the answer: the parent of a confirmed careers subdomain,
+// and another observed site carrying the company's name, which would make the company ambiguous.
+function worthCheckingAfterConfirmation(url: string, confirmed: Set<string>, observed: boolean, nameTerms: string[]): boolean {
+  const host = normalizeDomain(url) ?? "";
+  if ([...confirmed].some(domain => domain.endsWith(`.${host}`))) return true;
+  if ([...confirmed].some(domain => host === domain || host.endsWith(`.${domain}`))) return false;
+  return observed && hostCarriesName(url, nameTerms);
+}
+
+// A first_word site came from guessing a tenant from one word of the name, and the model only
+// compares the corporate site with the Workday site: emerson.edu and the "emerson" tenant can truly
+// match while saying nothing about Emerson Electric. So the corporate page must carry the target's own name.
+// The Workday side does not count: Cadence Design Systems' postings say nothing about whether cadence.org is theirs.
+// Compared as whole words, joined so a slug ("lamresearch") still matches "Lam Research".
+export function targetNameWritten(packet: IdentityCase, target: string): boolean {
+  const wanted = normalizeName(target).replace(/ /g, "");
+  if (!wanted) return false;
+  const text = packet.sources.filter(source => source.side === "corporate")
+    .flatMap(source => [source.text, ...sourceIdentityGroups(source).flatMap(group => group.names.map(name => name.value))]).join("\n");
+  const words = normalizeName(text).split(" ");
+  return words.some((_, start) => {
+    let joined = "";
+    for (let at = start; at < words.length && joined.length < wanted.length; at++) joined += words[at];
+    return joined === wanted;
+  });
 }
 
 export type LocalAdmissionCandidate = { name: string; corporate_urls?: string[] };
@@ -148,17 +196,24 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
       const domains = [...reviews.filter(r => r.normalized_name === normalized).map(r => r.candidate_domain),
         ...known.filter(c => normalizeName(c.name) === normalized).map(c => c.domain), ...refs.map(r => r.domain)].filter((d): d is string => !!d);
       const cached = await context.store.websiteResolution(normalized);
-      const urls = identityCorporateUrls([
-        ...refs.map(r => `https://${r.domain}/`), ...(captures ?? []).map(c => c.url),
-        ...domains.map(domain => `https://${domain}/`), ...(cached?.domain ? [`https://${cached.domain}/`] : []),
-      ], [...explicit, ...corporateCandidates(name, domains, undefined)]);
+      const observedUrls = [...refs.map(r => `https://${r.domain}/`), ...(captures ?? []).map(c => c.url),
+        ...domains.map(domain => `https://${domain}/`), ...(cached?.domain ? [`https://${cached.domain}/`] : [])];
+      const nameTerms = [...new Set([...sites.map(site => site.tenant), normalized.replace(/ /g, ""), ...normalized.split(" ").filter(word => word.length >= 3)])];
+      const urls = identityCorporateUrls(observedUrls, [...explicit, ...corporateCandidates(name, domains, undefined)], nameTerms);
       const frozen = opts.packets?.filter(p => normalizeName(p.target_name) === normalized);
       const candidatesByUrl = [...new Set(frozen ? frozen.map(p => p.corporate_url) : urls)].filter(url => {
         try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password && !u.port; } catch { return false; }
       }).slice(0, 3);
       const confirmed = new Set<string>();
-      let incomplete = false;
+      let incomplete = false, nameUnverified = false;
+      const comAnswered = new Set<string>();
       for (const corporateUrl of candidatesByUrl) {
+        if (!frozen) {
+          const observed = observedUrls.includes(corporateUrl);
+          if (confirmed.size && !worthCheckingAfterConfirmation(corporateUrl, confirmed, observed, nameTerms)) continue;
+          if (!observed && !new URL(corporateUrl).hostname.endsWith(".com") && comAnswered.has(hostLabel(corporateUrl))) continue;
+          if (!observed && namesakeGuess(corporateUrl, name)) continue;
+        }
         let domain: string | null = null, everySiteMatched = true;
         for (const site of sites) {
           if (checks >= opts.maxChecks) { incomplete = true; everySiteMatched = false; break; }
@@ -167,6 +222,7 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
           const packet = savedPacket ?? await prepareIdentityCase(context, { id: `local-${normalized}-${packets.length + 1}`, target_name: name,
             corporate_url: corporateUrl, site: { tenant: site.tenant, pod: site.pod, site: site.site }, review_id: site.review_item_id }, http, { refreshJobs: true });
           packets.push(packet); persist(); // Freeze evidence on disk before inference.
+          if (new URL(corporateUrl).hostname.endsWith(".com") && !dnsMiss(packet)) comAnswered.add(hostLabel(corporateUrl));
           const cached = frozen && opts.cachedResults?.find(r => r.case_id === packet.id && reusableIdentity(r, packet, opts.model, tag.digest, context.now()));
           const result = cached || await verifyIdentity(packet, llm, tag.digest, context.now());
           if (cached) cacheHits++;
@@ -179,16 +235,19 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
           resolution.evidence.checks.push({ domain: normalizeDomain(packet.corporate_url) ?? "", url: packet.corporate_url,
             reason: `${result.status}: ${result.verdict}; ${detail}` });
           if (result.status !== "done" || result.verdict !== "same_company") { everySiteMatched = false; break; }
+          if (site.match_kind === "first_word" && !targetNameWritten(packet, name)) { nameUnverified = true; everySiteMatched = false; break; }
           const observed = normalizeDomain(packet.corporate_url);
           if (domain && domain !== observed) { everySiteMatched = false; break; }
           domain = observed;
         }
         if (everySiteMatched && domain) confirmed.add(domain);
       }
-      if (incomplete) return finish("AI check limit reached; candidate remains held");
+      // A domain already confirmed against every site stands even if the budget ran out on a later candidate URL.
       const confirmedDomain = confirmedCorporateDomain(confirmed);
       if (confirmedDomain) return finish("AI confirmed the corporate identity against every observed enabled Workday site", confirmedDomain);
       if (confirmed.size > 1) return finish("multiple corporate domains matched; human review required");
+      if (incomplete) return finish("AI check limit reached; candidate remains held");
+      if (nameUnverified) return finish("corporate and Workday sites match, but the candidate's name is a first-word guess not written in their evidence; human review required");
       return finish("AI did not confirm: different company, uncertainty, missing input or model failure; see identity-results");
     },
   };

@@ -18,10 +18,11 @@ async function world({ signals = [signal()], treg = worldTreg(), ready = false }
   return { ctx, id };
 }
 
-test('fresh sourced customer/hiring evidence unlocks research; weak, stale, future or missing evidence does not', () => {
+test('fresh sourced customer/hiring evidence unlocks research at any stored confidence; stale, future or missing evidence does not', () => {
   assert.equal(eligibleForFreeResearch([signal()], defaultSettings, NOW), true);
   assert.equal(eligibleForFreeResearch([signal({ type: 'hiring' })], defaultSettings, NOW), true);
-  for (const extra of [{ type: 'event' }, { confidence: 0.6 }, { confidence: 2 }, { source_url: 'https://' }, { quote: ' ' }, { last_seen_at: '2020-01-01' }, { last_seen_at: '2027-01-01' }, { last_seen_at: 'invalid' }]) {
+  assert.equal(eligibleForFreeResearch([signal({ confidence: 0.6 })], defaultSettings, NOW), true);
+  for (const extra of [{ type: 'event' }, { confidence: 2 }, { source_url: 'https://' }, { quote: ' ' }, { last_seen_at: '2020-01-01' }, { last_seen_at: '2027-01-01' }, { last_seen_at: 'invalid' }]) {
     assert.equal(eligibleForFreeResearch([signal(extra)], defaultSettings, NOW), false, JSON.stringify(extra));
   }
 });

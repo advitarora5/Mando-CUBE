@@ -36,7 +36,7 @@ test('a company being added matches by website, then name, then alias; a similar
 });
 
 test('the pipeline attaches a known alias to its company instead of queueing it again', () => {
-  const candidate = { name: 'Flextronics', domain: null, domain_confirmed: false, best_confidence: 0.95 };
+  const candidate = { name: 'Flextronics', domain: null, domain_confirmed: false, workday_verified: true };
   assert.deepEqual(decideMatch(candidate, [flex], { canCreate: true }, aliases), { action: 'attach', company_id: 'f1', why: 'Flextronics is a known name of Flex' });
   assert.equal(decideMatch(candidate, [flex], { canCreate: true }).reason, 'no_website'); // unchanged without aliases
   assert.equal(decideMatch(candidate, [], { canCreate: true }, aliases).reason, 'no_website'); // alias of a company not loaded

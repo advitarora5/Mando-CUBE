@@ -19,7 +19,11 @@ export async function supervise({ command, args, root, timeoutMs, env = {} }) {
     writeFileSync(lock, JSON.stringify({ id, pid: process.pid, started_at: new Date().toISOString() }));
     mkdirSync(directory, { recursive: true });
     process.once('SIGINT', interrupt); process.once('SIGTERM', interrupt);
-    child = spawn(command, args, { env: { ...process.env, ...env, DISCOVERY_OUTPUT: directory }, stdio: 'ignore', windowsHide: true });
+    // Worker output stays in this private local file. It is never copied into the summary or workflow artifacts,
+    // which carry only summary.json. Without it a native crash leaves no trace of its cause.
+    const log = openSync(join(directory, 'worker.log'), 'a', 0o600);
+    try { child = spawn(command, args, { env: { ...process.env, ...env, DISCOVERY_OUTPUT: directory }, stdio: ['ignore', log, log], windowsHide: true }); }
+    finally { closeSync(log); }
     timer = setTimeout(() => { stopReason = 'time_limit'; child.kill('SIGKILL'); }, timeoutMs);
     const exit = await new Promise(resolve => {
       child.once('error', () => resolve(null));

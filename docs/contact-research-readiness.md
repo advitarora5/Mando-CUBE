@@ -5,9 +5,10 @@ contact-research request. Waiting for that total before discovering contacts lea
 Reachability without inputs. Evidence collection and purchase-readiness scoring serve different purposes.
 
 The enrichment stage now permits bounded free people research for an in-scope company with a website,
-no contacts, and a fresh trusted known-customer or hiring signal. The signal needs a source URL, a quote,
-confidence at least 0.9 and at most 1, and an observation within the configured freshness period.
-Weak evidence, generic events, malformed URLs, empty quotes, and invalid/future timestamps do not qualify.
+no contacts, and a fresh known-customer or hiring signal. The signal needs a source URL, a quote and an
+observation within the configured freshness period. Stored confidence does not decide this: a company that
+passed admission is already verified, and a verified company can still carry a 0.6 discovery signal.
+Generic events, malformed URLs, empty quotes, and invalid/future timestamps do not qualify.
 The existing paid-readiness route remains available.
 
 Paid email lookup still requires the latest assessment's Budget + Release + Timing to meet

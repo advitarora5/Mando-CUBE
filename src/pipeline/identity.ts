@@ -4,8 +4,8 @@ import { z } from "zod";
 import { verifyQuote } from "../domain/ingestion/quote.ts";
 import type { LLMProvider } from "./types.ts";
 
-// v7.1: same prompt and schema as v7; the shared-name consistency check changed, so cached v7 answers are not reused.
-export const IDENTITY_VERSION = "identity-v7.1";
+// v7.2: a shared word is not enough when full names differ and businesses are unrelated; the corporate domain can anchor a shared name.
+export const IDENTITY_VERSION = "identity-v7.2";
 export const MAX_IDENTITY_AGE_MS = 14 * 86400000;
 export const IDENTITY_MODEL_OPTIONS = { numCtx: 12288, maxOutputTokens: 1536 };
 export const EMPLOYER_CONTEXT = /\b(about us|who we are|our (?:company|business|mission|products|services)|we (?:are|provide|manufacture|design|develop|serve)|headquartered|global leader|leading provider)\b|\b(?:name|legalName|alternateName|description|industry)\s*[":]/i;
@@ -115,6 +115,8 @@ different_company: the two sides name different organizations and no source conn
 A shared industry, similar products or services, similar customers or similar mission wording NEVER makes two
 differently named organizations the same. Do not explain away different names as "different legal entities within
 the same organization" unless the shared name is actually written on both sides.
+One shared word does not make two organizations the same when their full names differ and their businesses are
+unrelated: "Acme International", a charity, and "Acme Design Systems, Inc.", a software company, are different_company.
 insufficient_evidence: a side shows no employer name, or the sources hint at a connection they do not settle.
 
 contradictions lists concrete conflicts only, such as different organization names or conflicting self-descriptions.
@@ -229,10 +231,11 @@ function namesForSide(answer: ModelAnswer, side: IdentitySource["side"]): string
 // otherwise a short reason why it is not.
 // - It must contain a distinctive word (not only "Group", "Inc", ...).
 // - It must be written, as whole words, in the corporate sources AND in the Workday sources.
-// - It must be part of a name the model gave for the CORPORATE organization. This anchors it to the company
-//   being checked, so a business phrase that happens to occur on both sides ("asset management") does not
-//   count. It need not be part of a Workday legal employer name: postings often carry the brand in their text
-//   while the legal employer is a regional entity ("3813 HJ Heinz Distribution SASU").
+// - It must be part of a name the model gave for the CORPORATE organization, or be the corporate domain's own
+//   name (the shared name "P&G" on pg.com). This anchors it to the company being checked, so a business phrase
+//   that happens to occur on both sides ("asset management") does not count. It need not be part of a Workday
+//   legal employer name: postings often carry the brand in their text while the legal employer is a regional
+//   entity ("3813 HJ Heinz Distribution SASU").
 function sharedNameProblem(packet: IdentityCase, answer: ModelAnswer): string | null {
   const shared = answer.shared_name;
   if (!shared) return "the model gave no name shared by both sides";
@@ -249,7 +252,8 @@ function sharedNameProblem(packet: IdentityCase, answer: ModelAnswer): string | 
   for (const name of namesForSide(answer, "corporate")) {
     if (containsName(name, shared)) inCorporateName = true;
   }
-  if (!inCorporateName) return `"${shared}" is not part of any corporate organization name the model listed`;
+  const domainName = new URL(packet.corporate_url).hostname.split(".").at(-2);
+  if (!inCorporateName && nameKey(shared).replace(/ /g, "") !== domainName) return `"${shared}" is not part of any corporate organization name the model listed`;
   return null;
 }
 

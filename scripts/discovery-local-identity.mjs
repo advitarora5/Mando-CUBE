@@ -45,10 +45,13 @@ export async function selectLocalIdentityCandidates(store, { retries = {}, now =
       && !(previous?.signature === signature(name) && previous.retry_after > now);
   });
   if (!name) return [];
-  const slug = normalizeName(name).replace(/ /g, '');
-  // Candidate hypotheses only: reuse the normal resolver's bounded .com/.org/.edu
-  // guesses. Every page and Workday sibling still needs the full identity check.
-  const corporate_urls = /^[a-z0-9-]{2,63}$/.test(slug) ? guessDomains(slug).slice(0, 3).map(domain => `https://${domain}/`) : [];
+  const key = normalizeName(name);
+  // Candidate hypotheses only: reuse the normal resolver's bounded .com/.org/.edu guesses. The observed
+  // tenant comes first because it is usually the brand: cisco.com, not ciscosystems.com.
+  // Every page and Workday sibling still needs the full identity check.
+  const slugs = [...new Set([...sites.filter(site => site.enabled && site.normalized_name === key).map(site => site.tenant), key.replace(/ /g, '')])]
+    .filter(slug => typeof slug === 'string' && /^[a-z0-9-]{2,63}$/.test(slug));
+  const corporate_urls = [...new Set([...slugs.map(slug => `${slug}.com`), ...slugs.flatMap(guessDomains)])].slice(0, 3).map(domain => `https://${domain}/`);
   return [{ name, corporate_urls, retry_signature: signature(name) }];
 }
 

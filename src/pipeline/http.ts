@@ -57,18 +57,25 @@ export function robotsAllows(rules: Rule[], path: string): boolean {
   return !best || best.allow;
 }
 
+// The contact email goes only to the SEC, whose fair-access policy requires it.
+// No URL in the agent: sec.gov and several corporate firewalls answer 403 to one, and accept this exact form.
+export function crawlerUserAgent(url: string, contact: string): string {
+  const sec = /(^|\.)sec\.gov$/i.test(new URL(url).hostname);
+  return sec && contact ? `mando-cube-ingestion/1.0 (${contact})` : "mando-cube-ingestion/1.0";
+}
+
 export class PoliteHttp {
   requests = 0;
   private lastByHost = new Map<string, number>();
   private robots = new Map<string, Rule[] | "unavailable">();
-  readonly userAgent: string;
   private deps: Deps;
   private opts: Options;
   constructor(deps: Deps, opts: Options) {
     this.deps = deps;
     this.opts = opts;
-    this.userAgent = opts.userAgent ?? `mando-cube-ingestion/1.0 (+https://github.com/advitarora5/Mando-CUBE; ${deps.contact || "contact unset"})`;
   }
+
+  private userAgent(url: string) { return this.opts.userAgent ?? crawlerUserAgent(url, this.deps.contact); }
 
   get remaining() { return this.deps.signal?.aborted ? 0 : Math.max(0, this.opts.maxRequests - this.requests); }
 
@@ -103,7 +110,7 @@ export class PoliteHttp {
     const u = new URL(url);
     let rules = this.robots.get(u.host);
     if (!rules) {
-      const got = await this.raw(`${u.protocol}//${u.host}/robots.txt`, { headers: { "user-agent": this.userAgent } });
+      const got = await this.raw(`${u.protocol}//${u.host}/robots.txt`, { headers: { "user-agent": this.userAgent(url) } });
       if ("ok" in got) { if (STOPPING_FAILURES.includes(got.kind)) return got; rules = "unavailable"; }
       else if (got.res.status === 404 || got.res.status === 410) rules = [];
       else if (got.res.status === 401 || got.res.status === 403) return { ok: false, kind: CAPTCHA.test(got.body.slice(0, 5000)) ? "captcha" : "blocked", status: got.res.status, message: `robots.txt returned HTTP ${got.res.status}`, url };
@@ -125,7 +132,7 @@ export class PoliteHttp {
       if (typeof allowed !== "boolean") return allowed;
       if (!allowed) return { ok: false, kind: "robots", status: 0, message: "disallowed by robots.txt (or robots.txt unreadable)", url };
     }
-    const headers: Record<string, string> = { "user-agent": this.userAgent, accept: opts.expect === "json" ? "application/json" : "text/plain, text/html;q=0.9, */*;q=0.5", ...opts.headers };
+    const headers: Record<string, string> = { "user-agent": this.userAgent(url), accept: opts.expect === "json" ? "application/json" : "text/plain, text/html;q=0.9, */*;q=0.5", ...opts.headers };
     const init: RequestInit = { method: opts.method ?? "GET", headers };
     if (opts.json !== undefined) { init.body = JSON.stringify(opts.json); headers["content-type"] = "application/json"; }
     const retries = this.opts.maxRetries ?? 2;

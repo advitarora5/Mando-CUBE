@@ -50,8 +50,8 @@ export type ScoringContact = {
   conviction?: { source: string; reason: string; date?: string | null } | null;
 };
 
-// Latest annual filing figures (USD) for Budget capacity. prior_* are the previous fiscal year, null when not reported.
-export type Financials = { fiscal_year_end: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string };
+// Latest annual filing figures for Budget capacity, in the filer's reporting currency. prior_* are the previous fiscal year, null when not reported.
+export type Financials = { fiscal_year_end: string; currency: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string };
 
 // Company facts the rubric uses. Employee count earns the +3 Authority bonus only with a source link.
 export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; financials?: Financials | null };
@@ -126,7 +126,7 @@ export function reachabilityFromContacts(contacts: ScoringContact[]): CategoryRe
 }
 
 // ---------- Budget /20: financial capacity + the single highest technology-investment band (proxies) ----------
-const usd = (n: number) => `${n < 0 ? "-" : ""}$${(Math.abs(n) / 1e9 >= 1 ? `${(Math.abs(n) / 1e9).toFixed(1)}B` : `${(Math.abs(n) / 1e6).toFixed(0)}M`)}`;
+const money = (n: number, currency: string) => `${n < 0 ? "-" : ""}${currency === "USD" ? "$" : `${currency} `}${(Math.abs(n) / 1e9 >= 1 ? `${(Math.abs(n) / 1e9).toFixed(1)}B` : `${(Math.abs(n) / 1e6).toFixed(0)}M`)}`;
 
 // Rubric: positive annual operating income = 10, +1 revenue growth, +1 operating income growth. Not positive = 0.
 export function capacityPoints(f: Financials | null | undefined): number {
@@ -148,7 +148,7 @@ export function budgetFromSignals(signals: ScoringSignal[], now: Date, financial
   const capacity = capacityPoints(financials);
   const investment = best?.points ?? 0;
   const score = Math.min(rubric.budget.weight, capacity + investment);
-  const filing = financials ? `${capacity ? "positive " : "non-positive "}operating income ${usd(financials.operating_income)} (FY ending ${financials.fiscal_year_end})` : "operating income not collected";
+  const filing = financials ? `${capacity ? "positive " : "non-positive "}operating income ${money(financials.operating_income, financials.currency)} (FY ending ${financials.fiscal_year_end})` : "operating income not collected";
   // The filing is the larger, verifiable part; the investment signal's link is used only when there is no capacity.
   const source = capacity > 0 && financials ? financials.source_url : best?.signal.source_url ?? financials!.source_url;
   return { score, source, status: !financials ? "partial" : score ? "met" : "not_met", detail: { capacity, investment },

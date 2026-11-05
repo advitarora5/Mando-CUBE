@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { discoveryPlan, assertLocalTarget, assertApprovedTarget, executeDiscovery } from './discovery-plan.mjs';
 import { resolve } from 'node:path';
 import { discoveryScoreScope } from './discovery-score-scope.mjs';
@@ -88,8 +88,10 @@ try {
   }
   save(summary);
   console.log(JSON.stringify(summary, null, 2));
-} catch {
+} catch (error) {
   save({ status: 'failed', failure_stage: failureStage, message: 'Preflight or execution failed; no successful run is claimed.' });
+  // The cause goes only to a private local file next to summary.json, which is all the workflow uploads.
+  appendFileSync(resolve(output, 'worker-error.log'), `${failureStage}: ${error?.stack ?? error}\n`, { mode: 0o600 });
   // Do not echo credentials, URLs or provider error bodies in unattended output.
   console.error('Discovery stopped. Check arguments, local database configuration, and required source integration.');
   process.exitCode = 1;

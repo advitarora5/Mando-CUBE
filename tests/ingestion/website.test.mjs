@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WebsiteHttp, resolveWebsite, pageIdentity, publicAddress, MAX_WEBSITE_BODY, careersLinks } from '../../src/pipeline/website.ts';
+import { crawlerUserAgent } from '../../src/pipeline/http.ts';
 import { HttpTreg, CliTreg } from '../../src/pipeline/treg.ts';
 import { matchStage, scoreStage } from '../../src/pipeline/stages.ts';
 import { runPipeline } from '../../src/pipeline/runner.ts';
@@ -107,7 +108,9 @@ test('website: unsafe URLs, redirect targets and private DNS results are refused
   assert.equal((await resolve(ctx)).status, 'error'); assert.equal(ctx.fetch.calls.length, 0);
   const redirect = context({ pages: { 'https://acme.example/': response(302, '', { location: 'http://127.0.0.1/admin' }) } });
   assert.equal((await resolve(redirect)).status, 'error'); assert.equal(redirect.fetch.calls.length, 2);
-  for (const address of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '172.16.0.1', '192.168.1.1', '::1', 'fe80::1', '::ffff:127.0.0.1']) assert.equal(publicAddress(address), false);
+  for (const address of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '172.16.0.1', '192.168.1.1', '192.0.0.8', '192.0.2.1', '::1', 'fe80::1', '::ffff:127.0.0.1']) assert.equal(publicAddress(address), false);
+  // Public hosting inside 192.0.0.0/16 was wrongly refused, which hid real corporate sites.
+  assert.equal(publicAddress('192.0.66.120'), true);
 });
 
 test('website: dry run can evaluate evidence without saving a resolution', async () => {
@@ -237,7 +240,7 @@ test('human review protection: rejected and similar-name reviews cannot be autom
 });
 
 test('admission: parent/subdomain website conflicts stay in review instead of creating duplicate companies', () => {
-  const decision = decideMatch({ name: 'New Name', domain: 'corporate.acme.example', domain_confirmed: true, best_confidence: 1 }, [{ id: 'known', name: 'Acme', domain: 'acme.example' }], { canCreate: true });
+  const decision = decideMatch({ name: 'New Name', domain: 'corporate.acme.example', domain_confirmed: true, workday_verified: true }, [{ id: 'known', name: 'Acme', domain: 'acme.example' }], { canCreate: true });
   assert.equal(decision.action, 'review'); assert.equal(decision.suggested_company_id, 'known');
 });
 
@@ -275,6 +278,39 @@ test('review recovery: expired trusted signals cannot create a company until fre
   signal.last_seen_at = ctx.now().toISOString();
   await matchStage(ctx);
   assert.equal(item.status, 'approved'); assert.equal(ctx.store.companyRows.length, 12);
+});
+
+test('robots: an ordinary HTML page means no published rules, but a challenge or block still stops the fetch', async () => {
+  const run = robots => {
+    const ctx = makeCtx({ fetch: fakeFetch([
+      { match: /robots\.txt$/, respond: () => response(200, robots, { 'content-type': 'text/html' }) },
+      { match: /acme\.example\/$/, respond: () => html('<html><title>Acme</title></html>') },
+    ]) });
+    return new WebsiteHttp(ctx).page('https://acme.example/');
+  };
+  assert.match((await run('<html><title>Page not found</title></html>')).html, /Acme/);
+  // Plain rules that merely name a captcha path are still rules.
+  assert.match((await run('User-agent: *\nDisallow: /captcha/')).html, /Acme/);
+  for (const blocked of ['<html><title>Just a moment...</title></html>', '<html>Access Denied</html>', '<html>captcha</html>']) {
+    await assert.rejects(() => run(blocked), /robots unavailable/);
+  }
+});
+
+test('contact email is sent to sec.gov only', async () => {
+  const seen = {};
+  const ctx = makeCtx({ fetch: async (url, init) => { seen[new URL(url).hostname] = init.headers['user-agent']; return response(200, String(url).endsWith('robots.txt') ? 'User-agent: *\nAllow: /' : '<html></html>', { 'content-type': 'text/html' }); } });
+  const http = new WebsiteHttp(ctx);
+  await http.page('https://acme.example/');
+  await http.page('https://www.sec.gov/Archives/edgar/data/1/filing.htm');
+  assert.ok(!seen['acme.example'].includes('test@example.com'));
+  assert.ok(seen['www.sec.gov'].includes('test@example.com'));
+  assert.equal(crawlerUserAgent('https://acme.wd5.myworkdayjobs.com/x', 'test@example.com').includes('test@example.com'), false);
+  assert.equal(crawlerUserAgent('https://data.sec.gov/x', 'test@example.com').includes('test@example.com'), true);
+  assert.equal(crawlerUserAgent('https://notsec.gov.example/x', 'test@example.com').includes('test@example.com'), false);
+});
+
+test('the crawler agent carries no URL, because sec.gov and corporate firewalls refuse one', () => {
+  for (const url of ['https://www.sec.gov/robots.txt', 'https://www.example.com/']) assert.doesNotMatch(crawlerUserAgent(url, 'test@example.com'), /https?:|github/);
 });
 
 test('robots redirects: follow relative and cross-host redirects, cache rules for original origin, and obey them', async () => {
@@ -487,18 +523,31 @@ test('ownership remains required: real corporate identity cannot validate a wron
   }
 });
 
-test('review routing: weak signals and ambiguous websites remain pending without company creation', async () => {
-  for (const kind of ['weak', 'ambiguous']) {
-    const ctx = context({ pages: { 'https://acme.example/': '<title>Acme</title>', 'https://second.example/': '<title>Acme</title>' } });
-    ctx.store.sites.push({ ...site, company_name: 'ACME CORP', match_kind: 'first_word', company_id: null, review_item_id: null, capture_id: 'robots' });
-    await ctx.store.upsertSignal({ company_id: null, review_item_id: null, capture_id: 'robots', extraction_id: null, type: 'known_customer', signal_date: null, source_url: workday, quote: 'Workday career site', confidence: kind === 'weak' ? 0.6 : 0.95, company_name: 'ACME CORP', products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: ctx.now().toISOString() });
-    await employerCapture(ctx);
-    if (kind === 'ambiguous') await employerCapture(ctx, { domain: 'second.example' });
-    const result = await matchStage(ctx);
-    assert.equal(ctx.store.companyRows.length, 0);
-    assert.equal(ctx.store.reviews.length, 1); assert.equal(ctx.store.reviews[0].status, 'pending');
-    assert.equal(result.counts[kind === 'weak' ? 'review_untrusted_signal' : 'review_no_website'], 1);
-  }
+const acmeWorld = async (confidence, secondDomain = false) => {
+  const ctx = context({ pages: { 'https://acme.example/': '<title>Acme</title>', 'https://second.example/': '<title>Acme</title>' } });
+  ctx.store.sites.push({ ...site, company_name: 'ACME CORP', match_kind: 'first_word', company_id: null, review_item_id: null, capture_id: 'robots' });
+  await ctx.store.upsertSignal({ company_id: null, review_item_id: null, capture_id: 'robots', extraction_id: null, type: 'known_customer', signal_date: null, source_url: workday, quote: 'Workday career site', confidence, company_name: 'ACME CORP', products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: ctx.now().toISOString() });
+  await employerCapture(ctx);
+  if (secondDomain) await employerCapture(ctx, { domain: 'second.example' });
+  return ctx;
+};
+
+test('admission rule: a confirmed website and fresh Workday evidence admit a company at any stored confidence', async () => {
+  const ctx = await acmeWorld(0.6);
+  const result = await matchStage(ctx);
+  assert.equal(result.counts.new_companies, 1);
+  assert.equal(ctx.store.companyRows[0].domain, 'acme.example');
+  assert.equal(ctx.store.reviews.length, 0);
+  // The stored heuristic is preserved, not raised to manufacture eligibility.
+  assert.equal((await ctx.store.signalsForCompany(ctx.store.companyRows[0].id))[0].confidence, 0.6);
+});
+
+test('review routing: ambiguous websites remain pending without company creation', async () => {
+  const ctx = await acmeWorld(0.95, true);
+  const result = await matchStage(ctx);
+  assert.equal(ctx.store.companyRows.length, 0);
+  assert.equal(ctx.store.reviews.length, 1); assert.equal(ctx.store.reviews[0].status, 'pending');
+  assert.equal(result.counts.review_no_website, 1);
 });
 
 test('employer website: two independently verified and source-backed domains remain ambiguous', async () => {
@@ -624,6 +673,25 @@ test('slug name: a company created straight from a confirmed guessed website is 
   assert.equal(ctx.store.companyRows.length, 1);
   assert.equal(ctx.store.companyRows[0].name, 'Nexstar Media Group');
   assert.equal(ctx.store.companyRows[0].domain, 'nexstar.com');
+});
+
+test('first-word guess: another organization on the guessed tenant cannot admit the candidate, whatever its signal confidence', async () => {
+  // Fictional version of a real pending case: an electric company whose first word is a college's Workday tenant.
+  const college = { tenant: 'fernhill', pod: 'wd5', site: 'College_Staff' };
+  const collegeWorkday = `https://${college.tenant}.${college.pod}.myworkdayjobs.com/en-US/${college.site}`;
+  for (const confidence of [0.6, 0.95]) {
+    const ctx = slugContext({
+      'https://fernhill.edu/': '<html><title>Fernhill College</title><a href="/careers">Careers</a></html>',
+      'https://fernhill.edu/careers': `<html><title>Careers</title><a href="${collegeWorkday}">Search jobs</a></html>`,
+    });
+    ctx.store.sites.push({ id: 'guess', ...college, normalized_name: 'fernhill electric', enabled: true, match_kind: 'first_word', company_name: 'FERNHILL ELECTRIC CO', company_id: null, review_item_id: null, capture_id: 'robots' });
+    await slugSignal(ctx, { company_name: 'FERNHILL ELECTRIC CO', source_url: collegeWorkday, confidence });
+    const out = await matchStage(ctx);
+    assert.deepEqual(out.errors, []);
+    assert.equal(ctx.store.companyRows.length, 0, 'the link is real, but it is not this company');
+    assert.equal(ctx.store.reviews[0].reason, 'untrusted_signal');
+    assert.equal(ctx.store.reviews[0].candidate_domain, 'fernhill.edu');
+  }
 });
 
 test('slug name: a review waiting for a website is renamed when it is admitted, and a trusted full name is left alone', async () => {

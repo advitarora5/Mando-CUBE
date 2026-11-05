@@ -46,7 +46,7 @@ export function discoveryHealthMarkdown(summary) {
 }
 
 const categoryLabels = { authority: 'Authority', reachability: 'Reachability', budget: 'Budget', release: 'Release', timing: 'Timing' };
-const financialLabels = { found: 'filing found', no_sec_match: 'no SEC name match', no_filing_facts: 'no US GAAP facts', no_operating_income: 'no operating income reported', stale_filing: 'stale filing', no_contact: 'lookup off: no contact set', no_sec_list: 'lookup off: no SEC list', fetch_failed: 'SEC request failed' };
+const financialLabels = { found: 'filing found', no_sec_match: 'no SEC name match', no_filing_facts: 'no annual filing facts', no_operating_income: 'no operating income reported', stale_filing: 'stale filing', no_contact: 'lookup off: no contact set', no_sec_list: 'lookup off: no SEC list', fetch_failed: 'SEC request failed' };
 
 // Fixed labels and numbers only, like the rest of this report.
 function coverageLines({ candidates, held, contacts, scoring }) {

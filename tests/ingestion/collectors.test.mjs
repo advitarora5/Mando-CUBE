@@ -2,6 +2,9 @@
 // Every collector must stop cleanly and report, never crash or retry forever.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PoliteHttp, parseRobots, robotsAllows } from '../../src/pipeline/http.ts';
 import { WorkdayJobs, WorkdayResolver, sitesFromRobots, primarySites } from '../../src/pipeline/collectors/workday.ts';
 import { SecCompanyList, TregReddit } from '../../src/pipeline/collectors/sources.ts';
@@ -225,6 +228,28 @@ test('SEC list: needs a contact (403 policy), validates the shape, and reads a l
   assert.equal(tiny.errors[0].kind, 'unavailable');
   const blocked = await new SecCompanyList().collect(source('sec-company-list'), limits, makeCtx({ fetch: fakeFetch([{ match: /robots/, respond: () => response(403, 'Undeclared Automated Tool') }]) }));
   assert.match(blocked.blocked ?? '', /blocked/, 'regression: robots 403 is a block, not a silent disallow');
+});
+
+test('SEC list: a live refusal falls back to the saved copy so discovery and filing lookups keep working', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mando-sec-'));
+  const file = join(dir, 'sec.json');
+  writeFileSync(file, JSON.stringify(Object.fromEntries(Array.from({ length: 150 }, (_, i) => [i, { cik_str: i + 1, ticker: `T${i}`, title: `Fictional Company ${i}` }]))));
+  const before = process.env.PIPELINE_SEC_FILE;
+  process.env.PIPELINE_SEC_FILE = file;
+  try {
+    const refused = fakeFetch([{ match: /robots/, respond: () => response(403, 'Undeclared Automated Tool') }]);
+    const out = await new SecCompanyList().collect(source('sec-company-list'), limits, makeCtx({ fetch: refused }));
+    assert.equal(out.items.length, 1);
+    assert.equal(out.items[0].meta.from_file, true);
+    assert.equal(out.blocked, null);
+    assert.deepEqual(out.errors, []);
+    // When the live list answers, it is still preferred over the saved copy.
+    const live = await new SecCompanyList().collect(source('sec-company-list'), limits, makeCtx({ fetch: worldFetch({}) }));
+    assert.equal(live.items[0].meta.from_file, undefined);
+  } finally {
+    if (before === undefined) delete process.env.PIPELINE_SEC_FILE; else process.env.PIPELINE_SEC_FILE = before;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('treg Reddit: skipped without budget, 402 stops paid work, success stores the feed as received', async () => {

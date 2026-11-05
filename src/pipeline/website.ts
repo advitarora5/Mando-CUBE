@@ -4,7 +4,7 @@ import { isIP } from "node:net";
 import { createHash } from "node:crypto";
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
 import { htmlToText } from "../domain/ingestion/quote.ts";
-import { parseRobots, robotsAllows } from "./http.ts";
+import { crawlerUserAgent, parseRobots, robotsAllows } from "./http.ts";
 import type { PipelineContext, WebsiteResolution, WorkdaySite, EmployerWebsiteLink } from "./types.ts";
 
 export const WEBSITE_VERSION = 9;
@@ -21,8 +21,9 @@ const MAX_ROBOTS_BODY = 512 * 1024;
 // Candidate URLs and every redirect are checked before fetching. IPs and private DNS answers are refused.
 export function publicAddress(address: string): boolean {
   if (isIP(address) === 4) {
-    const [a, b] = address.split(".").map(Number);
-    return a !== 0 && a !== 10 && a !== 127 && a < 224 && !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31) && !(a === 192 && (b === 168 || b === 0)) && !(a === 100 && b >= 64 && b <= 127) && !(a === 198 && (b === 18 || b === 19));
+    const [a, b, c] = address.split(".").map(Number);
+    // Within 192.0.0.0/16 only 192.0.0.0/24 and 192.0.2.0/24 are reserved; the rest is public hosting.
+    return a !== 0 && a !== 10 && a !== 127 && a < 224 && !(a === 169 && b === 254) && !(a === 172 && b >= 16 && b <= 31) && !(a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) && !(a === 100 && b >= 64 && b <= 127) && !(a === 198 && (b === 18 || b === 19));
   }
   // Only globally routed IPv6 unicast; reject embedded IPv4 and transition ranges too.
   return isIP(address) === 6 && /^[23][0-9a-f]{0,3}:/i.test(address) && !/^2002:/i.test(address) && !/^2001:(?:db8|0):/i.test(address) && !address.includes(".");
@@ -52,7 +53,7 @@ export class WebsiteHttp {
     try {
       const res = await this.ctx.fetch(url.href, { redirect: "manual", signal: controller.signal,
         ...(jsonBody === undefined ? {} : { method: "POST", body: JSON.stringify(jsonBody) }),
-        headers: { "user-agent": `mando-cube-ingestion/1.0 (${this.ctx.contact || "contact unset"})`, accept: jsonMode ? "application/json" : "text/html,text/plain;q=0.9", ...(jsonBody === undefined ? {} : { "content-type": "application/json" }) } });
+        headers: { "user-agent": crawlerUserAgent(url.href, this.ctx.contact), accept: jsonMode ? "application/json" : "text/html,text/plain;q=0.9", ...(jsonBody === undefined ? {} : { "content-type": "application/json" }) } });
       const reader = res.body?.getReader();
       const chunks: Uint8Array[] = []; let bytes = 0;
       if (reader) try {
@@ -75,7 +76,13 @@ export class WebsiteHttp {
         continue;
       }
       if (res.status === 404 || res.status === 410) return "";
-      if (res.status === 200 && !/<html|captcha|cf-chl-/i.test(res.body)) return res.body;
+      if (res.status === 200) {
+        // Plain rules are rules, even when one names a /captcha path.
+        if (!/<html/i.test(res.body)) return res.body;
+        // An ordinary HTML page served at /robots.txt is a soft 404: the site publishes no rules.
+        // A challenge is respected, and the page fetch that follows still stops at any block.
+        if (!/captcha|cf-chl-|challenge-platform|verify you are human|access denied|just a moment/i.test(res.body)) return "";
+      }
       throw Error(`website robots unavailable: HTTP ${res.status}`);
     }
     throw Error("website robots redirect limit reached");

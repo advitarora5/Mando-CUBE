@@ -32,8 +32,8 @@ npm test && npm run test:integration
 | `TREG_TOKEN` | Existing treg credential. When empty, the signed-in `treg` CLI is used unless disabled. |
 | `TREG_ORG` / `TREG_DISABLE_CLI` | Organization slug (our local setup uses `cube`); set `TREG_DISABLE_CLI=1` to prevent implicit CLI fallback. |
 | `TREG_BUDGET_USD` | Session cap for paid treg calls (default 0.50). `--max-spend` lowers it per run, never raises it. |
-| `PIPELINE_CONTACT` | Contact address in every collector User-Agent. SEC answers 403 without one. |
-| `PIPELINE_SEC_FILE` | Optional local copy of `company_tickers.json`, used only when `PIPELINE_CONTACT` is empty. |
+| `PIPELINE_CONTACT` | Contact address sent only to `sec.gov`, which answers 403 without one. Every other site gets `mando-cube-ingestion/1.0`; a URL in the agent gets 403 from SEC and several corporate firewalls. |
+| `PIPELINE_SEC_FILE` | Optional local copy of `company_tickers.json`, used when `PIPELINE_CONTACT` is empty or the live SEC request fails. |
 
 Secrets live only in environment variables, `.env.pipeline.local` and GitHub secrets. Nothing prints them.
 
@@ -104,14 +104,21 @@ fourteen-day evidence window. This does not restore the database baseline for yo
 normal signature, model digest and freshness checks still apply. Model calls and reused
 answers are counted separately in `identity-call-counts.json`.
 
-AI-confirmed corporate identity replaces both direct-link proof and the 0.9 admission
-gate in this path; original signal confidence is preserved. Up to three corporate URLs
+AI-confirmed corporate identity replaces direct-link proof in this path; original signal
+confidence is preserved. For a `first_word` site, whose tenant was guessed from one word of
+the name, the candidate's own name must also be written on the corporate side of the evidence;
+the Workday side does not count, because it says nothing about whether a same-word website is theirs.
+Guessed websites are never treated as proof either: a same-name `.org` is skipped once that name's
+`.com` answers, and a name with a legal form (Inc, Corp, PLC) is never checked against a guessed
+`.org` or `.edu`, because the model has accepted a namesake charity on one shared word. A site
+observed in the evidence, or a name with no legal form (a health system), is still checked. Up to three corporate URLs
 and three exact sites are evaluated per candidate, within `--max-checks` (default 50,
 maximum 100) and the matching time/request caps. Every observed enabled sibling site
 must pass for one unambiguous corporate domain; disabled siblings or more than three
 sites require manual review because existing admission RPCs link sites by company name.
 Duplicate/merge review, prior human resolutions and the new-company cap still apply.
-Negative/uncertain verdicts, absent evidence, failures and exhausted checks remain held.
+Negative/uncertain verdicts, absent evidence and failures remain held. Exhausted checks hold
+a candidate unless one corporate domain has already passed against every site.
 AI confirmation is never written to the normal direct-link cache.
 
 The new output directory records selected names, a baseline, stage reports, frozen
@@ -157,8 +164,8 @@ Access/transport failures are retryable, not completed discovery misses.
 Successful HTML is retained unchanged as a `corporate_careers` raw capture. Extraction
 rechecks its page identity and exact anchor, creates a `careers_link` site and a **0.6**
 discovery signal, and retains the verbatim source anchor. This does not confirm the
-corporate website, change the admission threshold or connect the shadow identity checker
-to admission. A fresh trusted signal and the existing website confirmation are still required.
+corporate website or connect the shadow identity checker to admission. Fresh evidence
+and the existing website confirmation are still required.
 
 Do not enable this experiment on scheduled or shared runs without reviewing a local
 comparison first. The saved twenty-name batch is useful for a before/after discovery
@@ -208,8 +215,8 @@ stage stops starting candidates after five minutes. Deferred work stays queued. 
 timeout; Treg lookup has a fifteen-second timeout. In-flight work may finish after the stage time threshold.
 
 Matching revisits pending `no_website`, `untrusted_signal` and `over_run_cap` reviews even without new
-unassigned signals. A fresh trusted signal, confirmed website, HTTPS evidence URL and room under the cap
-allow creation. Existing confirmed domain matches attach to the existing company. Recovered admission locks
+unassigned signals. Fresh evidence, a confirmed website, an HTTPS evidence URL and room under the cap
+allow creation; a guessed `first_word` tenant also needs the company's name on that website. Existing confirmed domain matches attach to the existing company. Recovered admission locks
 the pending review and creates/resolves/attaches in a single transaction; failure leaves it pending for retry.
 New signals/sites join that review before admission. Rejected decisions remain rejected; `similar_name`
 reviews remain human decisions. Confirmation may fill their empty website field, but cannot resolve them or overwrite an existing website choice. Cap-limited reviews can recover on the next run using cached confirmation.
@@ -239,7 +246,7 @@ from website_resolutions order by checked_at desc;
 | Raw store | `raw_captures` | Body exactly as received + SHA-256 fingerprint (volatile fields such as "Posted 3 Days Ago" excluded). Unchanged items are skipped and only refresh their signals' `last_seen_at`. Immutable (trigger). `pending_captures` is the work queue. |
 | Extract | `src/pipeline/extract.ts` | Structured fields read directly (titles, dates, URLs, Workday tenant). The model reads only messy text into the fixed schema (`src/domain/ingestion/extraction-schema.ts`), temperature 0, JSON-schema constrained, retry once, then dead-letter. Quotes must be verbatim (else the signal is dropped); company, products, timing words, dates and project type must be supported by the text (else cleared and counted as hallucinations). Model down = captures stay queued. |
 | Signals | `signals` | go_live, hiring, release_planning, known_customer, budget_clue, event; link, date, quote, confidence. Every type expires 14 days after last seen, except go-live (date bands). |
-| Match | `src/domain/ingestion/matching.ts` | Confirmed exact website match merges. An unconfirmed website suggestion cannot assign signals to an existing company. Similar name -> review (`similar_name`, with suggestion). New company + confirmed website + trusted signal (≥0.9) -> created with `origin = pipeline` (atomic SQL function). Else review (`no_website`, `untrusted_signal`, `over_run_cap`). Workday itself is excluded. Size never blocks ("size unknown" when missing). |
+| Match | `src/domain/ingestion/matching.ts` | Confirmed exact website match merges. An unconfirmed website suggestion cannot assign signals to an existing company. Similar name -> review (`similar_name`, with suggestion). New company + confirmed website + verified Workday connection (yes/no; stored signal confidence does not decide it) -> created with `origin = pipeline` (atomic SQL function). Else review (`no_website`, `untrusted_signal` for an unverified connection, `over_run_cap`). Workday itself is excluded. Size never blocks ("size unknown" when missing). |
 | Score | `src/domain/ingestion/pipeline-score.ts` on the shared `buildAssessment` / `evaluateTier` | Only companies in scope (`scoring_scope = pipeline_only` -> pipeline companies only; matched existing companies only receive signals). No evidence = "Assessment status: unknown. Needs evidence: ..." (shown as Not Enough Evidence, never a silent 0). A row is appended when numbers, tier or sources change, and at least every 14 days. |
 | Enrich | `src/pipeline/enrich.ts` | Only companies with Budget + Release + Timing ≥ `ready_for_contacts_threshold` (25). Free people search first; then one verified work-email lookup per contact within the treg cap. Never pays for LinkedIn; "valid" only = verified; risky stored unverified; invalid not stored; never guesses; same contact + step never paid twice. No budget -> `enrichment_requests.status = skipped_budget`, Authority/Reachability stay "Needs evidence", the run continues. |
 
@@ -252,7 +259,7 @@ Weights 25/25/20/15/15; **Qualified 70+, Maybe 55+** for rows of this version (`
 |---|---|---|
 | Authority /25 | Role base 22/20/18/15/10/5/0; +3 employer 3,000+; +2 personal Workday responsibility; bonuses only for confirmed current contacts; best contact | Base from the title (`authorityBand`). Contacts found by the people search count as **current role unconfirmed** (5, no bonuses) until a person confirms them (`linkedin_status` confirmed/provided). +2 when the title names Workday. +3 only with a sourced employee count (company rows have none yet, so not awarded). |
 | Reachability /25 | Email+phone 20, either 15, confirmed LinkedIn only 10, general inbox 5; +3 LinkedIn alongside, +3 dated initiative, +2 leading active Workday work, +5 willing introduction | Published (sourced) or provider-verified ("valid") work email; published direct phone (a live line alone does not count); LinkedIn only when confirmed. +5 only when `mutual_connection` records willingness; +2 is not collected. |
-| Budget /20 | Operating-income capacity 10 (+1 +1) + one investment band 8/6/3; funded expansion 20; freeze 0 | Capacity is **not collected** (0, shown in the reason). Investment: dated budget clue within 24 months 8, undated/older 3, active Workday implementation 6. Labelled as a proxy. |
+| Budget /20 | Operating-income capacity 10 (+1 +1) + one investment band 8/6/3; funded expansion 20; freeze 0 | Capacity comes from SEC company facts, from the newest 10-K or 20-F under US GAAP or IFRS, in the filer's reporting currency. Nothing is converted, because the rubric asks only whether the figure is positive and grew, and years are compared within one currency. Not collected (0, shown in the reason) with no filing, a stale one, or no operating figure; banks usually report none, and a figure identical to revenue is total income, so it is rejected. Investment: dated budget clue within 24 months 8, undated/older 3, active Workday implementation 6. Labelled as a proxy. |
 | Timing /15 | Strongest single trigger 15/12/10/8/5 | Go-live within the next 6 months 15, previous 6 months 12, 6-12 months 10; employer Workday hiring within 12 months 8; known customer, skill-only posting or undated go-live 5. |
 | Release /15 | Confirmed deployment; 42-84 days before a confirmed release 12 (+3 documented preparation = 15), 85-126 days 10, otherwise 8 | Deployment = known customer, release planning or a past go-live. Bands use `releases.ts` confirmed dates; an estimated next release (2027R1 today) gives 8. |
 

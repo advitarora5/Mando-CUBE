@@ -70,8 +70,11 @@ test('an unprofitable filer earns nothing and has a sourced answer, not an outag
   assert.equal(r.counts.financials_found, 1);
 });
 
-test('filings answer with a reason: IFRS only, no operating income tag, stale tag', () => {
-  assert.equal(classifyFacts({ 'ifrs-full': {} }, 1, NOW).status, 'no_filing_facts');
+test('filings answer with a reason: no annual facts, no operating income tag, stale tag, under either standard', () => {
+  assert.equal(classifyFacts({ dei: {} }, 1, NOW).status, 'no_filing_facts');
+  assert.equal(classifyFacts({ 'ifrs-full': { ProfitLoss: usd([year('2025-12-31', 9)]) } }, 1, NOW).status, 'no_operating_income');
+  assert.equal(classifyFacts({ 'ifrs-full': { ProfitLossFromOperatingActivities: usd([year('2021-12-31', 9)]) } }, 1, NOW).status, 'stale_filing', 'an old operating figure with nothing newer');
+  assert.equal(classifyFacts({ 'ifrs-full': { ProfitLossFromOperatingActivities: { units: { EUR: [year('2025-12-31', 9)] } } } }, 1, NOW).status, 'found');
   assert.equal(classifyFacts({ 'us-gaap': { Revenues: usd([year('2025-12-31', 9)]) } }, 1, NOW).status, 'no_operating_income');
   assert.equal(classifyFacts({ 'us-gaap': { OperatingIncomeLoss: usd([year('2020-12-31', 9)]) } }, 1, NOW).status, 'stale_filing');
   assert.equal(classifyFacts(FILING, 1, NOW).status, 'found');

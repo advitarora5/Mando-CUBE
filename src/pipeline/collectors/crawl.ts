@@ -132,7 +132,7 @@ export class WorkdayTenantCrawl implements Collector {
         const sites = sitesFromRobots(got.body, tenant, pod);
         if (sites.length) {
           hit = true;
-          // match_kind first_word: the name is the tenant slug, a guess. It is admitted only with a confirmed website and a strong posting.
+          // match_kind first_word: the name is the tenant slug, a guess. It is admitted only once a confirmed website carries that name.
           result.items.push(item(source.id, got.url, got.status, got.contentType, got.body, ctx.now(),
             { kind: "workday_robots", tenant, pod, sites, primary_sites: primarySites(sites, tenant), company_name: name, normalized_name: normalized, match_kind: "first_word", discovered_via: this.type === "workday_tenant_wayback" ? "wayback" : "commoncrawl" }));
         }

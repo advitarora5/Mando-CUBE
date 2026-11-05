@@ -242,7 +242,7 @@ export type PipelineContext = {
   treg: TregTransport | null;
   llm: LLMProvider | null;
   spend: SpendGuard;
-  contact: string; // sent in every collector User-Agent
+  contact: string; // sent in the User-Agent to sec.gov only; see crawlerUserAgent
   sleep: (ms: number) => Promise<void>;
   runId: string | null;
   // Capture each source produced (new or reused unchanged) in this run, so later stages read today's data.

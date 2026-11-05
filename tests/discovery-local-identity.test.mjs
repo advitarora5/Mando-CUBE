@@ -37,6 +37,13 @@ test('candidate selection protects human decisions and disabled siblings while b
   assert.deepEqual((await selectLocalIdentityCandidates(store)).map(candidate => candidate.name), ['New']);
 });
 
+test('corporate URL guesses try the observed tenant before the joined full name', async () => {
+  const store = { reviewItems: async () => [], unassignedSignals: async () => [{ company_name: 'Fernhill Design Systems Inc' }],
+    workdaySites: async () => [{ normalized_name: 'fernhill design systems', tenant: 'fernhill', enabled: true, company_id: null }] };
+  const [selected] = await selectLocalIdentityCandidates(store);
+  assert.deepEqual(selected.corporate_urls, ['https://fernhill.com/', 'https://fernhilldesignsystems.com/', 'https://fernhill.org/']);
+});
+
 test('unchanged held candidate yields to another candidate until cooldown expires or evidence changes', async () => {
   const sites = ['alpha', 'beta'].map(normalized_name => ({ id: normalized_name, normalized_name, capture_id: 'old', enabled: true, company_id: null }));
   const store = { reviewItems: async () => [], workdaySites: async () => sites,

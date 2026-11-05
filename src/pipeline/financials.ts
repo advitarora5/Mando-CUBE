@@ -1,22 +1,28 @@
-// Budget capacity inputs from SEC XBRL "company facts": annual operating income and revenue from the latest 10-K/20-F.
-// A company is matched by exact normalized name to one SEC CIK; anything ambiguous, foreign (IFRS), stale or missing
-// returns null and Budget stays "Needs evidence" for that part. Never estimated.
+// Budget capacity inputs from SEC XBRL "company facts": annual operating income and revenue from the latest 10-K/20-F,
+// under US GAAP or IFRS, in whatever currency the filer reports. Capacity asks only "positive?" and "grew?", so nothing
+// is converted: years are compared within one currency. A company is matched by exact normalized name to one SEC CIK;
+// anything ambiguous, stale or missing returns null and Budget stays "Needs evidence" for that part. Never estimated.
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { Financials } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineContext } from "./types.ts";
 
-const OPERATING = ["OperatingIncomeLoss"];
-const REVENUE = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"];
+type Concept = [taxonomy: string, tag: string];
+const OPERATING: Concept[] = [["us-gaap", "OperatingIncomeLoss"], ["ifrs-full", "ProfitLossFromOperatingActivities"]];
+const REVENUE: Concept[] = [
+  ["us-gaap", "Revenues"], ["us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"], ["us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax"], ["us-gaap", "SalesRevenueNet"],
+  ["ifrs-full", "Revenue"], ["ifrs-full", "RevenueFromContractsWithCustomers"],
+];
+const CURRENCY = /^[A-Z]{3}$/; // ISO codes only: units also include "shares", "pure" and "USD/shares"
 const MAX_AGE_DAYS = 548; // newest fiscal year must have ended within ~18 months
 const days = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 86400000;
 
 type Fact = { start?: string; end: string; val: number; form: string; filed: string; accn: string };
 type Year = { end: string; val: number; accn: string };
-type Facts = { "us-gaap"?: Record<string, { units?: { USD?: Fact[] } }> } | null | undefined;
+type Series = { currency: string; years: Year[] };
+type Facts = Record<string, Record<string, { units?: Record<string, Fact[]> }> | undefined> | null | undefined;
 
 // One value per fiscal year end (latest filing wins), annual durations only, newest first.
-function annualSeries(facts: Facts, tag: string): Year[] {
-  const rows = facts?.["us-gaap"]?.[tag]?.units?.USD ?? [];
+function annualSeries(rows: Fact[]): Year[] {
   const byEnd = new Map<string, Fact>();
   for (const r of rows) {
     if (!r.start || !/^(10-K|20-F)/.test(r.form) || days(r.start, r.end) < 340 || days(r.start, r.end) > 390) continue;
@@ -26,21 +32,34 @@ function annualSeries(facts: Facts, tag: string): Year[] {
   return [...byEnd.values()].sort((a, b) => b.end.localeCompare(a.end)).map(r => ({ end: r.end, val: r.val, accn: r.accn }));
 }
 
-// Several tags can describe revenue and old ones go stale (a tag may stop years ago): take the one with the newest year.
-function newest(facts: Facts, tags: string[]): Year[] {
-  return tags.map(tag => annualSeries(facts, tag)).filter(s => s.length).sort((a, b) => b[0].end.localeCompare(a[0].end))[0] ?? [];
+// One concept's series, in its most current currency (a filer can change reporting currency, or add a short translation).
+function conceptSeries(facts: Facts, [taxonomy, tag]: Concept, currency?: string): Series | null {
+  return Object.entries(facts?.[taxonomy]?.[tag]?.units ?? {})
+    .filter(([unit]) => CURRENCY.test(unit) && (!currency || unit === currency))
+    .map(([unit, rows]) => ({ currency: unit, years: annualSeries(rows) }))
+    .filter(s => s.years.length)
+    .sort((a, b) => b.years[0].end.localeCompare(a.years[0].end) || b.years.length - a.years.length)[0] ?? null;
+}
+
+// Several tags can describe a figure and old ones go stale (a tag may stop years ago): take the one with the newest year.
+function newest(facts: Facts, concepts: Concept[], currency?: string): Series | null {
+  return concepts.map(concept => conceptSeries(facts, concept, currency)).filter((s): s is Series => !!s).sort((a, b) => b.years[0].end.localeCompare(a.years[0].end))[0] ?? null;
 }
 const priorOf = (series: Year[]) => series.find(y => days(y.end, series[0].end) > 350 && days(y.end, series[0].end) < 380)?.val ?? null;
 
 export function parseFinancials(rawFacts: unknown, cik: number, now: Date): Financials | null {
   const facts = rawFacts as Facts;
-  const op = newest(facts, OPERATING);
-  if (!op.length || days(op[0].end, now.toISOString().slice(0, 10)) > MAX_AGE_DAYS) return null;
-  const rev = newest(facts, REVENUE);
+  const operating = newest(facts, OPERATING);
+  if (!operating) return null;
+  const op = operating.years;
+  if (days(op[0].end, now.toISOString().slice(0, 10)) > MAX_AGE_DAYS) return null;
+  const rev = newest(facts, REVENUE, operating.currency)?.years ?? [];
   // Revenue must be for the same fiscal year as operating income, or its growth says nothing about it.
   const sameYear = rev.length && rev[0].end === op[0].end;
+  // Some banks tag total income as their operating figure (ING: both EUR 25.68B, pre-tax profit EUR 11.79B). That is not profit.
+  if (sameYear && rev[0].val === op[0].val) return null;
   return {
-    fiscal_year_end: op[0].end, operating_income: op[0].val, prior_operating_income: priorOf(op),
+    fiscal_year_end: op[0].end, currency: operating.currency, operating_income: op[0].val, prior_operating_income: priorOf(op),
     revenue: sameYear ? rev[0].val : null, prior_revenue: sameYear ? priorOf(rev) : null,
     source_url: `https://www.sec.gov/Archives/edgar/data/${cik}/${op[0].accn.replace(/-/g, "")}/`,
   };
@@ -74,9 +93,11 @@ export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<F
   const financials = parseFinancials(rawFacts, cik, now);
   if (financials) return { financials, status: "found" };
   const facts = rawFacts as Facts;
-  // IFRS-only filers have no us-gaap block. Banks and insurers often report no OperatingIncomeLoss. Neither is estimated.
-  if (!facts?.["us-gaap"]) return { financials: null, status: "no_filing_facts" };
-  return { financials: null, status: newest(facts, OPERATING).length ? "stale_filing" : "no_operating_income" };
+  // Banks and insurers often report no operating income. It is not estimated.
+  if (!facts?.["us-gaap"] && !facts?.["ifrs-full"]) return { financials: null, status: "no_filing_facts" };
+  const operating = newest(facts, OPERATING);
+  const isCurrent = operating && days(operating.years[0].end, now.toISOString().slice(0, 10)) <= MAX_AGE_DAYS;
+  return { financials: null, status: operating && !isCurrent ? "stale_filing" : "no_operating_income" };
 }
 
 type LookupState = { index: Map<string, number> | null; byCik: Map<number, Pick<FinancialsLookup, "financials" | "status">>; stopped: boolean };
