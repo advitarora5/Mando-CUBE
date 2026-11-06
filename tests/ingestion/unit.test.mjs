@@ -49,22 +49,22 @@ test('tenant candidates: full name first, first word only when it is distinctive
   assert.deepEqual(tenantCandidates('American Express Co').map(c => c.tenant), ['americanexpress']);
 });
 
-test('matching: exact website merges, similar name and missing website go to review, trusted new company is created', () => {
+test('matching: exact website merges, similar name and missing website go to review, verified new company is created', () => {
   const known = [{ id: 'c1', name: 'Brookfield Corporation', domain: 'brookfield.com' }];
-  const base = { domain_confirmed: true, best_confidence: 0.95 };
+  const base = { domain_confirmed: true, workday_verified: true };
   assert.deepEqual(decideMatch({ ...base, name: 'Totally Different', domain: 'https://www.brookfield.com' }, known, { canCreate: true }).action, 'attach');
   const similar = decideMatch({ ...base, name: 'Brookfield Corp', domain: 'brookfieldproperties.com' }, known, { canCreate: true });
   assert.equal(similar.action, 'review'); assert.equal(similar.reason, 'similar_name'); assert.equal(similar.suggested_company_id, 'c1');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: null }, known, { canCreate: true }).reason, 'no_website');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com', domain_confirmed: false }, known, { canCreate: true }).reason, 'no_website');
-  assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com', best_confidence: 0.6 }, known, { canCreate: true }).reason, 'untrusted_signal');
+  assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com', workday_verified: false }, known, { canCreate: true }).reason, 'untrusted_signal');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com' }, known, { canCreate: false }).reason, 'over_run_cap');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com' }, known, { canCreate: true }).action, 'create');
 });
 
 test('matching: an unconfirmed website suggestion cannot attach evidence to an existing company', () => {
   const decision = decideMatch({
-    name: 'New Robotics Inc', domain: 'unrelated.example', domain_confirmed: false, best_confidence: 0.95,
+    name: 'New Robotics Inc', domain: 'unrelated.example', domain_confirmed: false, workday_verified: true,
   }, [{ id: 'unrelated', name: 'Independent Computing Services', domain: 'unrelated.example' }], { canCreate: true });
   assert.equal(decision.action, 'review');
   assert.equal(decision.reason, 'no_website');
@@ -72,7 +72,7 @@ test('matching: an unconfirmed website suggestion cannot attach evidence to an e
 });
 
 test('regression: Workday itself (the vendor) is never a lead, under any spelling', () => {
-  const base = { domain: 'workday.com', domain_confirmed: true, best_confidence: 0.95 };
+  const base = { domain: 'workday.com', domain_confirmed: true, workday_verified: true };
   for (const name of ['Workday, Inc.', 'WORKDAY INC', 'Workday']) {
     const decision = decideMatch({ ...base, name }, [], { canCreate: true });
     assert.equal(decision.action, 'skip', name);
@@ -213,6 +213,16 @@ test('regression (round 1): display names keep acronyms and legal suffixes reada
   assert.equal(displayName('ASML HOLDING NV', null), 'ASML Holding NV');
   assert.equal(displayName('MARSH & MCLENNAN COMPANIES, INC.', null), 'Marsh & Mclennan Companies, Inc.');
   assert.equal(displayName('3M CO', null), '3M Co');
+  assert.equal(displayName('BANK OF AMERICA CORP /DE/', null), 'Bank of America Corp');
+  assert.equal(displayName('HOME DEPOT, INC.', null), 'Home Depot, Inc.');
+  assert.equal(displayName('NEW YORK TIMES CO', null), 'New York Times Co');
+  assert.equal(displayName('ING GROEP NV', null), 'ING Groep NV');
+  assert.equal(displayName('Fernhill Scientific, Inc./tx', null), 'Fernhill Scientific, Inc.', 'SEC state tags go, in any case');
+  assert.equal(displayName('FERNHILL INC/DE', null), 'Fernhill Inc');
+  assert.equal(displayName('Fernhill Group PLC./ADR', null), 'Fernhill Group PLC.');
+  assert.equal(displayName('KLA CORP', null), 'KLA Corp');
+  assert.equal(displayName('UNILEVER PLC', null), 'Unilever PLC');
+  assert.equal(displayName('EQUINOR ASA', null), 'Equinor ASA');
   assert.equal(displayName('NVIDIA CORP', 'NVIDIA'), 'NVIDIA');
   assert.equal(displayName('Land O\'Lakes, Inc.', null), 'Land O\'Lakes, Inc.');
 });

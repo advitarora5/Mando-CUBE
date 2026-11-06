@@ -88,6 +88,9 @@ export class MemoryStore implements PipelineStore {
     return [...this.captures].reverse().find(c => c.source_id === sourceId) ?? null;
   }
   async captureById(id: string) { return this.captures.find(c => c.id === id) ?? null; }
+  async tenantIndexCache(sourceId: string) {
+    return [...this.captures].reverse().find(c => c.source_id === sourceId && c.meta.kind === "workday_index_cache") ?? null;
+  }
   async pendingCaptures(limit: number, sourceIds?: string[]) {
     const finished = new Set(this.extractions.filter(e => e.status === "done" || e.status === "dead_letter").map(e => e.capture_id));
     return this.captures.filter(c => !finished.has(c.id) && (!sourceIds || sourceIds.includes(c.source_id))).slice(0, limit);

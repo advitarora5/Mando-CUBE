@@ -1,0 +1,38 @@
+name: Prepare discovery plan
+
+# Skeleton only. No schedule, database credentials, migrations or live provider calls.
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Proposed items per source (1-100)
+        default: '10'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mando-cube-ingestion
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prepare bounded plan
+        env:
+          DISCOVERY_LIMIT: ${{ inputs.limit }}
+        run: node scripts/discovery.mjs --limit "$DISCOVERY_LIMIT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discovery-plan
+          path: var/discovery/summary.json
+          retention-days: 7

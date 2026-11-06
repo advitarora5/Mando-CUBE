@@ -365,8 +365,37 @@ test('identity v7: name checks ignore case and punctuation but need whole words'
   assert.equal(nameKey('  Thomson  Reuters /CAN/ '), 'thomson reuters can');
 });
 
-test('identity v7: the version is identity-v7.1 and the verdict is generated after names and the shared name', () => {
-  assert.equal(IDENTITY_VERSION, 'identity-v7.1');
+test('identity v7.2: an abbreviation the model left out of its name list is anchored by the corporate domain', async () => {
+  // Like BD on bd.com and P&G on pg.com. Uses invented names.
+  const pair = domain => {
+    const { p, answer } = regionalEmployerPair();
+    p.corporate_url = `https://www.${domain}/`; p.sources[0].url = `https://www.${domain}/`;
+    p.sources[0].text = 'Z&X makes medical devices for hospitals worldwide.';
+    p.sources[1].text = 'Analyst\nZ&X is committed to equal opportunity.';
+    p.sources.pop();
+    answer.shared_name = 'Z&X'; answer.corporate_identity = ['Zeta Xylo Company']; answer.corporate_name = 'Zeta Xylo Company';
+    answer.evidence = { corporate: [{ source_id: 'c', quote: 'Z&X makes medical devices' }], workday: [{ source_id: 'w', quote: 'Z&X is committed' }] };
+    return { p, answer };
+  };
+  const anchored = pair('zx.com');
+  assert.equal((await verifyIdentity(anchored.p, model(anchored.answer), 'v1', now)).verdict, 'same_company');
+  const unanchored = pair('other.com');
+  const held = await verifyIdentity(unanchored.p, model(unanchored.answer), 'v1', now);
+  assert.equal(held.verdict, 'insufficient_evidence');
+  assert.match(held.answer.consistency_holds[0], /not part of any corporate organization name/);
+});
+
+test('identity v7.2: the prompt warns against one shared word with unrelated businesses, using invented names', () => {
+  const { p, answer } = contextualPair();
+  const llm = model(answer);
+  return verifyIdentity(p, llm, 'v1', now).then(() => {
+    assert.match(llm.calls[0].system, /One shared word does not make two organizations the same/);
+    assert.doesNotMatch(llm.calls[0].system, /Cadence|ING\b/);
+  });
+});
+
+test('identity v7: the version is identity-v7.2 and the verdict is generated after names and the shared name', () => {
+  assert.equal(IDENTITY_VERSION, 'identity-v7.2');
   const { p, answer } = contextualPair();
   const llm = model(answer);
   return verifyIdentity(p, llm, 'v1', now).then(() => {

@@ -21,18 +21,21 @@ export class SecCompanyList implements Collector {
     // SEC's fair-access policy requires a contact email in the User-Agent (it answers 403 without one).
     // Without PIPELINE_CONTACT, a copy of the same file can be supplied with PIPELINE_SEC_FILE.
     const file = process.env.PIPELINE_SEC_FILE;
-    if (file && !ctx.contact) {
-      const body = readFileSync(file, "utf8");
+    const fromFile = () => {
+      const body = readFileSync(file!, "utf8");
       let rows = 0;
       try { rows = Object.keys(JSON.parse(body)).length; } catch { /* checked below */ }
       if (rows < 100) { result.errors.push({ url, kind: "malformed", message: `${file} is not the SEC company list` }); return result; }
       result.items.push(raw(source.id, url, 200, "application/json", body, ctx.now(), { kind: "sec_company_list", rows, from_file: true }));
       return result;
-    }
+    };
+    if (file && !ctx.contact) return fromFile();
     if (!ctx.contact) { result.errors.push({ url, kind: "skipped", message: "SEC requires a contact email in the User-Agent: set PIPELINE_CONTACT (or PIPELINE_SEC_FILE)" }); return result; }
     const got = await http.request(url, { expect: "json" });
     result.requests = http.requests;
     if (!got.ok) {
+      // The saved copy keeps name discovery and filing lookups alive through a live refusal or outage.
+      if (file) return fromFile();
       result.errors.push({ url, kind: got.kind, message: got.message });
       if (STOPPING_FAILURES.includes(got.kind)) result.blocked = `${got.kind}: ${got.message}`;
       return result;

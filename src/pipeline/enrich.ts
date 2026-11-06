@@ -5,7 +5,6 @@
 // for the same contact and step is never repeated (idempotency key in paid_calls and on the treg call).
 import { paidCallKey } from "../domain/ingestion/fingerprint.ts";
 import { mayScore, readyForContacts } from "../domain/ingestion/settings.ts";
-import { TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
 import { parseEvidence } from "../domain/scoring/evidence.ts";
 import type { ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineSettings } from "../domain/ingestion/settings.ts";
@@ -43,13 +42,13 @@ export function readEmailAnswer(body: unknown): EmailOutcome {
   return { email, status: "risky", served_by: b._treg?.served_by ?? null };
 }
 
-// Free research is evidence collection, not qualification. Only fresh, sourced, high-confidence
-// Workday customer/hiring evidence can unlock it; a generic event or an invented future timestamp cannot.
+// Free research is evidence collection, not qualification. Fresh, sourced Workday customer/hiring evidence
+// unlocks it for an admitted company at any stored confidence; a generic event or an invented future timestamp cannot.
 export function eligibleForFreeResearch(signals: ScoringSignal[], settings: PipelineSettings, now: Date): boolean {
   return signals.some(signal => {
     const age = now.getTime() - Date.parse(signal.last_seen_at);
     return (signal.type === "known_customer" || signal.type === "hiring") &&
-      signal.confidence >= TRUSTED_CONFIDENCE && signal.confidence <= 1 &&
+      signal.confidence >= 0 && signal.confidence <= 1 &&
       Number.isFinite(age) && age >= 0 && age <= settings.signal_fresh_days * 86400000 &&
       !!parseEvidence(`${signal.source_url} | ${signal.quote.trim()}`);
   });

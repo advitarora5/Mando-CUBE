@@ -179,13 +179,12 @@ test('every saved score records why: run, trigger, previous score and a summary 
   const id = store.companyRows[0].id;
   const first = store.scores.find(s => s.company_id === id);
   assert.deepEqual([store.scoreChanges.get(first.id).change_trigger, store.scoreChanges.get(first.id).change_summary, store.scoreChanges.get(first.id).previous_score_id], ['pipeline_run', 'First assessment.', null]);
-  // Free contact research in the same run can already have rescored the company; link to whatever was latest.
-  const replaced = await store.latestScore(id);
+  const beforeRefresh = await store.latestScore(id);
   now.advanceDays(15);
   await scoreStage(ctx, { companyIds: [id], trigger: 'new_contacts' });
   const second = (await store.latestScore(id));
   const change = store.scoreChanges.get(second.id);
-  assert.equal(change.previous_score_id, replaced.id, 'links back to the score it replaced');
+  assert.equal(change.previous_score_id, beforeRefresh.id, 'links back to the latest assessment, including contact enrichment');
   assert.equal(change.change_trigger, 'new_contacts', 'the caller that knew the reason is recorded');
   assert.match(change.change_summary, /Timing \d+ to 0: Needs evidence/, 'the expired hiring signal shows up as the reason for Timing');
   now.advanceDays(14);

@@ -8,6 +8,8 @@ import type { PipelineContext, WebsiteCapture } from "./types.ts";
 
 export const identityTargetSchema = identityCaseSchema.pick({ id: true, target_name: true, corporate_url: true, site: true, review_id: true });
 export type IdentityTarget = z.infer<typeof identityTargetSchema>;
+// Large corporate homepages are common; extracted evidence stays bounded by boundedIdentityText.
+const MAX_CORPORATE_PAGE = 6 * 1024 * 1024;
 // Preserve introduction, employer/business context in the middle, and footer boilerplate.
 // This only selects already collected text; it neither classifies businesses nor fetches more pages.
 export function boundedIdentityText(text: string): string {
@@ -77,7 +79,7 @@ export async function prepareIdentityCase(ctx: PipelineContext, input: unknown, 
   const packet: IdentityCase = { ...target, prepared_at: ctx.now().toISOString(), sources: [], errors: [] };
   let corporatePage: { url: string; html: string } | null = null;
   try {
-    const home = await http.page(target.corporate_url);
+    const home = await http.page(target.corporate_url, MAX_CORPORATE_PAGE);
     corporatePage = home;
     // Record the final corporate URL after guarded redirects for subsequent provenance checks.
     packet.corporate_url = home.url;

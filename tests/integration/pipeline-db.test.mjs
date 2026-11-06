@@ -3,13 +3,14 @@
 // raw_captures is append-only, so each run uses fresh random fictional names instead of deleting rows.
 // Run: npm run test:integration   (skips when PIPELINE_SUPABASE_URL is not a reachable local database)
 import { test, after } from 'node:test';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
 import { matchStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
 import { runPipeline } from '../../src/pipeline/runner.ts';
+import { discoveryScoreScope } from '../../scripts/discovery-score-scope.mjs';
 import { makeCtx, clock, worldFetch, worldTreg, groundedModel, randomNames, worldTenant } from '../ingestion/helpers.mjs';
 
 const url = process.env.PIPELINE_SUPABASE_URL, key = process.env.PIPELINE_SUPABASE_KEY;
@@ -27,10 +28,68 @@ const count = async table => (await db.from(table).select('id', { count: 'exact'
 // (regression: real sites in a shared local database used to stay disabled after the tests).
 const disabled = [];
 const testTenants = [];
+const cleanupCompanies = [];
+
+test('local AI runner admits and scores a confirmed candidate, holds a mismatch and remains duplicate-safe', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const names = randomNames(2, seed + 9973);
+  const created = [], rows = [];
+  try {
+    for (const name of names) {
+      const normalized = normalizeName(name), tenant = worldTenant(name);
+      const source = `https://${tenant}.wd5.myworkdayjobs.com/robots.txt`;
+      const capture = await store.saveCapture({ source: 'workday-site-resolver', url: source, fetched_at: new Date().toISOString(), http_status: 200,
+        content_type: 'text/plain', raw: `Fictional identity-runner fixture ${name}`, fingerprint: randomUUID().replaceAll('-', '').repeat(2), meta: { kind: 'website_test' } }, null);
+      await store.saveExtraction({ capture_id: capture.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+      const review = await store.addReviewItem({ candidate_name: name, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: 'no_website' });
+      rows.push({ review, normalized, name });
+      const signal = await store.upsertSignal({ company_id: null, review_item_id: review.id, capture_id: capture.id, extraction_id: null, type: 'known_customer', signal_date: null,
+        source_url: source, quote: `Fictional employer evidence for ${name}`, confidence: 0.6, company_name: name, products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: new Date().toISOString() });
+      rows.at(-1).signal = signal;
+    }
+    const ctx = makeCtx({ store, now: () => new Date(), fetch: async () => { throw Error('No provider calls are allowed in this regression'); } });
+    ctx.contact = '';
+    const scope = discoveryScoreScope(store);
+    const localIdentity = { names: new Set(rows.map(row => row.normalized)), resolve: async (_ctx, name) => {
+      const confirmed = name === names[0];
+      return { normalized_name: normalizeName(name), company_name: name, domain: confirmed ? domainOf(name) : null,
+        status: confirmed ? 'confirmed' : 'unresolved', reason: confirmed ? 'fictional identity match' : 'fictional identity mismatch',
+        input_signature: 'fictional-local-policy', checked_at: new Date().toISOString(), next_check_at: new Date().toISOString(), evidence: { candidates: [], checks: [] } };
+    } };
+    const options = { limit: 2, dryRun: false, trigger: 'manual' };
+    scope('match');
+    const matched = await runPipeline(ctx, { ...options, plan: 'match', localIdentity });
+    assert.deepEqual(matched.jobs[0].errors, []);
+    assert.equal(matched.jobs[0].counts.new_companies, 1);
+    const reviews = await store.reviewItems();
+    const accepted = reviews.find(review => review.id === rows[0].review.id);
+    if (accepted.resolved_company_id) created.push(accepted.resolved_company_id);
+    assert.equal(accepted.status, 'approved');
+    assert.equal(reviews.find(review => review.id === rows[1].review.id).status, 'pending');
+    scope('score');
+    const scored = await runPipeline(ctx, { ...options, plan: 'score' });
+    assert.deepEqual(scored.jobs[0].errors, []);
+    assert.ok(await store.latestScore(accepted.resolved_company_id));
+    scope('match');
+    const again = await runPipeline(ctx, { ...options, plan: 'match', localIdentity });
+    assert.equal(again.jobs[0].counts.new_companies || 0, 0);
+    assert.equal((await db.from('companies').select('id').eq('domain', domainOf(names[0]))).data.length, 1);
+  } finally {
+    // Discover any committed admission even if an assertion failed before recording it.
+    for (const row of rows) {
+      const res = await db.from('review_queue').select('resolved_company_id').eq('id', row.review.id).single();
+      if (res.data?.resolved_company_id) created.push(res.data.resolved_company_id);
+      if (row.signal) await db.from('signals').delete().eq('id', row.signal.id);
+      await db.from('review_queue').delete().eq('id', row.review.id);
+    }
+    for (const id of new Set(created)) await db.from('companies').delete().eq('id', id);
+  }
+});
 after(async () => {
   if (disabled.length) await db.from('workday_sites').update({ enabled: true }).in('id', disabled);
   // The fictional tenants must never be crawled by a real run.
   if (testTenants.length) await db.from('workday_sites').update({ enabled: false }).in('tenant', testTenants);
+  if (cleanupCompanies.length) await db.from('companies').delete().in('id', cleanupCompanies);
 });
 
 async function freshWorld(names) {
@@ -40,10 +99,28 @@ async function freshWorld(names) {
   const ids = (others ?? []).map(s => s.id);
   if (ids.length) { await db.from('workday_sites').update({ enabled: false }).in('id', ids); disabled.push(...ids); }
   const store = new SupabaseStore(url, key);
-  // Scope scoring and enrichment to this test's fictional companies (".example" websites). Regression: the shared local
-  // database also holds real pipeline companies, and an unscoped test run wrote its fake email onto their contacts.
+  // Include only this run's fixture domains. Older .example companies can otherwise
+  // consume enrichment slots and receive new fake scores/contacts on repeated runs.
+  const fixtureDomains = new Set(names.map(domainOf));
+  const fixtureNames = new Set(names.map(normalizeName));
   const allCompanies = store.companies.bind(store);
-  store.companies = async () => (await allCompanies()).filter(c => (c.domain ?? '').endsWith('.example'));
+  store.companies = async () => (await allCompanies()).filter(c => fixtureDomains.has(c.domain));
+  const reviews = store.reviewItems.bind(store), signals = store.unassignedSignals.bind(store);
+  store.reviewItems = async status => (await reviews(status)).filter(row => fixtureNames.has(row.normalized_name));
+  store.unassignedSignals = async () => (await signals()).filter(row => fixtureNames.has(normalizeName(row.company_name)));
+  const dueAttempts = store.dueResolverAttempts.bind(store), sites = store.workdaySites.bind(store);
+  store.dueResolverAttempts = async (cutoffs, limit) => (await dueAttempts(cutoffs, limit)).filter(row => fixtureNames.has(row.normalized_name));
+  store.workdaySites = async enabled => (await sites(enabled)).filter(row => fixtureNames.has(row.normalized_name));
+  const captures = new Set(), saveCapture = store.saveCapture.bind(store);
+  store.saveCapture = async (...args) => { const saved = await saveCapture(...args); captures.add(saved.id); return saved; };
+  store.pendingCaptures = async (limit, sourceIds) => {
+    if (!captures.size) return [];
+    let query = db.from('pending_captures').select('*').in('id', [...captures]).order('fetched_at').limit(limit);
+    if (sourceIds) query = query.in('source_id', sourceIds);
+    const { data, error } = await query;
+    if (error) throw Error(error.message);
+    return data;
+  };
   // Real database assessments need real ordering: a frozen clock gives the initial and
   // contact-enriched rows identical timestamps, making latestScore ambiguous in Postgres.
   const now = () => new Date();
@@ -54,6 +131,18 @@ test('the store refuses remote projects unless explicitly allowed', () => {
   assert.throws(() => new SupabaseStore('https://fkhychihxpregusklggo.supabase.co', 'x'), /Refusing to write to remote Supabase project "fkhychihxpregusklggo"/);
   assert.equal(assertAllowedTarget('https://abc.supabase.co', 'abc'), 'https://abc.supabase.co');
   assert.equal(assertAllowedTarget('http://127.0.0.1:54321', undefined), 'http://127.0.0.1:54321');
+});
+
+test('archive candidate cache persists using existing captures and stays separate from live evidence', { skip }, async () => {
+  const store = new SupabaseStore(url, key);
+  const raw = JSON.stringify({ signature: `cache-test-${randomUUID()}`, tenants: [{ tenant: 'cachefixture', pod: 'wd5' }] });
+  const saved = await store.saveCapture({ source: 'workday-tenant-crawl', url: `https://index.commoncrawl.org/collinfo.json#${randomUUID()}`,
+    fetched_at: new Date().toISOString(), http_status: 200, content_type: 'application/json', raw,
+    fingerprint: createHash('sha256').update(raw).digest('hex'), meta: { kind: 'workday_index_cache' } }, null);
+  const cached = await store.tenantIndexCache('workday-tenant-crawl');
+  assert.equal(cached.id, saved.id);
+  assert.equal(cached.body, raw);
+  assert.equal((await store.captureById(saved.id)).source_id, 'workday-tenant-crawl');
 });
 
 test('due resolver attempts: persisted timestamps honor separate refresh and miss cutoffs', { skip }, async () => {
@@ -85,12 +174,19 @@ test('due resolver attempts: persisted timestamps honor separate refresh and mis
 test('full flow on the database: raw rows, sourced signals, pipeline companies, scored with reasons, run log; repeat adds nothing', { skip }, async () => {
   const names = randomNames(15, seed);
   const { ctx } = await freshWorld(names);
+  // Simulate a pipeline company left by a previous local test. It must not be
+  // scored or researched by this batch, even though its domain is fictional too.
+  const unrelatedId = await ctx.store.createPipelineCompany({ name: `Unrelated prior fixture ${seed}`, domain: `unrelated${seed}.example`, employee_count: null,
+    source: `https://unrelated${seed}.example/evidence` }, null, { signal_ids: [], normalized_name: null });
+  cleanupCompanies.push(unrelatedId);
   // An existing (non-pipeline) company whose website matches one tenant: boundary case.
   const boundaryDomain = domainOf(names[3]);
   const { data: existing } = await db.from('companies').insert({ name: `Boundary ${seed} Holdings`, domain: boundaryDomain }).select('id').single();
   await db.from('scores').insert({ company_id: existing.id, rubric_version: 'manual', tier: 'Maybe', authority_score: 20, authority_evidence: 'https://x.example | manual', reachability_score: 20, reachability_evidence: 'https://x.example | manual', budget_score: 10, budget_evidence: 'https://x.example | manual', release_score: 5, release_evidence: 'https://x.example | manual', timing_score: 5, timing_evidence: 'https://x.example | manual' });
 
   const report = await runPipeline(ctx, { plan: 'all', limit: 20, dryRun: false, trigger: 'manual' });
+  assert.equal(await ctx.store.latestScore(unrelatedId), null, 'older fictional companies are not scored');
+  assert.deepEqual(await ctx.store.contactsForCompany(unrelatedId), [], 'older fictional companies are not researched');
   assert.equal(report.jobs.filter(j => j.status === 'failed').length, 0, JSON.stringify(report.jobs.map(j => [j.job, j.status, j.errors.slice(0, 2)])));
 
   const { data: created } = await db.from('companies').select('id, name, domain, company_origins(origin)').in('domain', names.slice(0, 12).map(domainOf));

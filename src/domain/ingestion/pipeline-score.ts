@@ -11,7 +11,7 @@ import { authorityBand, classifyTitle } from "./titles.ts";
 // rubric's (src/domain/scoring). Rules the pipeline cannot evidence automatically (annual operating income, confirmed
 // release dates, a willing introducer) earn nothing and say so: "Needs evidence", never an invented fact or URL.
 // The rubric version decides the tier thresholds (src/domain/scoring/rubric.ts tierThresholdsFor).
-export const PIPELINE_POLICY_VERSION = "pipeline-v2";
+export const PIPELINE_POLICY_VERSION = "pipeline-v3";
 export const PIPELINE_RUBRIC_VERSION = `${TEAM_RUBRIC_70}:${PIPELINE_POLICY_VERSION}`;
 
 export const signalTypes = ["go_live", "hiring", "release_planning", "known_customer", "budget_clue", "event"] as const;
@@ -50,8 +50,9 @@ export type ScoringContact = {
   conviction?: { source: string; reason: string; date?: string | null } | null;
 };
 
-// Latest annual filing figures (USD) for Budget capacity. prior_* are the previous fiscal year, null when not reported.
-export type Financials = { fiscal_year_end: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string };
+// Latest annual filing figures for Budget capacity, in the filer's reporting currency. prior_* are the previous fiscal year, null when not reported.
+// pre_tax: the filer has no usable operating figure, so operating_income and its prior year hold pre-tax income instead.
+export type Financials = { fiscal_year_end: string; currency: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string; pre_tax?: boolean };
 
 // Company facts the rubric uses. Employee count earns the +3 Authority bonus only with a source link.
 export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; financials?: Financials | null };
@@ -126,9 +127,10 @@ export function reachabilityFromContacts(contacts: ScoringContact[]): CategoryRe
 }
 
 // ---------- Budget /20: financial capacity + the single highest technology-investment band (proxies) ----------
-const usd = (n: number) => `${n < 0 ? "-" : ""}$${(Math.abs(n) / 1e9 >= 1 ? `${(Math.abs(n) / 1e9).toFixed(1)}B` : `${(Math.abs(n) / 1e6).toFixed(0)}M`)}`;
+const money = (n: number, currency: string) => `${n < 0 ? "-" : ""}${currency === "USD" ? "$" : `${currency} `}${(Math.abs(n) / 1e9 >= 1 ? `${(Math.abs(n) / 1e9).toFixed(1)}B` : `${(Math.abs(n) / 1e6).toFixed(0)}M`)}`;
 
 // Rubric: positive annual operating income = 10, +1 revenue growth, +1 operating income growth. Not positive = 0.
+// Pre-tax income stands in, on the same bands, only for a filer with no usable operating figure.
 export function capacityPoints(f: Financials | null | undefined): number {
   if (!f || f.operating_income <= 0) return 0;
   return 10 + (f.revenue !== null && f.prior_revenue !== null && f.revenue > f.prior_revenue ? 1 : 0)
@@ -148,7 +150,8 @@ export function budgetFromSignals(signals: ScoringSignal[], now: Date, financial
   const capacity = capacityPoints(financials);
   const investment = best?.points ?? 0;
   const score = Math.min(rubric.budget.weight, capacity + investment);
-  const filing = financials ? `${capacity ? "positive " : "non-positive "}operating income ${usd(financials.operating_income)} (FY ending ${financials.fiscal_year_end})` : "operating income not collected";
+  const figure = financials?.pre_tax ? "pre-tax income" : "operating income";
+  const filing = financials ? `${capacity ? "positive " : "non-positive "}${figure} ${money(financials.operating_income, financials.currency)} (FY ending ${financials.fiscal_year_end}${financials.pre_tax ? ", no current operating income figure" : ""})` : "operating income not collected";
   // The filing is the larger, verifiable part; the investment signal's link is used only when there is no capacity.
   const source = capacity > 0 && financials ? financials.source_url : best?.signal.source_url ?? financials!.source_url;
   return { score, source, status: !financials ? "partial" : score ? "met" : "not_met", detail: { capacity, investment },

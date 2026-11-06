@@ -47,13 +47,10 @@ export function sitesFromRobots(body: string, tenant: string, pod: string): stri
 const NON_PRIMARY = /intern|early.?career|executive|confidential|internal|alumni|talent.?community|research|campus|futureforce|agency|contractor|universit|fast.?track|emerging|graduate|student|apprentic|university/i;
 const PRIMARY_HINT = /career|external|jobs|search/i;
 
-// A site named after its tenant: "ShellCareers" or "Shell_Jobs" for tenant shell.
-export function tenantBrandedSite(site: string, tenant = ""): boolean {
+export function tenantBrandedSite(site: string, tenant: string): boolean {
   const brand = tenant.toLowerCase().replace(/-/g, "");
-  const compact = site.toLowerCase().replace(/[_-]/g, "");
-  if (!brand) return false;
-  if (compact === brand) return true;
-  return compact.startsWith(brand) && /^(careers?|jobs?|external|search)/.test(compact.slice(brand.length));
+  const name = site.toLowerCase().replace(/[_-]/g, "");
+  return !!brand && (name === brand || name.startsWith(brand) && /^(careers?|jobs?|external|search)/.test(name.slice(brand.length)));
 }
 
 // One site per tenant: the main external one.
@@ -64,6 +61,7 @@ export function rankedSites(sites: string[], tenant = ""): string[] {
   const unique = [...new Set(sites)].filter(site => /^[A-Za-z0-9_-]+$/.test(site));
   const main = unique.filter(site => !NON_PRIMARY.test(branded(site) ? compact(site).slice(brand.length) : site));
   const pool = main.length ? main : unique;
+
   // A site whose name starts every other site name is the base site ("Workday" vs "Workday_Jobs").
   const base = pool.find(site => pool.every(other => other.toLowerCase().startsWith(site.toLowerCase())));
   const score = (site: string) => site === base && pool.length > 1 ? 0 : branded(site) ? 1 : PRIMARY_HINT.test(site) ? 2 : 3;
@@ -88,11 +86,15 @@ export function fail(result: CollectResult, failure: HttpFail): boolean {
 
 type SecEntry = { title: string; ticker?: string; cik_str?: number };
 
-// Names for the resolver, in SEC list order (roughly largest first), from the latest SEC capture.
-export async function resolverNames(ctx: PipelineContext, max: number): Promise<{ name: string; normalized: string }[]> {
-  // Prefer the list collected in this run: an unchanged list reuses an older row, so "latest" can be stale.
+// Prefer the list collected in this run: an unchanged list reuses an older row, so "latest" can be stale.
+export async function secListCapture(ctx: PipelineContext) {
   const collectedId = ctx.collected?.["sec-company-list"];
-  const capture = (collectedId ? await ctx.store.captureById(collectedId) : null) ?? await ctx.store.latestCapture("sec-company-list");
+  return (collectedId ? await ctx.store.captureById(collectedId) : null) ?? await ctx.store.latestCapture("sec-company-list");
+}
+
+// Names for the resolver, in SEC list order (roughly largest first), from the latest SEC capture.
+export async function resolverNames(ctx: PipelineContext, max: number, excluded: ReadonlySet<string> = new Set()): Promise<{ name: string; normalized: string }[]> {
+  const capture = await secListCapture(ctx);
   if (!capture) return [];
   let entries: SecEntry[] = [];
   try { entries = Object.values(JSON.parse(capture.body) as Record<string, SecEntry>); } catch { return []; }
@@ -101,7 +103,7 @@ export async function resolverNames(ctx: PipelineContext, max: number): Promise<
   const candidates: { name: string; normalized: string }[] = [];
   for (const entry of entries) {
     const normalized = normalizeName(entry?.title);
-    if (!normalized || seen.has(normalized) || isExcludedCompany(entry.title)) continue;
+    if (!normalized || seen.has(normalized) || excluded.has(normalized) || isExcludedCompany(entry.title)) continue;
     seen.add(normalized);
     candidates.push({ name: entry.title, normalized });
   }
@@ -119,14 +121,21 @@ export async function resolverNames(ctx: PipelineContext, max: number): Promise<
 
 // Interleave new names with the oldest due attempts. Rechecks must not consume
 // the whole candidate batch and prevent discovery from moving through the SEC list.
-export async function resolverCandidates(ctx: PipelineContext, max: number) {
+export async function resolverCandidates(ctx: PipelineContext, max: number, discoveryOnly = false) {
   if (max <= 0) return [];
   const day = 86400000, now = ctx.now().getTime();
-  const fresh = await resolverNames(ctx, max);
+  const excluded = new Set<string>();
+  if (discoveryOnly) {
+    const [companies, sites, reviews] = await Promise.all([ctx.store.companies(), ctx.store.workdaySites(false), ctx.store.reviewItems()]);
+    for (const c of companies) excluded.add(normalizeName(c.name));
+    for (const s of sites) excluded.add(s.normalized_name);
+    for (const r of reviews) excluded.add(r.normalized_name);
+  }
+  const fresh = await resolverNames(ctx, max, excluded);
   const due = (await ctx.store.dueResolverAttempts({
     foundBefore: new Date(now - RESOLVER_REFRESH_DAYS * day).toISOString(),
     missBefore: new Date(now - RESOLVER_MISS_RETRY_DAYS * day).toISOString(),
-  }, max)).filter(a => !isExcludedCompany(a.company_name))
+  }, max + excluded.size)).filter(a => !excluded.has(a.normalized_name) && !isExcludedCompany(a.company_name))
     .map(a => ({ name: a.company_name, normalized: a.normalized_name }));
   const selected: typeof fresh = [];
   for (let i = 0; selected.length < max && (i < fresh.length || i < due.length); i++) {
@@ -145,7 +154,7 @@ export class WorkdayResolver implements Collector {
     // Full-name guesses include the observed wd503 pod; weaker first-word guesses stay bounded to three.
     const podsFor = (kind: string) => WORKDAY_PODS.slice(0, kind === "full_name" ? Number(source.config.full_name_pods ?? 7) : Number(source.config.first_word_pods ?? 3));
     // limit = sites to find; about one name in four has a guessable tenant, so up to six names per wanted site are tried.
-    const names = await resolverCandidates(ctx, limits.maxItems * Number(source.config.names_per_site ?? 6));
+    const names = await resolverCandidates(ctx, limits.maxItems * Number(source.config.names_per_site ?? 6), source.config.discovery_only === true);
     const knownSites = await ctx.store.workdaySites(true);
     const corporateEnabled = source.config.corporate_discovery === true;
     const companies = corporateEnabled ? await ctx.store.companies() : [];
@@ -199,6 +208,7 @@ export class WorkdayResolver implements Collector {
         if (!found && discovered.incomplete) {
           transient = true;
           result.errors.push({ url: discovered.errors[0]?.url ?? "corporate-discovery", kind: "corporate_access", message: discovered.errors.map(e => e.error).slice(0, 3).join("; ") || "corporate request budget exhausted" });
+
         }
       }
       if (found) foundNames++;
@@ -241,6 +251,7 @@ export class WorkdayJobs implements Collector {
         const capture = await ctx.store.captureById(seed.capture_id);
         if (capture?.url === `${origin(seed.tenant, seed.pod)}/robots.txt` && capture.http_status === 200) observed.push(...sitesFromRobots(capture.body, seed.tenant, seed.pod));
         else if (capture?.http_status === 200 && /text\/html|application\/xhtml\+xml/i.test(capture.content_type ?? "")) observed.push(...corporateWorkdayLinks(capture.body, capture.url, seed.company_name).filter(link => link.tenant === seed.tenant && link.pod === seed.pod).map(link => link.site));
+
       }
       const disabled = new Set(allSites.filter(s => !s.enabled && s.tenant === seed.tenant && s.pod === seed.pod).map(s => s.site));
       const ranked = rankedSites(observed.filter(s => !disabled.has(s)), seed.tenant);
@@ -265,21 +276,36 @@ export class WorkdayJobs implements Collector {
           const total = (page.json as { total?: number }).total ?? 0;
           if (list.length < WORKDAY_PAGE_SIZE || offset + WORKDAY_PAGE_SIZE >= Math.min(total || 0, WORKDAY_OFFSET_CAP)) break;
         }
-        if (listFailed) break;
+        if (listFailed) {
+          // Record the attempted check so one failing tenant cannot monopolize later batches.
+          // This is not a successful check or an admission/identity decision.
+          if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "errors", ctx.now().toISOString());
+          break;
+        }
         if (!postings.length) {
           // No keyword hits does not mean the site is empty. Only a successful unfiltered
           // empty response allows trying the next observed site.
           if (searchText) {
             const available = await http.request(`${base}/jobs`, { method: "POST", expect: "json", json: { appliedFacets: {}, limit: 1, offset: 0, searchText: "" } });
-            if (!available.ok) { fail(result, available); break; }
+            if (!available.ok) {
+              fail(result, available);
+              if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "errors", ctx.now().toISOString());
+              break;
+            }
             const jobs = (available.json as { jobPostings?: unknown }).jobPostings;
-            if (!Array.isArray(jobs)) { fail(result, { ok: false, kind: "unavailable", status: available.status, message: "jobs response has no jobPostings array", url: available.url }); break; }
+            if (!Array.isArray(jobs)) {
+              fail(result, { ok: false, kind: "unavailable", status: available.status, message: "jobs response has no jobPostings array", url: available.url });
+              if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "errors", ctx.now().toISOString());
+              break;
+            }
             if (jobs.length) {
               if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "0 matching postings; site has jobs", ctx.now().toISOString());
               break;
             }
           }
           if (!limits.dryRun && site.id) await ctx.store.markSiteChecked(site.id, "empty site", ctx.now().toISOString());
+          // An empty branded site does not authorize collecting an unrelated sibling employer.
+          if (tenantBrandedSite(site.site, site.tenant)) break;
           continue;
         }
         if (!site.id && !limits.dryRun) {
@@ -302,6 +328,7 @@ export class WorkdayJobs implements Collector {
       }
     }
     result.requests = http.requests;
+    if (ctx.signal?.aborted) result.blocked = "source time budget reached";
     return result;
   }
 }

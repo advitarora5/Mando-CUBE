@@ -1,48 +1,78 @@
-// Budget capacity inputs from SEC XBRL "company facts": annual operating income and revenue from the latest 10-K/20-F.
-// A company is matched by exact normalized name to one SEC CIK; anything ambiguous, foreign (IFRS), stale or missing
-// returns null and Budget stays "Needs evidence" for that part. Never estimated.
+// Budget capacity inputs from SEC XBRL "company facts": annual operating income and revenue from the latest 10-K/20-F/40-F,
+// under US GAAP or IFRS, in whatever currency the filer reports. Capacity asks only "positive?" and "grew?", so nothing
+// is converted: years are compared within one currency. A company is matched by exact normalized name to one SEC CIK;
+// anything ambiguous, stale or missing returns null and Budget stays "Needs evidence" for that part. Never estimated.
+// A filer with no usable operating figure (banks and insurers often have none) falls back to pre-tax income, labeled as such.
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { Financials } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineContext } from "./types.ts";
 
-const OPERATING = ["OperatingIncomeLoss"];
-const REVENUE = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"];
+type Concept = [taxonomy: string, tag: string];
+const OPERATING: Concept[] = [["us-gaap", "OperatingIncomeLoss"], ["ifrs-full", "ProfitLossFromOperatingActivities"]];
+const PRE_TAX: Concept[] = [
+  ["us-gaap", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"],
+  ["us-gaap", "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"],
+  ["us-gaap", "IncomeLossIncludingPortionAttributableToNoncontrollingInterestBeforeIncomeTaxes"],
+  ["ifrs-full", "ProfitLossBeforeTax"],
+];
+const REVENUE: Concept[] = [
+  ["us-gaap", "Revenues"], ["us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"], ["us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax"], ["us-gaap", "SalesRevenueNet"],
+  ["ifrs-full", "Revenue"], ["ifrs-full", "RevenueFromContractsWithCustomers"],
+];
+const CURRENCY = /^[A-Z]{3}$/; // ISO codes only: units also include "shares", "pure" and "USD/shares"
 const MAX_AGE_DAYS = 548; // newest fiscal year must have ended within ~18 months
 const days = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 86400000;
 
 type Fact = { start?: string; end: string; val: number; form: string; filed: string; accn: string };
 type Year = { end: string; val: number; accn: string };
-type Facts = { "us-gaap"?: Record<string, { units?: { USD?: Fact[] } }> } | null | undefined;
+type Series = { currency: string; years: Year[] };
+type Facts = Record<string, Record<string, { units?: Record<string, Fact[]> }> | undefined> | null | undefined;
 
 // One value per fiscal year end (latest filing wins), annual durations only, newest first.
-function annualSeries(facts: Facts, tag: string): Year[] {
-  const rows = facts?.["us-gaap"]?.[tag]?.units?.USD ?? [];
+function annualSeries(rows: Fact[]): Year[] {
   const byEnd = new Map<string, Fact>();
   for (const r of rows) {
-    if (!r.start || !/^(10-K|20-F)/.test(r.form) || days(r.start, r.end) < 340 || days(r.start, r.end) > 390) continue;
+    if (!r.start || !/^(10-K|20-F|40-F)/.test(r.form) || days(r.start, r.end) < 340 || days(r.start, r.end) > 390) continue;
     const kept = byEnd.get(r.end);
     if (!kept || r.filed > kept.filed) byEnd.set(r.end, r);
   }
   return [...byEnd.values()].sort((a, b) => b.end.localeCompare(a.end)).map(r => ({ end: r.end, val: r.val, accn: r.accn }));
 }
 
-// Several tags can describe revenue and old ones go stale (a tag may stop years ago): take the one with the newest year.
-function newest(facts: Facts, tags: string[]): Year[] {
-  return tags.map(tag => annualSeries(facts, tag)).filter(s => s.length).sort((a, b) => b[0].end.localeCompare(a[0].end))[0] ?? [];
+// One concept's series, in its most current currency (a filer can change reporting currency, or add a short translation).
+function conceptSeries(facts: Facts, [taxonomy, tag]: Concept, currency?: string): Series | null {
+  return Object.entries(facts?.[taxonomy]?.[tag]?.units ?? {})
+    .filter(([unit]) => CURRENCY.test(unit) && (!currency || unit === currency))
+    .map(([unit, rows]) => ({ currency: unit, years: annualSeries(rows) }))
+    .filter(s => s.years.length)
+    .sort((a, b) => b.years[0].end.localeCompare(a.years[0].end) || b.years.length - a.years.length)[0] ?? null;
 }
+
+// Several tags can describe a figure and old ones go stale (a tag may stop years ago): take the one with the newest year.
+function newest(facts: Facts, concepts: Concept[], currency?: string): Series | null {
+  return concepts.map(concept => conceptSeries(facts, concept, currency)).filter((s): s is Series => !!s).sort((a, b) => b.years[0].end.localeCompare(a.years[0].end))[0] ?? null;
+}
+const isCurrent = (series: Series | null, now: Date): series is Series => !!series && days(series.years[0].end, now.toISOString().slice(0, 10)) <= MAX_AGE_DAYS;
 const priorOf = (series: Year[]) => series.find(y => days(y.end, series[0].end) > 350 && days(y.end, series[0].end) < 380)?.val ?? null;
 
 export function parseFinancials(rawFacts: unknown, cik: number, now: Date): Financials | null {
   const facts = rawFacts as Facts;
-  const op = newest(facts, OPERATING);
-  if (!op.length || days(op[0].end, now.toISOString().slice(0, 10)) > MAX_AGE_DAYS) return null;
-  const rev = newest(facts, REVENUE);
-  // Revenue must be for the same fiscal year as operating income, or its growth says nothing about it.
-  const sameYear = rev.length && rev[0].end === op[0].end;
+  const operating = newest(facts, OPERATING);
+  // Some banks tag total income as their operating figure (ING: both EUR 25.68B, pre-tax profit EUR 11.79B). That is not profit.
+  const revenueLatest = (series: Series) => newest(facts, REVENUE, series.currency)?.years[0];
+  const isTotalIncome = (series: Series) => { const r = revenueLatest(series); return r?.end === series.years[0].end && r.val === series.years[0].val; };
+  const usable = isCurrent(operating, now) && !isTotalIncome(operating) ? operating : null;
+  const income = usable ?? newest(facts, PRE_TAX);
+  if (!isCurrent(income, now)) return null;
+  const years = income.years;
+  const rev = newest(facts, REVENUE, income.currency)?.years ?? [];
+  // Revenue must be for the same fiscal year as the income figure, or its growth says nothing about it.
+  const sameYear = rev.length && rev[0].end === years[0].end;
   return {
-    fiscal_year_end: op[0].end, operating_income: op[0].val, prior_operating_income: priorOf(op),
+    fiscal_year_end: years[0].end, currency: income.currency, operating_income: years[0].val, prior_operating_income: priorOf(years),
     revenue: sameYear ? rev[0].val : null, prior_revenue: sameYear ? priorOf(rev) : null,
-    source_url: `https://www.sec.gov/Archives/edgar/data/${cik}/${op[0].accn.replace(/-/g, "")}/`,
+    source_url: `https://www.sec.gov/Archives/edgar/data/${cik}/${years[0].accn.replace(/-/g, "")}/`,
+    ...(usable ? {} : { pre_tax: true }),
   };
 }
 
@@ -63,30 +93,53 @@ export function cikIndex(secListJson: string): Map<string, number> {
   return index;
 }
 
-const cache = new WeakMap<PipelineContext, { index: Map<string, number> | null; byCik: Map<number, Financials | null> }>();
+// Why a company has filing figures or not. The run reports these counts, so missing capacity is never silent.
+export type FinancialsStatus = "found" | "no_contact" | "no_sec_list" | "fetch_failed" | "no_sec_match" | "no_filing_facts" | "no_operating_income" | "stale_filing";
+export type FinancialsLookup = { financials: Financials | null; status: FinancialsStatus; requests: number };
 
-// Financials for one company, or null. Needs the SEC list capture and PIPELINE_CONTACT (the SEC answers 403 without one).
-export async function financialsFor(ctx: PipelineContext, companyName: string): Promise<Financials | null> {
-  if (!ctx.contact) return null;
+// The lookup could not run, which says nothing about the company. Every other status is an answer about its filings.
+export const financialsUnavailable = (status: FinancialsStatus) => status === "no_contact" || status === "no_sec_list" || status === "fetch_failed";
+
+export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<FinancialsLookup, "financials" | "status"> {
+  const financials = parseFinancials(rawFacts, cik, now);
+  if (financials) return { financials, status: "found" };
+  const facts = rawFacts as Facts;
+  // Banks and insurers often report no operating income. It is not estimated.
+  if (!facts?.["us-gaap"] && !facts?.["ifrs-full"]) return { financials: null, status: "no_filing_facts" };
+  const figure = newest(facts, OPERATING) ?? newest(facts, PRE_TAX);
+  return { financials: null, status: figure && !isCurrent(figure, now) ? "stale_filing" : "no_operating_income" };
+}
+
+type LookupState = { index: Map<string, number> | null; byCik: Map<number, Pick<FinancialsLookup, "financials" | "status">>; stopped: boolean };
+const cache = new WeakMap<PipelineContext, LookupState>();
+
+// Financials for one company, with the reason when there are none. Needs the SEC list capture and PIPELINE_CONTACT
+// (the SEC answers 403 without one). The first failed SEC call stops further calls for this context.
+export async function lookupFinancials(ctx: PipelineContext, companyName: string): Promise<FinancialsLookup> {
+  if (!ctx.contact) return { financials: null, status: "no_contact", requests: 0 };
   let state = cache.get(ctx);
-  if (!state) { state = { index: null, byCik: new Map() }; cache.set(ctx, state); }
+  if (!state) { state = { index: null, byCik: new Map(), stopped: false }; cache.set(ctx, state); }
   if (!state.index) {
     const capture = await ctx.store.latestCapture("sec-company-list");
     state.index = capture ? cikIndex(capture.body) : new Map();
   }
+  if (!state.index.size) return { financials: null, status: "no_sec_list", requests: 0 };
   const cik = state.index.get(normalizeName(companyName));
-  if (!cik) return null;
-  if (state.byCik.has(cik)) return state.byCik.get(cik)!;
-  let found: Financials | null = null;
+  if (!cik) return { financials: null, status: "no_sec_match", requests: 0 };
+  const known = state.byCik.get(cik);
+  if (known) return { ...known, requests: 0 };
+  if (state.stopped) return { financials: null, status: "fetch_failed", requests: 0 };
+  let found: Pick<FinancialsLookup, "financials" | "status"> = { financials: null, status: "fetch_failed" };
   try {
     // The SEC wants "Name contact" as the User-Agent; the pipeline's standard agent string is answered with 403.
     const res = await ctx.fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${String(cik).padStart(10, "0")}.json`, {
       headers: { "user-agent": `Mando-CUBE ${ctx.contact}`, accept: "application/json" }, signal: AbortSignal.timeout(30000),
     });
-    if (res.ok) found = parseFinancials(((await res.json()) as { facts?: unknown }).facts, cik, ctx.now());
-    else ctx.log.warn(`SEC company facts ${cik}: HTTP ${res.status}`);
-  } catch (error) { ctx.log.warn(`SEC company facts ${cik}: ${(error as Error).message}`); }
+    if (res.ok) found = classifyFacts(((await res.json()) as { facts?: unknown }).facts, cik, ctx.now());
+    else if (res.status === 404) found = { financials: null, status: "no_filing_facts" }; // the SEC has no XBRL facts for this CIK
+    else { ctx.log.warn(`SEC company facts ${cik}: HTTP ${res.status}`); state.stopped = true; }
+  } catch (error) { ctx.log.warn(`SEC company facts ${cik}: ${(error as Error).message}`); state.stopped = true; }
   await ctx.sleep(150); // SEC fair access: at most 10 requests a second
   state.byCik.set(cik, found);
-  return found;
+  return { ...found, requests: 1 };
 }

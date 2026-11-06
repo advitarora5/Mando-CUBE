@@ -2,6 +2,9 @@
 // Every collector must stop cleanly and report, never crash or retry forever.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PoliteHttp, parseRobots, robotsAllows } from '../../src/pipeline/http.ts';
 import { WorkdayJobs, WorkdayResolver, sitesFromRobots, primarySites } from '../../src/pipeline/collectors/workday.ts';
 import { SecCompanyList, TregReddit } from '../../src/pipeline/collectors/sources.ts';
@@ -12,6 +15,24 @@ const limits = { maxRequests: 50, maxItems: 20, minDelayMs: 1000, dryRun: false 
 const source = id => DEFAULT_SOURCES.find(s => s.id === id);
 const CAPTCHA_PAGE = '<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><div id="challenge-platform">Verify you are human</div></body></html>';
 const UNAVAILABLE_PAGE = '<!doctype html><html><body><h1>Workday is currently unavailable</h1><p>Scheduled maintenance.</p></body></html>';
+
+test('a failed jobs endpoint rotates behind unchecked tenants on the next batch', async () => {
+  const store = new MemoryStore();
+  for (const tenant of ['aaa', 'bbb']) await store.upsertWorkdaySite({ tenant, pod: 'wd5', site: 'Careers', company_name: tenant, normalized_name: tenant, match_kind: 'full_name', discovered_from: 'test', capture_id: null });
+  const fetch = fakeFetch([
+    { match: /robots\.txt$/, respond: () => response(200, 'User-agent: *\nAllow: /') },
+    { match: /aaa.*\/jobs$/, respond: () => response(500, 'temporary outage') },
+    { match: /bbb.*\/jobs$/, respond: () => response(200, { jobPostings: [], total: 0 }) },
+  ]);
+  const ctx = makeCtx({ store, fetch });
+  const config = { ...source('workday-career-sites'), config: { search_text: '' } };
+  await new WorkdayJobs().collect(config, { ...limits, maxItems: 1 }, ctx);
+  assert.equal(store.sites.find(s => s.tenant === 'aaa').last_status, 'errors');
+  const before = fetch.calls.length;
+  await new WorkdayJobs().collect(config, { ...limits, maxItems: 1 }, ctx);
+  assert.ok(fetch.calls.slice(before).some(c => /bbb.*\/jobs$/.test(c.url)));
+  assert.ok(fetch.calls.slice(before).every(c => !c.url.includes('aaa.')));
+});
 
 async function storeWithSite() {
   const store = new MemoryStore();
@@ -207,6 +228,28 @@ test('SEC list: needs a contact (403 policy), validates the shape, and reads a l
   assert.equal(tiny.errors[0].kind, 'unavailable');
   const blocked = await new SecCompanyList().collect(source('sec-company-list'), limits, makeCtx({ fetch: fakeFetch([{ match: /robots/, respond: () => response(403, 'Undeclared Automated Tool') }]) }));
   assert.match(blocked.blocked ?? '', /blocked/, 'regression: robots 403 is a block, not a silent disallow');
+});
+
+test('SEC list: a live refusal falls back to the saved copy so discovery and filing lookups keep working', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mando-sec-'));
+  const file = join(dir, 'sec.json');
+  writeFileSync(file, JSON.stringify(Object.fromEntries(Array.from({ length: 150 }, (_, i) => [i, { cik_str: i + 1, ticker: `T${i}`, title: `Fictional Company ${i}` }]))));
+  const before = process.env.PIPELINE_SEC_FILE;
+  process.env.PIPELINE_SEC_FILE = file;
+  try {
+    const refused = fakeFetch([{ match: /robots/, respond: () => response(403, 'Undeclared Automated Tool') }]);
+    const out = await new SecCompanyList().collect(source('sec-company-list'), limits, makeCtx({ fetch: refused }));
+    assert.equal(out.items.length, 1);
+    assert.equal(out.items[0].meta.from_file, true);
+    assert.equal(out.blocked, null);
+    assert.deepEqual(out.errors, []);
+    // When the live list answers, it is still preferred over the saved copy.
+    const live = await new SecCompanyList().collect(source('sec-company-list'), limits, makeCtx({ fetch: worldFetch({}) }));
+    assert.equal(live.items[0].meta.from_file, undefined);
+  } finally {
+    if (before === undefined) delete process.env.PIPELINE_SEC_FILE; else process.env.PIPELINE_SEC_FILE = before;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('treg Reddit: skipped without budget, 402 stops paid work, success stores the feed as received', async () => {

@@ -60,6 +60,18 @@ test('completed misses are retried at thirty days, not on every run', async () =
   assert.equal((await resolverCandidates(ctx, 1))[0].name, name);
 });
 
+test('growth discovery skips admitted companies and all site/review decisions while maintenance still refreshes', async () => {
+  const names = ['Existing Inc', 'Disabled Site Inc', 'Rejected Inc', 'Fresh Alpha Inc', 'Fresh Beta Inc'];
+  const { ctx, store, now } = await setup(names);
+  store.companies = async () => [{ name: names[0] }];
+  store.workdaySites = async () => [{ normalized_name: 'disabled site', enabled: false }];
+  store.reviewItems = async () => [{ normalized_name: 'rejected', status: 'rejected' }];
+  await store.saveResolverAttempt({ normalized_name: 'existing', company_name: names[0], found: true, probes: 1 });
+  now.advanceDays(30);
+  assert.deepEqual((await resolverCandidates(ctx, 2, true)).map(c => c.name), names.slice(3));
+  assert.deepEqual((await resolverCandidates(ctx, 2)).map(c => c.name), [names[1], names[0]]);
+});
+
 test('new discoveries alternate with due rechecks; successful sites get refresh priority over old misses', async () => {
   const names = ['New Alpha Inc', 'New Beta Inc', 'Old Miss Inc', 'Old Success Inc'];
   const { ctx, store, now } = await setup(names);

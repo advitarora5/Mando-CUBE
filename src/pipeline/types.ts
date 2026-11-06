@@ -35,6 +35,7 @@ export type RawItem = {
 export type CollectLimits = { maxRequests: number; maxItems: number; minDelayMs: number; dryRun: boolean };
 
 export type CollectResult = {
+  cache_hit?: boolean;
   items: RawItem[];
   requests: number;
   // A source stopped early because it blocked us, showed a CAPTCHA or an "unavailable" page.
@@ -170,6 +171,7 @@ export interface PipelineStore {
 
   saveCapture(item: RawItem, runId: string | null): Promise<{ id: string; inserted: boolean }>;
   latestCapture(sourceId: string): Promise<CaptureRow | null>;
+  tenantIndexCache(sourceId: string): Promise<CaptureRow | null>;
   captureById(id: string): Promise<CaptureRow | null>;
   pendingCaptures(limit: number, sourceIds?: string[]): Promise<CaptureRow[]>;
   saveExtraction(record: ExtractionRecord): Promise<string>;
@@ -235,11 +237,12 @@ export type PipelineContext = {
   now: () => Date;
   log: Logger;
   fetch: typeof fetch;
+  signal?: AbortSignal; // optional cooperative deadline for one source
   lookupHost?: (host: string) => Promise<{ address: string; family: number }[]>;
   treg: TregTransport | null;
   llm: LLMProvider | null;
   spend: SpendGuard;
-  contact: string; // sent in every collector User-Agent
+  contact: string; // sent in the User-Agent to sec.gov only; see crawlerUserAgent
   sleep: (ms: number) => Promise<void>;
   runId: string | null;
   // Capture each source produced (new or reused unchanged) in this run, so later stages read today's data.

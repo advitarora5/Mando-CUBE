@@ -1,19 +1,21 @@
 // The pipeline stages. Each one reads from and writes to the store only, so any stage can run on its own.
 // Failures are counted and logged per item; a stage never throws out of a run.
+import { createHash } from "node:crypto";
 import { companyAliases } from "../data/company-aliases.ts";
-import { decideMatch, TRUSTED_CONFIDENCE } from "../domain/ingestion/matching.ts";
+import { decideMatch } from "../domain/ingestion/matching.ts";
 import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
-import { financialsFor } from "./financials.ts";
+import { financialsUnavailable, lookupFinancials } from "./financials.ts";
 import { isSignalFresh, mayScore } from "../domain/ingestion/settings.ts";
 import { categories } from "../domain/contracts/company.ts";
 import { resolveWebsite, WebsiteHttp, WEBSITE_LIMIT, websiteSignature, loadEmployerLinks, confirmedName } from "./website.ts";
 import { collectors } from "./collectors/sources.ts";
 import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
-import { assertLocalAdmissionStore, type LocalIdentityAdmission } from "./local-identity-admission.ts";
+import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
-export type StageResult = { counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
+// candidate_keys: short hashes of the names a match pass checked, so a batch can count unique candidates without listing them.
+export type StageResult = { cache_hit?: boolean; candidate_keys?: string[]; counts: RunCounts; errors: string[]; blocked: string | null; requests: number; llm_spend_usd: number; treg_spend_usd: number };
 const result = (): StageResult => ({ counts: {}, errors: [], blocked: null, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0 });
 const bump = (r: StageResult, key: string, n = 1) => { r.counts[key] = (r.counts[key] ?? 0) + n; };
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -29,6 +31,7 @@ export async function collectStage(ctx: PipelineContext, source: SourceRow, opts
   try { collected = await collector.collect(source, limits, ctx); }
   catch (error) { r.errors.push(`collector crashed: ${message(error)}`); return r; }
   r.requests = collected.requests;
+  r.cache_hit = collected.cache_hit;
   r.treg_spend_usd = collected.spend_usd;
   r.blocked = collected.blocked;
   for (const e of collected.errors) { bump(r, `error_${e.kind}`); if (r.errors.length < 20) r.errors.push(`${e.kind} ${e.url}: ${e.message}`); }
@@ -110,19 +113,23 @@ export async function extractStage(ctx: PipelineContext, opts: { limit: number; 
 // Display name: SEC titles arrive in capitals ("MARSH & MCLENNAN COMPANIES, INC."); prefer the resolver's spelling.
 export function displayName(name: string, resolved: string | null): string {
   if (resolved && normalizeName(resolved) && isSimilarName(resolved, name)) return resolved;
-  const trimmed = name.replace(/\s*\/[A-Z]{2}\/?\s*$/, "").trim();
+  const trimmed = name.replace(/\s*\/[a-z]{2,3}\/?\s*$/i, "").trim();
   if (trimmed !== trimmed.toUpperCase()) return trimmed;
-  // All capitals (SEC style): title-case each word, but keep a short leading acronym (ASML, KLA, 3M) and NV/SA/AG/SE.
-  const keepUpper = new Set(["NV", "SA", "AG", "SE", "LP", "LLC"]);
+  // All capitals (SEC style): title-case each word, but keep a short leading acronym (KLA, 3M, ASML) and legal forms.
+  // Four-letter leading words are almost always ordinary ones (BANK, HOME, FORD), so only known acronyms stay capitalized.
+  const keepUpper = new Set(["NV", "SA", "AG", "SE", "LP", "LLC", "PLC", "ASA"]);
+  const plainWords = new Set(["THE", "NEW", "OLD", "AIR", "BIG", "ALL", "ONE", "TWO", "TOP", "SUN", "RED", "OAK"]);
+  const lowerWords = new Set(["OF", "AND", "FOR", "THE"]);
   return trimmed.split(/(\s+)/).map((word, i) => {
     const bare = word.replace(/[^A-Z0-9]/g, "");
-    if (keepUpper.has(bare) || (i === 0 && bare.length > 0 && bare.length <= 4 && bare !== "THE")) return word;
+    if (keepUpper.has(bare) || (i === 0 && ((bare.length > 0 && bare.length <= 3 && !plainWords.has(bare)) || bare === "ASML"))) return word;
+    if (i > 0 && lowerWords.has(bare)) return word.toLowerCase();
     return word.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
   }).join("");
 }
 
 export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean; localIdentity?: LocalIdentityAdmission } = {}): Promise<StageResult> {
-  if (opts.localIdentity) assertLocalAdmissionStore(ctx);
+  if (opts.localIdentity) assertIdentityAdmissionContext(ctx, opts.localIdentity);
   const r = result();
   const settings = await ctx.store.settings();
   const allReviews = await ctx.store.reviewItems();
@@ -140,6 +147,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
   }
   if (opts.localIdentity) for (const name of groups.keys()) if (!opts.localIdentity.names.has(name)) groups.delete(name);
   bump(r, "candidates", groups.size);
+  r.candidate_keys = [...groups.keys()].map(name => createHash("sha256").update(name).digest("hex").slice(0, 16));
   let created = 0, lookups = 0;
   const deadline = Date.now() + (opts.localIdentity ? 30 : 5) * 60 * 1000;
   const initialSpend = ctx.spend.spent("treg");
@@ -186,13 +194,20 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
           await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id });
           if (lookup.status === "confirmed" && await ctx.store.fillReviewWebsite(waiting.id, lookup.domain!)) bump(r, "review_websites_confirmed");
         }
+        bump(r, "pending_reason_similar_name");
         bump(r, "joined_pending_review"); continue;
       }
-      const best = Math.max(0, ...signals.filter(s => isSignalFresh(s, settings, ctx.now())).map(s => s.confidence));
       // A slug-derived name (Common Crawl tenant) is replaced by the name the confirmed website uses.
-      const pageName = candidateSites.some(s => s.match_kind === "first_word") ? confirmedName(lookup) : null;
-      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", best_confidence: best }, known,
-        { canCreate: created < settings.max_new_companies_per_run, identityVerified: !!opts.localIdentity && lookup.status === "confirmed" }, companyAliases);
+      const nameIsGuess = candidateSites.some(s => s.match_kind === "first_word");
+      const pageName = nameIsGuess ? confirmedName(lookup) : null;
+      const freshEvidence = signals.some(s => isSignalFresh(s, settings, ctx.now()));
+      // AI confirmation already read current postings and checked a guessed name against them.
+      // Direct-link confirmation needs fresh evidence and, for a guessed tenant, the company's name on its
+      // website: emerson.edu linking the "emerson" tenant says nothing about Emerson Electric.
+      const workdayVerified = opts.localIdentity ? lookup.status === "confirmed" : freshEvidence && (!nameIsGuess || !!pageName);
+      const decision = decideMatch({ name, domain: lookup.domain, domain_confirmed: lookup.status === "confirmed", workday_verified: workdayVerified }, known,
+        { canCreate: created < settings.max_new_companies_per_run }, companyAliases);
+
       if (opts.dryRun) { bump(r, `would_${decision.action}`); continue; }
       if (decision.action === "skip") { bump(r, "excluded"); continue; }
       const source = signals.find(s => s.type === "known_customer" && /^https:\/\//.test(s.source_url))?.source_url ?? signals.find(s => /^https:\/\//.test(s.source_url))?.source_url;
@@ -209,6 +224,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
           bump(r, "recovered_reviews");
         } else {
           await ctx.store.updatePendingReview(waiting.id, { candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, reason: decision.reason, suggested_company_id: decision.suggested_company_id });
+          bump(r, `pending_reason_${decision.reason}`);
           bump(r, "joined_pending_review");
         }
       } else if (decision.action === "attach") {
@@ -227,7 +243,6 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         bump(r, item.inserted ? `review_${decision.reason}` : "review_existing");
       }
       if (lookup.domain) bump(r, "with_website");
-      if (best >= TRUSTED_CONFIDENCE) bump(r, "trusted_candidates");
     } catch (error) { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
   }
   r.requests = http.requests;
@@ -264,22 +279,30 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       if (!signals.length && !contacts.length) bump(r, "no_evidence");
       // The employee count has no source link on the company row, so the +3 size bonus is not awarded automatically.
       // ponytail: SEC facts are refetched on every score pass (once per company per run); cache them in a table if that gets slow.
-      const financials = await financialsFor(ctx, company.name);
-      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials });
+      const lookup = await lookupFinancials(ctx, company.name);
+      r.requests += lookup.requests;
+      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials: lookup.financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const latest = await ctx.store.latestScore(company.id);
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
-      if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
+      // A lookup that could not run is not evidence that capacity disappeared: keep the saved assessment until it can.
+      const deferred = financialsUnavailable(lookup.status) && !!latest && Number(assessment.result.row.budget_score) < Number(latest.budget_score);
+      if (deferred) bump(r, "financials_deferred");
+      else if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
       else {
         // An unchanged score that is only re-saved because it is due is a refresh; anything else was started by the caller.
         const trigger: ScoreTrigger = sameScore(latest, assessment.result.row) ? "periodic_refresh" : opts.trigger ?? "pipeline_run";
         await ctx.store.insertScore(assessment.result.row, now.toISOString(), buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId }));
         bump(r, latest ? "rescored" : "scored");
       }
-      if (assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
+      if (!deferred && assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
         await ctx.store.setEnrichment(company.id, "pending", "Budget + Release + Timing reached the ready-for-contacts threshold.");
         bump(r, "ready_for_contacts");
       }
+      // Coverage comes after the writes, so a failing store still leaves this stage with no work and a failed status.
+      bump(r, `financials_${lookup.status}`);
+      bump(r, contacts.length ? "with_contacts" : "without_contacts");
+      if (!deferred) for (const category of categories) if (assessment.categories[category].score === 0) bump(r, `zero_${category}`);
     } catch (error) {
       bump(r, "error_score");
       r.errors.push(`score ${company.name}: ${message(error)}`);
