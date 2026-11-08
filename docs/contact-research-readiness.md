@@ -23,7 +23,7 @@ reported as a failure, and the response is not used to create contacts. Successf
 the existing `no_contacts_found` status. Existing terminal decisions remain respected.
 
 People search starts with Workday and HR systems titles and uses broader titles if it finds no usable
-candidates. Enrichment keeps up to 50 results in the candidate pool and runs up to five free public
+candidates. Enrichment keeps up to 50 results in the candidate pool and runs up to ten free public
 evidence searches per company, starting with roles with the highest potential Authority. It checks
 the indexed profile against a recent, independently published attribution of the person's role and
 employer. It saves the source and quoted evidence with the contact. Profiles without sufficient

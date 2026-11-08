@@ -23,7 +23,7 @@ export const MAX_CONTACTS_PER_COMPANY = 3;
 export const MAX_EMAIL_LOOKUPS_PER_COMPANY = 2;
 
 type FoundPerson = { first_name?: string; last_name?: string; title?: string; employee_linkedin?: string; company_name?: string; employee_count?: string };
-const MAX_EVIDENCE_SEARCHES = 5;
+const MAX_EVIDENCE_SEARCHES = 10;
 const DAY_MS = 86400000;
 
 function storedContactProvenance(contact: ContactRow) {

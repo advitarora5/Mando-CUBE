@@ -132,7 +132,7 @@ test('automatic evidence promotes a leader below the title cutoff and removes a 
   assert.equal(result.counts.people_candidates, 23);
   assert.equal(result.counts.contacts_auto_verified, 1);
   assert.equal(result.counts.contacts_employer_mismatch, 1);
-  assert.equal(treg.calls.filter(call => call.endpoint === CONTACT_EVIDENCE_SEARCH).length, 5);
+  assert.equal(treg.calls.filter(call => call.endpoint === CONTACT_EVIDENCE_SEARCH).length, 10);
   const saved = await ctx.store.contactsForCompany(id);
   assert.equal(saved.length, 3);
   assert.equal(saved[0].linkedin_url, profile('leader'));
