@@ -30,6 +30,12 @@ employer. It saves the source and quoted evidence with the contact. Profiles wit
 evidence stay provisional, and a documented employer mismatch is excluded. The pipeline ranks the
 pool by per-contact Authority, then Reachability, and saves the top three.
 
+Daily or standalone enrichment also revisits saved provider profiles in place. Provisional
+profiles can be checked again after seven days. Automatically confirmed roles become eligible
+for another check at 76 days, two weeks before the existing 90-day expiration. An inconclusive
+check records the attempt and keeps the previous evidence. A changed role decision triggers a
+targeted rescore. Manual reviews and existing contact IDs are preserved.
+
 To use manually checked public evidence, point
 `PIPELINE_CONTACT_REVIEWS_FILE` at a JSON array. Each entry includes `company_domain`, `linkedin_url`
 (the provider's profile URL), `reviewed_on` (YYYY-MM-DD), and `source` (the public evidence URL).

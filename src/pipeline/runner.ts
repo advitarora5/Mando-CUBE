@@ -6,7 +6,7 @@ import type { PipelineContext, RunStatus, SourceRow } from "./types.ts";
 import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 
 export type Plan = "daily" | "weekly" | "rescore" | "all" | "collect" | "extract" | "match" | "score" | "enrich";
-export type RunOptions = { plan: Plan; source?: string; limit: number; dryRun: boolean; trigger: "schedule" | "manual" | "import_button"; enrichCompanies?: number; localIdentity?: LocalIdentityAdmission };
+export type RunOptions = { plan: Plan; source?: string; limit: number; dryRun: boolean; trigger: "schedule" | "manual" | "import_button"; enrichCompanies?: number; freeEnrichOnly?: boolean; localIdentity?: LocalIdentityAdmission };
 export type JobReport = { job: string; source_id: string | null; status: RunStatus; ms: number } & StageResult;
 export type RunReport = { jobs: JobReport[]; alerts: string[]; ms: number; treg_spend_usd: number; llm_spend_usd: number };
 
@@ -70,7 +70,9 @@ export async function runPipeline(ctx: PipelineContext, opts: RunOptions): Promi
   const extract = () => job(ctx, report, "extract", null, opts.trigger, () => extractStage(ctx, { limit: Math.max(opts.limit * 10, 200) }));
   const match = () => job(ctx, report, "match", null, opts.trigger, () => matchStage(ctx, { dryRun: opts.dryRun, localIdentity: opts.localIdentity }));
   const score = () => job(ctx, report, "score", null, opts.trigger, () => scoreStage(ctx));
-  const enrich = () => job(ctx, report, "enrich", null, opts.trigger, () => enrichStage(ctx, { maxCompanies: opts.enrichCompanies ?? opts.limit, dryRun: opts.dryRun }));
+  const enrich = () => job(ctx, report, "enrich", null, opts.trigger, () => enrichStage(ctx, {
+    maxCompanies: opts.enrichCompanies ?? opts.limit, dryRun: opts.dryRun, freeOnly: opts.freeEnrichOnly,
+  }));
   // Each plan collects only sources of its frequency, so a weekly paid feed never runs daily.
   const discoveryIds = ["sec-company-list", "workday-site-resolver", "workday-tenant-crawl", "workday-tenant-wayback"];
   const discovery = async () => {

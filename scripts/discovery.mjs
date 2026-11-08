@@ -1,5 +1,5 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { discoveryPlan, assertLocalTarget, assertApprovedTarget, executeDiscovery } from './discovery-plan.mjs';
+import { discoveryPlan, assertLocalTarget, assertApprovedTarget, executeDiscovery, freeContactStep } from './discovery-plan.mjs';
 import { resolve } from 'node:path';
 import { discoveryScoreScope } from './discovery-score-scope.mjs';
 import { sourceBudgetMs, withSourceBudget } from './discovery-source-budget.mjs';
@@ -28,7 +28,7 @@ try {
   if (localAi && approvedAi) throw Error('Choose one identity execution mode');
   if (admissionOnly) {
     if (!(localAi || approvedAi) || !execute || (localAi && approved)) throw Error('Admission-only discovery requires explicit identity execution');
-    plan.steps = [{ plan: 'match' }, { plan: 'score' }];
+    plan.steps = [{ plan: 'match' }, { plan: 'score' }, freeContactStep()];
   }
   let identityConfig = null, prepareLocalDiscoveryIdentity;
   if (localAi || approvedAi) {
@@ -44,6 +44,7 @@ try {
     else assertLocalTarget(process.env.PIPELINE_SUPABASE_URL);
     const { contextFromEnv } = await import('../src/pipeline/context.ts');
     const { runPipeline } = await import('../src/pipeline/runner.ts');
+    const { tregFromEnv } = await import('../src/pipeline/treg.ts');
     failureStage = 'database_setup';
     const ctx = await contextFromEnv({ ...process.env, PIPELINE_ALLOW_REMOTE: approved ? process.env.PIPELINE_ALLOW_REMOTE : '', TREG_BUDGET_USD: '0', PIPELINE_LLM_BUDGET_USD: '0' },
       { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
@@ -63,8 +64,7 @@ try {
         // spending the deadline in nested retries against the same busy service.
         ? { ...s.config, index_page_size: 1, index_candidate_limit: Math.max(30, plan.limit * 6), request_timeout_ms: s.id === 'workday-tenant-wayback' ? 65000 : 30000, index_retries: 0, http_retries: 0, index_fail_fast: true }
         : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true } : s.config }));
-    // Discovery scores only companies touched by matching. Periodic full rescoring
-    // remains the responsibility of the existing daily/rescore plans.
+    // Periodic full rescoring and saved-contact refresh stay in the daily pipeline.
     const prepareScoreScope = discoveryScoreScope(ctx.store);
     summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: 'running', jobs: [] };
     save(summary);
@@ -73,6 +73,7 @@ try {
       failureStage = options[1].plan;
       prepareScoreScope(options[1].plan);
       if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, false, approvedAi ? process.env : null);
+      if (options[1].plan === 'enrich') ctx.treg = await tregFromEnv(process.env);
       const report = options[1].plan === 'collect'
         ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]), sourceBudgetMs(options[1].source))
         : await runPipeline(...options);

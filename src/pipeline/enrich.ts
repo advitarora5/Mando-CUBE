@@ -9,8 +9,9 @@ import { parseEvidence } from "../domain/scoring/evidence.ts";
 import { authorityFromContacts, confirmedCurrent, differentEmployer, reachabilityFromContacts, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineSettings } from "../domain/ingestion/settings.ts";
 import { authorityBand, classifyTitle } from "../domain/ingestion/titles.ts";
+import { daysSince } from "../domain/scoring/go-live.ts";
 import { currentContactReviews, linkedinProfile, type ContactReview } from "./contact-review.ts";
-import { CONTACT_EVIDENCE_SEARCH, contactEvidenceQuery, reviewIndexedContact } from "./contact-verification.ts";
+import { CONTACT_EVIDENCE_SEARCH, contactEvidenceQuery, reviewIndexedContact, type AutomatedContactReview, type EvidenceCandidate } from "./contact-verification.ts";
 import { scoreStage, type StageResult } from "./stages.ts";
 import type { ContactRow, PipelineContext } from "./types.ts";
 
@@ -23,6 +24,25 @@ export const MAX_EMAIL_LOOKUPS_PER_COMPANY = 2;
 
 type FoundPerson = { first_name?: string; last_name?: string; title?: string; employee_linkedin?: string; company_name?: string; employee_count?: string };
 const MAX_EVIDENCE_SEARCHES = 5;
+const DAY_MS = 86400000;
+
+function storedContactProvenance(contact: ContactRow) {
+  return (contact.contact_sources ?? {}) as Record<string, unknown> & {
+    name_title_linkedin?: { fetched_at?: string };
+    role_review?: ContactReview | AutomatedContactReview;
+    role_verification_attempt?: string;
+  };
+}
+
+function contactRefreshDue(contact: ContactRow, now: Date) {
+  const provenance = storedContactProvenance(contact);
+  if (!provenance.name_title_linkedin || differentEmployer(contact)) return false;
+  const review = provenance.role_review;
+  if (review && (typeof review !== "object" || !("method" in review) || (daysSince(review.reviewed_on, now) ?? 0) < 76)) return false;
+  if (!review && contact.linkedin_status !== "unconfirmed") return false;
+  const last = Date.parse(provenance.role_verification_attempt ?? provenance.name_title_linkedin.fetched_at ?? "");
+  return !Number.isFinite(last) || now.getTime() - last >= 7 * DAY_MS;
+}
 
 function contactCandidates(people: FoundPerson[], reviews: Map<string, ContactReview>) {
   const seen = new Set<string>();
@@ -87,21 +107,47 @@ export function eligibleForFreeResearch(signals: ScoringSignal[], settings: Pipe
   });
 }
 
-export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: number; emailWorstCaseUsd?: number; dryRun?: boolean }): Promise<StageResult> {
+export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: number; emailWorstCaseUsd?: number; dryRun?: boolean; freeOnly?: boolean }): Promise<StageResult> {
   const r: StageResult = { counts: {}, errors: [], blocked: null, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0 };
   const bump = (key: string, n = 1) => { r.counts[key] = (r.counts[key] ?? 0) + n; };
   const settings = await ctx.store.settings();
   const worst = opts.emailWorstCaseUsd ?? 0.02;
-  const touched: string[] = [];
+  const processed = new Set<string>(), touched = new Set<string>();
   let evidenceSearchAvailable = true;
+  async function verify(candidate: EvidenceCandidate, company: { name: string; domain: string }, now: Date) {
+    if (!ctx.treg || !evidenceSearchAvailable) return undefined;
+    r.requests++;
+    const result = await ctx.treg.call(CONTACT_EVIDENCE_SEARCH, {
+      query: { query: contactEvidenceQuery(candidate, company.name), domain_type: "web" },
+      headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" }, timeoutMs: 8000,
+    });
+    if (!Number.isFinite(result.cost_usd) || result.cost_usd !== 0) {
+      if (result.cost_usd > 0) {
+        r.treg_spend_usd += result.cost_usd;
+        await ctx.spend.record({ provider: "treg", endpoint: CONTACT_EVIDENCE_SEARCH, step: "contact_evidence", subject: company.domain, idempotency_key: "", worst_case_usd: 0, cost_usd: result.cost_usd, outcome: "unexpected charge on a free endpoint" });
+      }
+      r.blocked = "Public contact evidence search did not report zero cost.";
+      return undefined;
+    }
+    if (!result.ok) {
+      bump("contact_evidence_unavailable");
+      if (result.status >= 200 && result.status < 300) r.blocked = "Public contact evidence search could not confirm a zero charge.";
+      if ([401, 402, 403, 404, 429].includes(result.status)) evidenceSearchAvailable = false;
+      return undefined;
+    }
+    const review = reviewIndexedContact(result.body, candidate, company, now);
+    if (review) bump(review.status === "confirmed" ? "contacts_auto_verified" : "contacts_employer_mismatch");
+    else bump("contact_evidence_inconclusive");
+    return review;
+  }
   const companies = (await ctx.store.companies()).filter(c => mayScore(settings, c.pipeline));
   for (const company of companies) {
-    if (touched.length >= opts.maxCompanies) break;
+    if (processed.size >= opts.maxCompanies) break;
     try {
       const status = await ctx.store.enrichmentStatus(company.id);
       const reviews = company.domain ? currentContactReviews(ctx.contactReviews ?? [], company.domain, ctx.now()) : new Map<string, ContactReview>();
       const canResearch = !status || status === "pending" || status === "skipped_budget";
-      if (!canResearch && !reviews.size) continue;
+      if (!canResearch && !reviews.size && (opts.freeOnly || !ctx.treg || !evidenceSearchAvailable)) continue;
       if (!company.domain) { await ctx.store.setEnrichment(company.id, "pending", "No website yet, so no contact search."); bump("no_website"); continue; }
       let storedContacts = await ctx.store.contactsForCompany(company.id);
       for (const contact of storedContacts) {
@@ -116,14 +162,46 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           ...(review.status === "confirmed" ? { title: review.title, source: review.source, linkedin_status: "confirmed" } : {}),
         };
         await ctx.store.updateContact(contact.id, patch);
-        if (!touched.includes(company.id)) touched.push(company.id);
+        touched.add(company.id);
+        processed.add(company.id);
         bump(review.status === "confirmed" ? "contacts_confirmed" : "contacts_employer_mismatch");
       }
+      if (touched.has(company.id)) storedContacts = await ctx.store.contactsForCompany(company.id);
+      if (!opts.freeOnly && !opts.dryRun && ctx.treg && evidenceSearchAvailable) {
+        const now = ctx.now();
+        const due = storedContacts.filter(contact => contactRefreshDue(contact, now)).slice(0, MAX_EVIDENCE_SEARCHES);
+        for (const contact of due) {
+          const profile = linkedinProfile(contact.linkedin_url);
+          if (!profile || !contact.title || reviews.has(profile) || !evidenceSearchAvailable) continue;
+          processed.add(company.id);
+          bump("contact_refresh_checked");
+          const review = await verify({ name: contact.name, title: contact.title, profile }, { name: company.name, domain: company.domain }, now);
+          if (r.blocked) break;
+          if (review === undefined) continue;
+          const previous = storedContactProvenance(contact);
+          const olderConfirmation = review?.status === "confirmed" && previous.role_review?.status === "confirmed" &&
+            review.reviewed_on < previous.role_review.reviewed_on;
+          const changed = !!review && !olderConfirmation && (review.status !== previous.role_review?.status || review.source !== previous.role_review?.source ||
+            review.reviewed_on !== previous.role_review?.reviewed_on || (review.status === "confirmed" &&
+              (previous.role_review?.status !== "confirmed" || review.title !== previous.role_review.title || review.workday_source !== previous.role_review.workday_source)));
+          await ctx.store.updateContact(contact.id, {
+            contact_sources: { ...previous, role_verification_attempt: now.toISOString(), ...(changed ? { role_review: review } : {}) },
+            ...(changed && review.status === "confirmed" ? { title: review.title, source: review.source, linkedin_status: "confirmed" } : {}),
+          });
+          if (changed) {
+            bump("contact_refresh_changed");
+            touched.add(company.id);
+          }
+        }
+      }
+      if (r.blocked) break;
       if (!canResearch) continue;
-      if (touched.includes(company.id)) storedContacts = await ctx.store.contactsForCompany(company.id);
+      if (touched.has(company.id)) storedContacts = await ctx.store.contactsForCompany(company.id);
       let contacts = storedContacts.filter(contact => !differentEmployer(contact));
+      if (opts.freeOnly && contacts.length) { bump("contacts_already_present"); continue; }
       if (!status && contacts.length) continue; // Do not opt existing contacts into paid lookup implicitly.
       const latest = await ctx.store.latestScore(company.id);
+      if (opts.freeOnly && !latest) { bump("initial_score_missing"); continue; }
       const paidReady = !!latest && readyForContacts(latest, settings);
       // Existing researched companies below the paid threshold do not consume the batch's research slots.
       if (contacts.length && !paidReady) { bump("paid_readiness_deferred"); continue; }
@@ -131,12 +209,13 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         bump("research_evidence_missing"); continue;
       }
       if (!ctx.treg) { await ctx.store.setEnrichment(company.id, "pending", "treg is not configured; eligible contact research pending."); bump("no_treg"); continue; }
-      if (!touched.includes(company.id)) touched.push(company.id);
       // 1. Free search for likely decision makers.
       if (!contacts.length) {
+        processed.add(company.id);
+        bump("companies_researched");
         const searchPeople = async (titles: string[]) => {
           r.requests++;
-          return ctx.treg!.call(PEOPLE_SEARCH, { body: { company_url: { include: [company.domain], exclude: [] }, title: { include: titles, exclude: [] }, per_page: 50 }, headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" } });
+          return ctx.treg!.call(PEOPLE_SEARCH, { body: { company_url: { include: [company.domain], exclude: [] }, title: { include: titles, exclude: [] }, per_page: 50 }, headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" }, timeoutMs: 12000 });
         };
         const readPeople = (body: unknown) => {
           const people = (body as { data?: unknown } | null)?.data;
@@ -160,7 +239,8 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           r.errors.push(`people search ${company.name}: ${reason}`);
           await ctx.store.setEnrichment(company.id, "pending", "Free people search failed; retry on a later run.");
           // An authentication/rate/billing error must not be repeated across every company.
-          if ((!search.ok && [401, 402, 403, 429].includes(search.status)) || search.cost_usd !== 0) { r.blocked = "Free people search unavailable or zero cost not confirmed."; break; }
+          if ((!search.ok && ([401, 402, 403, 429].includes(search.status) || (search.status >= 200 && search.status < 300))) ||
+              search.cost_usd !== 0) { r.blocked = "Free people search unavailable or zero cost not confirmed."; break; }
           continue;
         }
         bump("people_candidates", pool.length);
@@ -171,28 +251,10 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           .sort((a, b) => b.potential - a.potential).slice(0, MAX_EVIDENCE_SEARCHES);
         for (const candidate of toVerify) {
           if (!evidenceSearchAvailable) break;
-          r.requests++;
-          const result = await ctx.treg.call(CONTACT_EVIDENCE_SEARCH, {
-            query: { query: contactEvidenceQuery(candidate, company.name), domain_type: "web" },
-            headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" }, timeoutMs: 8000,
-          });
-          if (!Number.isFinite(result.cost_usd) || result.cost_usd !== 0) {
-            if (result.cost_usd > 0) {
-              r.treg_spend_usd += result.cost_usd;
-              await ctx.spend.record({ provider: "treg", endpoint: CONTACT_EVIDENCE_SEARCH, step: "contact_evidence", subject: company.domain, idempotency_key: "", worst_case_usd: 0, cost_usd: result.cost_usd, outcome: "unexpected charge on a free endpoint" });
-            }
-            r.blocked = "Public contact evidence search did not report zero cost.";
-            break;
-          }
-          if (!result.ok) {
-            bump("contact_evidence_unavailable");
-            if ([401, 402, 403, 404, 429].includes(result.status)) evidenceSearchAvailable = false;
-            continue;
-          }
-          const verified = reviewIndexedContact(result.body, candidate, { name: company.name, domain: company.domain }, now);
+          const verified = await verify(candidate, { name: company.name, domain: company.domain }, now);
+          if (r.blocked) break;
           if (!verified) continue;
           reviews.set(candidate.profile, verified);
-          bump(verified.status === "confirmed" ? "contacts_auto_verified" : "contacts_employer_mismatch");
         }
         if (r.blocked) break;
         const picked = pickContacts(pool.map(candidate => candidate.person), MAX_CONTACTS_PER_COMPANY, reviews, now);
@@ -201,11 +263,14 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         if (opts.dryRun) continue;
         for (const { contact, review } of picked) {
           await ctx.store.insertContact({ company_id: company.id, ...contact });
+          touched.add(company.id);
           bump("contacts_added");
           if (review) bump("contacts_confirmed");
         }
+        if (picked.some(candidate => candidate.review)) bump("companies_verified");
         contacts = (await ctx.store.contactsForCompany(company.id)).filter(contact => !differentEmployer(contact));
       }
+      if (opts.freeOnly) continue;
       // Free research does not authorize a paid email lookup or inflate a qualification score.
       if (!paidReady) {
         await ctx.store.setEnrichment(company.id, "pending", "Free contact research complete; paid email lookup waits for the readiness threshold.");
@@ -224,6 +289,7 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         const key = paidCallKey("treg", "email", `${contact.id}`);
         if (await ctx.store.paidCall(key)) { bump("email_already_looked_up"); continue; }
         if (!(await ctx.spend.allow("treg", worst, `email ${contact.name}`))) { budgetSkipped = true; break; }
+        processed.add(company.id);
         if (opts.dryRun) { await ctx.spend.record({ provider: "treg", endpoint: EMAIL_FIND, step: "email(dry-run)", subject: contact.id, idempotency_key: key, worst_case_usd: worst, cost_usd: 0, outcome: "dry-run" }); continue; }
         const res = await ctx.treg.call(EMAIL_FIND, {
           body: { full_name: contact.name, domain: company.domain, ...(contact.linkedin_url ? { linkedin_url: contact.linkedin_url } : {}) },
@@ -242,6 +308,7 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           email: outcome.email, email_status: outcome.status, email_verified: outcome.status === "valid", enriched_at: ctx.now().toISOString(),
           contact_sources: { ...((contact as { contact_sources?: Record<string, unknown> }).contact_sources ?? {}), email: { provider: outcome.served_by ?? "treg", endpoint: EMAIL_FIND, verdict: outcome.status, call_id: res.call_id, fetched_at: ctx.now().toISOString(), cost_usd: res.cost_usd } },
         } as Partial<ContactRow>);
+        touched.add(company.id);
         bump(`email_${outcome.status}`);
       }
       await ctx.store.setEnrichment(company.id, budgetSkipped ? "skipped_budget" : "done", budgetSkipped ? "Contacts found; email lookup waits for budget." : "Contacts found and looked up within budget.");
@@ -252,8 +319,8 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
     }
   }
   // New contacts change Authority and Reachability: rescore what was touched.
-  if (touched.length && !opts.dryRun) {
-    const rescored = await scoreStage(ctx, { companyIds: touched, trigger: "new_contacts" });
+  if (touched.size && !opts.dryRun) {
+    const rescored = await scoreStage(ctx, { companyIds: [...touched], trigger: "new_contacts" });
     for (const [k, v] of Object.entries(rescored.counts)) bump(`rescore_${k}`, v);
     r.errors.push(...rescored.errors);
     if (rescored.blocked) r.blocked = rescored.blocked;

@@ -7,10 +7,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoveryPlan, assertSources, assertLocalTarget, assertApprovedTarget, executeDiscovery, DISCOVERY_SOURCES } from '../scripts/discovery-plan.mjs';
 
-test('plan covers discovery followed by job collection and processing, with no enrichment', () => {
+test('plan covers discovery followed by scoring and free-only enrichment', () => {
   const plan = discoveryPlan(5);
   assert.equal(plan.limit, 5);
-  assert.deepEqual(plan.steps.slice(-3).map(s => s.plan), ['extract', 'match', 'score']);
+  assert.deepEqual(plan.steps.slice(-4).map(s => s.plan), ['extract', 'match', 'score', 'enrich']);
+  assert.equal(plan.steps.at(-1).freeEnrichOnly, true);
   assert.equal(plan.steps.filter(s => s.plan === 'collect').length, 5);
   assert.equal(plan.paid_services, false);
   for (const n of [0, -1, 101, NaN, 1.5]) assert.throws(() => discoveryPlan(n));
@@ -68,7 +69,7 @@ test('source failures preserve other collection attempts and remain visible in f
     calls.push(opts);
     return { jobs: [{ status: opts.source === 'workday-tenant-crawl' ? 'failed' : 'succeeded' }] };
   }, discoveryPlan());
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 10);
   assert.equal(result.status, 'needs_attention');
 });
 test('processing failure stops dependent matching and scoring', async () => {
@@ -89,8 +90,8 @@ test('partial matching still scores admitted companies while reporting needs_att
     calls.push(opts.plan);
     return { jobs: [{ status: opts.plan === 'match' ? 'partial' : 'succeeded' }] };
   }, discoveryPlan());
-  assert.equal(calls.at(-1), 'score');
-  assert.equal(calls.length, 9);
+  assert.deepEqual(calls.slice(-2), ['score', 'enrich']);
+  assert.equal(calls.length, 10);
   assert.equal(result.status, 'needs_attention');
 });
 

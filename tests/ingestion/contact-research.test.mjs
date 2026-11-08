@@ -158,6 +158,39 @@ test('indexed role confirmation needs an exact profile and recent independent at
   assert.equal(verified?.workday_source, owns.url);
 });
 
+test('saved provider contacts are refreshed in place, with a cooldown and a rescore only when proof changes', async () => {
+  const lead = person('leader', 'VP of Global HR Service Delivery');
+  let postDate = '2026-10-12';
+  const treg = fakeTreg({
+    [PEOPLE_SEARCH]: () => peopleResult([lead]),
+    [CONTACT_EVIDENCE_SEARCH]: () => indexedResult([
+      { url: profile('leader'), title: 'Pat Leader - Research', snippet: 'VP of Global HR Service Delivery at Research Company.' },
+      { url: workdayPost(postDate), title: 'Conference | Workday', snippet: 'Pat Leader, VP, Global HR Service Delivery at Research Company, will speak.' },
+    ]),
+  });
+  const { ctx, id } = await world({ treg });
+  const saved = await ctx.store.insertContact({ company_id: id, name: 'Pat Leader', title: lead.title, source: lead.employee_linkedin,
+    linkedin_url: lead.employee_linkedin, linkedin_status: 'unconfirmed', email: null, phone: null,
+    contact_sources: { name_title_linkedin: { fetched_at: '2026-10-01T12:00:00Z' }, preserved: 'other provenance' } });
+  const first = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(first.counts.contact_refresh_changed, 1);
+  assert.equal(first.counts.rescore_rescored, 1);
+  assert.equal((await ctx.store.latestScore(id)).reachability_score, 10);
+  assert.equal((await ctx.store.contactsForCompany(id))[0].id, saved);
+  const repeat = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(repeat.requests, 0);
+  assert.equal(repeat.counts.rescore_rescored, undefined);
+  ctx.now = () => new Date('2026-12-30T12:00:00Z');
+  postDate = '2026-12-28';
+  const renewed = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(renewed.counts.contact_refresh_changed, 1);
+  const rows = await ctx.store.contactsForCompany(id);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].contact_sources.role_review.reviewed_on, postDate);
+  assert.equal(rows[0].contact_sources.preserved, 'other provenance');
+  assert.equal(treg.calls.filter(call => call.endpoint === PEOPLE_SEARCH).length, 0);
+});
+
 test('focused search ranks independently reviewed leadership above title matches and excludes a former employee', async () => {
   const people = [
     person('former', 'VP Workday'), person('one', 'Workday Manager'),
