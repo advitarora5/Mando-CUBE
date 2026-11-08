@@ -90,19 +90,29 @@ test('budget: capacity not collected (0) + the single highest investment band; l
   assert.equal(budgetFromSignals([sig('known_customer'), sig('hiring')], NOW).status, 'unknown');
 });
 
-test('release: deployment first; higher bands need a confirmed next release AND public preparation; otherwise the 8 baseline', () => {
-  const est = releaseFromSignals([sig('known_customer')], NOW);
-  assert.equal(est.score, 8);
-  assert.match(est.reason, /estimated/);
-  assert.equal(releaseFromSignals([sig('release_planning')], NOW).score, 8, 'release preparation shows deployment');
-  assert.equal(releaseFromSignals([sig('hiring')], NOW).status, 'unknown', 'hiring alone does not confirm deployment');
+test('release: no baseline; points need public preparation AND a confirmed release 42-126 days out', () => {
+  const none = releaseFromSignals([sig('known_customer')], NOW);
+  assert.equal(none.score, 0, 'a confirmed customer alone earns nothing');
+  assert.equal(none.status, 'unknown'); assert.equal(none.source, null);
+  assert.match(none.reason, /Needs evidence: no public release preparation/);
+  const estimated = releaseFromSignals([sig('known_customer'), sig('release_planning')], NOW);
+  assert.equal(estimated.score, 0, 'prepared, but 2027R1 is only estimated');
+  assert.equal(estimated.status, 'partial'); assert.equal(estimated.source, 'https://example.com/release_planning');
+  assert.match(estimated.reason, /only estimated/);
+  assert.equal(releaseFromSignals([sig('release_planning')], NOW).status, 'partial', 'preparation does not need a separate known_customer signal');
+  assert.equal(releaseFromSignals([sig('hiring')], NOW).score, 0, 'hiring is not release preparation');
   const july = new Date('2026-07-20T17:00:00Z'); // 61 days before confirmed 2026R2 (2026-09-19)
-  assert.equal(releaseFromSignals([sig('known_customer')], july).score, 8, 'inside the window but no public preparation');
-  assert.match(releaseFromSignals([sig('known_customer')], july).reason, /No public release preparation/);
-  assert.equal(releaseFromSignals([sig('known_customer'), sig('release_planning')], july).score, 15, 'documented preparation');
+  assert.equal(releaseFromSignals([sig('known_customer')], july).score, 0, 'inside the window but no public preparation');
+  assert.match(releaseFromSignals([sig('known_customer')], july).reason, /no public release preparation/);
+  const prepared = releaseFromSignals([sig('known_customer'), sig('release_planning')], july);
+  assert.equal(prepared.score, 15, 'documented preparation inside 42-84 days');
+  assert.equal(prepared.status, 'met'); assert.equal(prepared.source, 'https://example.com/release_planning');
   const may = new Date('2026-05-20T17:00:00Z'); // 122 days before
-  assert.equal(releaseFromSignals([sig('known_customer')], may).score, 8, '122 days before, unprepared');
+  assert.equal(releaseFromSignals([sig('known_customer')], may).score, 0, '122 days before, unprepared');
   assert.equal(releaseFromSignals([sig('known_customer'), sig('release_planning')], may).score, 10, '122 days before, preparing');
+  const far = new Date('2026-03-20T17:00:00Z'); // 183 days before
+  const tooFar = releaseFromSignals([sig('release_planning')], far);
+  assert.equal(tooFar.score, 0, 'prepared but outside the window'); assert.match(tooFar.reason, /outside the 42-126 day window/);
   assert.equal(releaseFromSignals([], NOW).status, 'unknown');
 });
 
@@ -131,13 +141,14 @@ test('company assessment: links and reasons of at most 240 characters, 14-day ex
   const vp = contact({ title: 'VP, HRIS and Workday', email: 'p@x.com', email_source: 'https://x.com/team', phone: '+1 555', phone_source: 'https://x.com/team', linkedin_status: 'confirmed' });
   const longQuote = 'We go live on Workday HCM on December 1, 2026 across all regions and entities worldwide. '.repeat(5);
   const a = scoreCompany('c', [sig('known_customer'), sig('go_live', { signal_date: '2026-12-01', quote: longQuote }), sig('budget_clue', { signal_date: '2026-06-01' })], [vp], defaultSettings, NOW);
-  assert.equal(a.result.row.rubric_version, 'mando-team-70:pipeline-v3');
+  assert.equal(a.result.row.rubric_version, 'mando-team-70:pipeline-v4');
   for (const cat of ['authority', 'reachability', 'budget', 'release', 'timing']) {
     const e = a.result.row[`${cat}_evidence`];
+    if (cat === 'release') { assert.match(e, /^Assessment status: unknown\. Needs evidence: no public release preparation/); continue; }
     assert.match(e, /^https?:\/\/\S+ \| Assessment status: \w+\. .+/, cat);
     assert.ok(e.slice(e.indexOf('. ') + 2).length <= 240, `${cat} reason over 240 characters`);
   }
-  assert.equal(a.result.total, 24 + 23 + 8 + 8 + 15);
+  assert.equal(a.result.total, 24 + 23 + 8 + 0 + 15, 'no release proof means no Release points');
   assert.equal(a.result.tier, 'Qualified');
   assert.equal(evaluateTier({ ...a.result.row, rubric_version: 'week2-100' }).tier, 'Qualified');
   const stale = sig('hiring', { last_seen_at: '2026-09-28T11:00:00Z', signal_date: '2026-09-25' });
@@ -152,8 +163,13 @@ test('scores spread across companies; ready for contacts is Budget + Release + T
     [sig('known_customer'), sig('go_live', { signal_date: '2026-12-01' }), sig('budget_clue', { signal_date: '2026-06-01' })],
   ].map(signals => scoreCompany('c', signals, [], defaultSettings, NOW).result.total);
   assert.equal(new Set(totals).size, totals.length, `totals ${totals}`);
-  const ready = scoreCompany('c', [sig('known_customer'), sig('go_live', { signal_date: '2026-12-01' }), sig('budget_clue', { signal_date: '2026-06-01' })], [], defaultSettings, NOW);
-  assert.equal(ready.result.row.budget_score + ready.result.row.release_score + ready.result.row.timing_score, 31);
+  const proofless = scoreCompany('c', [sig('known_customer'), sig('go_live', { signal_date: '2026-12-01' }), sig('budget_clue', { signal_date: '2026-06-01' })], [], defaultSettings, NOW);
+  assert.equal(proofless.result.row.budget_score + proofless.result.row.release_score + proofless.result.row.timing_score, 8 + 0 + 15);
+  assert.equal(proofless.ready_for_contacts, false, 'without release proof the 25 threshold is not reached');
+  const july = new Date('2026-07-20T17:00:00Z'); // 61 days before the confirmed 2026R2 release
+  const ready = scoreCompany('c', [sig('known_customer'), sig('release_planning'), sig('go_live', { signal_date: '2026-12-01' }), sig('budget_clue', { signal_date: '2026-06-01' })], [], defaultSettings, july);
+  assert.equal(ready.result.row.release_score, 15);
+  assert.equal(ready.result.row.budget_score + ready.result.row.release_score + ready.result.row.timing_score, 8 + 15 + 15);
   assert.ok(ready.ready_for_contacts);
-  assert.equal(scoreCompany('c', [sig('known_customer'), sig('hiring', { signal_date: '2026-10-01' })], [], defaultSettings, NOW).ready_for_contacts, false, '0 + 8 + 8 = 16');
+  assert.equal(scoreCompany('c', [sig('known_customer'), sig('hiring', { signal_date: '2026-10-01' })], [], defaultSettings, NOW).ready_for_contacts, false, '0 + 0 + 8 = 8');
 });

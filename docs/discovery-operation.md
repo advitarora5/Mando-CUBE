@@ -97,7 +97,8 @@ remain responsible for safe repeated execution. Never interpret a timeout as a r
 admissions, held cases, contact coverage, categories scoring zero and financial evidence status.
 Candidate names are stored as short hashes, and only counts reach the health report.
 
-A new company with a Workday customer signal and nothing else scores 13: Release 8 plus Timing 5.
+A new company with a Workday customer signal and no other evidence earns 5 Timing points.
+Release points require documented preparation for a confirmed release in the readiness window.
 Read `zero_points` and `financials` before treating that as a judgment about the company.
 `no_contact`, `no_sec_list` and `fetch_failed` mean the filing lookup could not run. In those cases a
 saved assessment is kept rather than lowered (`financials_deferred`). The first failed SEC call stops

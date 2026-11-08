@@ -11,7 +11,7 @@ import { authorityBand, classifyTitle } from "./titles.ts";
 // rubric's (src/domain/scoring). Rules the pipeline cannot evidence automatically (annual operating income, confirmed
 // release dates, a willing introducer) earn nothing and say so: "Needs evidence", never an invented fact or URL.
 // The rubric version decides the tier thresholds (src/domain/scoring/rubric.ts tierThresholdsFor).
-export const PIPELINE_POLICY_VERSION = "pipeline-v3";
+export const PIPELINE_POLICY_VERSION = "pipeline-v4";
 export const PIPELINE_RUBRIC_VERSION = `${TEAM_RUBRIC_70}:${PIPELINE_POLICY_VERSION}`;
 
 export const signalTypes = ["go_live", "hiring", "release_planning", "known_customer", "budget_clue", "event"] as const;
@@ -158,23 +158,25 @@ export function budgetFromSignals(signals: ScoringSignal[], now: Date, financial
     reason: clip(`Capacity ${capacity} (${filing}) + ${best ? `${best.label} ${best.points}; proxy, not committed funds: "${short(best.signal.quote)}"` : "no technology-investment signal 0"}`) };
 }
 
-// ---------- Release /15: confirmed current deployment, then the confirmed next release's distance ----------
+// ---------- Release /15: only companies publicly preparing for a confirmed upcoming release score ----------
+// There is no baseline. A confirmed Workday customer with no public release preparation, or whose next release date is
+// only estimated, gets 0 and the reason says what is missing. Points need BOTH documented preparation (a
+// release_planning signal) AND a confirmed release date inside the readiness window.
 export function releaseFromSignals(signals: ScoringSignal[], now: Date): CategoryResult {
-  const deployed = signals.find(s => s.type === "known_customer")
-    ?? signals.find(s => s.type === "release_planning")
-    ?? signals.find(s => s.type === "go_live" && s.signal_date && (daysSince(s.signal_date, now) ?? -1) >= 0);
-  if (!deployed) return needs("current Workday deployment not confirmed.");
+  const preparing = signals.find(s => s.type === "release_planning");
   const today = chicagoToday(now);
   const next = firstReleaseOnOrAfter(today);
   const days = Math.round((Date.parse(next.date) - Date.parse(today)) / 86400000);
-  const preparing = signals.find(s => s.type === "release_planning");
-  let score = 8, band = "deployment affected by recurring releases";
-  // Only public, documented preparation (a release_planning signal) lifts the score above the baseline.
-  if (next.confirmed && preparing && days >= 42 && days <= 84) { score = 15; band = "42-84 days before confirmed release, with documented preparation"; }
-  else if (next.confirmed && preparing && days >= 85 && days <= 126) { score = 10; band = "85-126 days before confirmed release, with documented preparation"; }
-  const note = !next.confirmed ? " Next release date is estimated, so higher bands cannot apply." : !preparing ? " No public release preparation found, so higher bands cannot apply." : "";
-  return { score, source: (score >= 15 && preparing ? preparing : deployed).source_url, status: "met", detail: { days },
-    reason: clip(`${band} ${score}: ${next.name} ${next.confirmed ? "on" : "estimated for"} ${next.date}, ${days} days.${note}`) };
+  if (!preparing) return needs("no public release preparation found; being a Workday customer alone earns no Release points.", { days });
+  const nextText = `${next.name} ${next.confirmed ? "on" : "estimated for"} ${next.date}, ${days} days`;
+  if (!next.confirmed) return { score: 0, source: preparing.source_url, status: "partial", detail: { days },
+    reason: clip(`Release preparation found, but the next release is only estimated (${nextText}); points need a confirmed release date.`) };
+  if (days >= 42 && days <= 84) return { score: 15, source: preparing.source_url, status: "met", detail: { days },
+    reason: clip(`Publicly preparing, 42-84 days before confirmed release 15: ${nextText}.`) };
+  if (days >= 85 && days <= 126) return { score: 10, source: preparing.source_url, status: "met", detail: { days },
+    reason: clip(`Publicly preparing, 85-126 days before confirmed release 10: ${nextText}.`) };
+  return { score: 0, source: preparing.source_url, status: "partial", detail: { days },
+    reason: clip(`Release preparation found, but the confirmed release is outside the 42-126 day window (${nextText}).`) };
 }
 
 // ---------- Timing /15: the strongest single trigger; triggers do not stack ----------

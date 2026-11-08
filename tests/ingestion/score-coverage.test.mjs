@@ -1,4 +1,4 @@
-// Why new companies score 13, what filing evidence adds, and how a run reports it. Fictional companies only.
+// What the pipeline scores from available evidence and how a run reports coverage.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyFacts, lookupFinancials } from '../../src/pipeline/financials.ts';
@@ -32,19 +32,19 @@ async function world({ contact = 'pipeline@fictional.example', fetch, secList = 
 }
 const filed = async () => response(200, { facts: FILING });
 
-test('with no contacts or filing, a customer signal plus an ordinary posting is the 13-point floor, and the run says why', async () => {
+test('a customer signal and ordinary posting earn only Timing points without other evidence', async () => {
   const { ctx, id } = await world({ contact: '', fetch: filed });
   const r = await scoreStage(ctx);
   const row = await ctx.store.latestScore(id);
-  assert.deepEqual([row.authority_score, row.reachability_score, row.budget_score, row.release_score, row.timing_score], [0, 0, 0, 8, 5]);
+  assert.deepEqual([row.authority_score, row.reachability_score, row.budget_score, row.release_score, row.timing_score], [0, 0, 0, 0, 5]);
   assert.equal(r.counts.financials_no_contact, 1);
   assert.equal(r.counts.without_contacts, 1);
   assert.deepEqual([r.counts.zero_authority, r.counts.zero_reachability, r.counts.zero_budget], [1, 1, 1]);
-  assert.equal(r.counts.zero_release, undefined);
+  assert.equal(r.counts.zero_release, 1);
   assert.equal(r.requests, 0);
 });
 
-test('a 13-point company is still eligible for free contact research', () => {
+test('Workday evidence without Release points still qualifies for free contact research', () => {
   assert.equal(eligibleForFreeResearch([signal(), hiring], defaultSettings, NOW), true);
   const stale = new Date(NOW.getTime() + 15 * 86400000);
   assert.equal(eligibleForFreeResearch([signal(), hiring], defaultSettings, stale), false, 'eligibility lapses once signals go 14 days without a re-sighting');
@@ -56,7 +56,7 @@ test('filing evidence raises Budget by the rubric points and cites the filing; n
   const row = await ctx.store.latestScore(id);
   assert.equal(row.budget_score, 12, '10 for positive operating income, +1 revenue growth, +1 operating income growth');
   assert.match(row.budget_evidence, /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/4242\//);
-  assert.deepEqual([row.authority_score, row.reachability_score, row.release_score, row.timing_score], [0, 0, 8, 5]);
+  assert.deepEqual([row.authority_score, row.reachability_score, row.release_score, row.timing_score], [0, 0, 0, 5]);
   assert.equal(r.counts.financials_found, 1);
   assert.equal(r.requests, 1);
   assert.deepEqual(calls, ['https://data.sec.gov/api/xbrl/companyfacts/CIK0000004242.json']);
