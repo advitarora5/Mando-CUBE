@@ -34,6 +34,16 @@ export async function checkLink(url) {
   }
 }
 
+// Soft check only: tenants are not always the company name (Procter & Gamble is "pg", Wells Fargo "wf"), so a miss means
+// "look at this one", never "wrong". Matches when the tenant and name contain one another or the tenant is the name's initials.
+const WORD = /^(and|of|the|inc|corp|corporation|co|company|plc|ltd|llc)$/i;
+export function tenantMatchesName(tenant, name) {
+  const key = x => x.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const words = name.split(/[^A-Za-z0-9]+/).filter(w => w && !WORD.test(w));
+  const t = key(tenant), n = words.map(key).join(""), initials = words.map(w => w[0]).join("").toLowerCase();
+  return n.length > 1 && (n.includes(t) || t.includes(n) || t === initials);
+}
+
 // companies.source is free text (a name or a URL); only http(s) values are links.
 export const linksOf = c => [...new Set([c.source, ...(c.signals ?? []).map(s => s.source_url)].filter(u => /^https?:\/\//.test(u ?? "")))];
 
@@ -48,9 +58,13 @@ if (process.argv[1]?.endsWith("check-source-links.mjs")) {
   const { data, error } = await db.from("companies").select("id, name, source, signals(source_url)").gte("created_at", since).order("created_at", { ascending: false }).limit(arg("limit", 50));
   if (error) throw new Error(error.message);
   const rows = (await Promise.all(data.map(async c => Promise.all(linksOf(c).map(async u => ({ company: c.name, url: u, ...(await checkLink(u)) })))))).flat();
+  for (const r of rows) {
+    const site = r.workday === "verified" ? workdaySite(r.url) : null;
+    if (site) r.tenantName = tenantMatchesName(site.tenant, r.company) ? "ok" : "check";
+  }
   const noLink = data.filter(c => !linksOf(c).length).map(c => c.name);
   console.table(rows);
-  console.log(`${data.length} companies, ${rows.length} links: ${rows.filter(r => !r.opens).length} dead, ${rows.filter(r => r.workday === "invalid").length} not a real Workday site, ${rows.filter(r => r.workday === "not-workday").length} on a non-Workday host (check by hand)`);
+  console.log(`${data.length} companies, ${rows.length} links: ${rows.filter(r => !r.opens).length} dead, ${rows.filter(r => r.workday === "invalid").length} not a real Workday site, ${rows.filter(r => r.workday === "not-workday").length} on a non-Workday host (check by hand), ${rows.filter(r => r.tenantName === "check").length} Workday tenants that do not resemble the company name (check by hand, not necessarily wrong)`);
   if (noLink.length) console.log(`No source link at all (fill by hand): ${noLink.join(", ")}`);
   process.exitCode = rows.some(r => !r.opens || r.workday === "invalid") ? 1 : 0;
 }
