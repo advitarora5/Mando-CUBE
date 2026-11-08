@@ -6,10 +6,11 @@
 import { paidCallKey } from "../domain/ingestion/fingerprint.ts";
 import { mayScore, readyForContacts } from "../domain/ingestion/settings.ts";
 import { parseEvidence } from "../domain/scoring/evidence.ts";
-import { confirmedCurrent, differentEmployer, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
+import { authorityFromContacts, confirmedCurrent, differentEmployer, reachabilityFromContacts, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineSettings } from "../domain/ingestion/settings.ts";
-import { classifyTitle } from "../domain/ingestion/titles.ts";
+import { authorityBand, classifyTitle } from "../domain/ingestion/titles.ts";
 import { currentContactReviews, linkedinProfile, type ContactReview } from "./contact-review.ts";
+import { CONTACT_EVIDENCE_SEARCH, contactEvidenceQuery, reviewIndexedContact } from "./contact-verification.ts";
 import { scoreStage, type StageResult } from "./stages.ts";
 import type { ContactRow, PipelineContext } from "./types.ts";
 
@@ -21,25 +22,44 @@ export const MAX_CONTACTS_PER_COMPANY = 3;
 export const MAX_EMAIL_LOOKUPS_PER_COMPANY = 2;
 
 type FoundPerson = { first_name?: string; last_name?: string; title?: string; employee_linkedin?: string; company_name?: string; employee_count?: string };
+const MAX_EVIDENCE_SEARCHES = 5;
 
-export function pickContacts(people: FoundPerson[], max = MAX_CONTACTS_PER_COMPANY, reviews = new Map<string, ContactReview>()) {
-  const candidates = people.flatMap(person => {
+function contactCandidates(people: FoundPerson[], reviews: Map<string, ContactReview>) {
+  const seen = new Set<string>();
+  return people.flatMap(person => {
     const profile = linkedinProfile(person?.employee_linkedin);
-    if (!profile || !person.first_name || !person.last_name || !person.title) return [];
+    if (!profile || seen.has(profile) || typeof person.first_name !== "string" || typeof person.last_name !== "string" ||
+        typeof person.title !== "string" || !person.first_name.trim() || !person.last_name.trim()) return [];
     const review = reviews.get(profile);
     if (review?.status === "different_employer") return [];
-    const cls = classifyTitle(review?.title ?? person.title);
-    if (cls.functional === 0 && !review?.workday_source) return [];
-    const rank = cls.functional + cls.seniority + (review?.workday_source ? 4 : cls.ownsWorkday);
-    return [{ person, profile, review, rank }];
-  });
-  candidates.sort((a, b) => Number(!!b.review) - Number(!!a.review) || b.rank - a.rank || a.profile.localeCompare(b.profile));
-  const seen = new Set<string>();
-  return candidates.filter(({ profile }) => {
-    if (seen.has(profile)) return false;
+    const title = review?.title ?? person.title;
+    const potential = authorityBand(title).base;
+    if (!potential && !review?.workday_source) return [];
     seen.add(profile);
-    return true;
-  }).slice(0, max);
+    return [{ person, profile, review, name: `${person.first_name.trim()} ${person.last_name.trim()}`, title, potential }];
+  });
+}
+
+type Candidate = ReturnType<typeof contactCandidates>[number];
+function candidateContact({ name, title, profile, review }: Candidate, now: Date) {
+  return {
+    name, title, linkedin_url: profile, source: review?.source ?? profile,
+    email: null, email_status: null, phone: null, phone_status: null, mutual_connection: null,
+    linkedin_status: review ? "confirmed" : "unconfirmed", enriched_at: now.toISOString(),
+    contact_sources: {
+      name_title_linkedin: { provider: "quickenrich via treg", endpoint: PEOPLE_SEARCH, fetched_at: now.toISOString(), cost_usd: 0 },
+      ...(review ? { role_review: review } : {}),
+    },
+  };
+}
+
+export function pickContacts(people: FoundPerson[], max = MAX_CONTACTS_PER_COMPANY, reviews = new Map<string, ContactReview>(), now = new Date()) {
+  return contactCandidates(people, reviews).map(candidate => {
+    const contact = candidateContact(candidate, now);
+    return { ...candidate, contact, authority: authorityFromContacts([contact], undefined, now).score,
+      reachability: reachabilityFromContacts([contact], now).score, seniority: classifyTitle(candidate.title).seniority };
+  }).sort((a, b) => b.authority - a.authority || b.reachability - a.reachability ||
+    b.potential - a.potential || b.seniority - a.seniority || a.profile.localeCompare(b.profile)).slice(0, max);
 }
 
 type EmailOutcome = { email: string | null; status: "valid" | "risky" | "invalid" | "not_found"; served_by: string | null };
@@ -73,6 +93,7 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
   const settings = await ctx.store.settings();
   const worst = opts.emailWorstCaseUsd ?? 0.02;
   const touched: string[] = [];
+  let evidenceSearchAvailable = true;
   const companies = (await ctx.store.companies()).filter(c => mayScore(settings, c.pipeline));
   for (const company of companies) {
     if (touched.length >= opts.maxCompanies) break;
@@ -117,23 +138,23 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           r.requests++;
           return ctx.treg!.call(PEOPLE_SEARCH, { body: { company_url: { include: [company.domain], exclude: [] }, title: { include: titles, exclude: [] }, per_page: 50 }, headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" } });
         };
-        const selectPeople = (body: unknown) => {
+        const readPeople = (body: unknown) => {
           const people = (body as { data?: unknown } | null)?.data;
           if (!Array.isArray(people)) return null;
           const existingProfiles = new Set(storedContacts.map(contact => linkedinProfile(contact.linkedin_url)));
           const newPeople = people.slice(0, 50).filter(person => !existingProfiles.has(linkedinProfile(person?.employee_linkedin)));
-          return pickContacts(newPeople, MAX_CONTACTS_PER_COMPANY, reviews);
+          return contactCandidates(newPeople, reviews);
         };
         let search = await searchPeople(FOCUSED_TITLE_PHRASES);
-        let picked = search.ok && search.cost_usd === 0 ? selectPeople(search.body) : null;
-        if (picked?.length === 0) {
+        let pool = search.ok && search.cost_usd === 0 ? readPeople(search.body) : null;
+        if (pool?.length === 0) {
           bump("broad_people_search");
           search = await searchPeople(TITLE_PHRASES);
-          picked = search.ok && search.cost_usd === 0 ? selectPeople(search.body) : null;
+          pool = search.ok && search.cost_usd === 0 ? readPeople(search.body) : null;
         }
         if (search.cost_usd > 0) r.treg_spend_usd += search.cost_usd;
         if (search.cost_usd > 0) await ctx.spend.record({ provider: "treg", endpoint: PEOPLE_SEARCH, step: "people_search", subject: company.domain, idempotency_key: "", worst_case_usd: 0, cost_usd: search.cost_usd, outcome: "unexpected charge on a free endpoint" });
-        if (!picked) {
+        if (!pool) {
           bump("error_people_search");
           const reason = !search.ok ? search.error : search.cost_usd !== 0 ? "free research did not report zero cost" : "malformed people results";
           r.errors.push(`people search ${company.name}: ${reason}`);
@@ -142,21 +163,44 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
           if ((!search.ok && [401, 402, 403, 429].includes(search.status)) || search.cost_usd !== 0) { r.blocked = "Free people search unavailable or zero cost not confirmed."; break; }
           continue;
         }
+        bump("people_candidates", pool.length);
+        const now = ctx.now();
+        // Spend the bounded research budget on plausible decision makers, keeping every
+        // other eligible result in the pool as a provisional candidate for the final rank.
+        const toVerify = pool.filter(candidate => !candidate.review)
+          .sort((a, b) => b.potential - a.potential).slice(0, MAX_EVIDENCE_SEARCHES);
+        for (const candidate of toVerify) {
+          if (!evidenceSearchAvailable) break;
+          r.requests++;
+          const result = await ctx.treg.call(CONTACT_EVIDENCE_SEARCH, {
+            query: { query: contactEvidenceQuery(candidate, company.name), domain_type: "web" },
+            headers: { "X-Treg-Route-Max-Cost": "0", "X-Treg-Route-Waterfall": "0" }, timeoutMs: 8000,
+          });
+          if (!Number.isFinite(result.cost_usd) || result.cost_usd !== 0) {
+            if (result.cost_usd > 0) {
+              r.treg_spend_usd += result.cost_usd;
+              await ctx.spend.record({ provider: "treg", endpoint: CONTACT_EVIDENCE_SEARCH, step: "contact_evidence", subject: company.domain, idempotency_key: "", worst_case_usd: 0, cost_usd: result.cost_usd, outcome: "unexpected charge on a free endpoint" });
+            }
+            r.blocked = "Public contact evidence search did not report zero cost.";
+            break;
+          }
+          if (!result.ok) {
+            bump("contact_evidence_unavailable");
+            if ([401, 402, 403, 404, 429].includes(result.status)) evidenceSearchAvailable = false;
+            continue;
+          }
+          const verified = reviewIndexedContact(result.body, candidate, { name: company.name, domain: company.domain }, now);
+          if (!verified) continue;
+          reviews.set(candidate.profile, verified);
+          bump(verified.status === "confirmed" ? "contacts_auto_verified" : "contacts_employer_mismatch");
+        }
+        if (r.blocked) break;
+        const picked = pickContacts(pool.map(candidate => candidate.person), MAX_CONTACTS_PER_COMPANY, reviews, now);
         bump("people_found", picked.length);
         if (!picked.length) { await ctx.store.setEnrichment(company.id, "no_contacts_found", "Free people search found no HR/IT systems contacts."); continue; }
         if (opts.dryRun) continue;
-        for (const { person, profile, review } of picked) {
-          const contact = {
-            company_id: company.id, name: `${person.first_name} ${person.last_name}`, title: review?.title ?? person.title ?? null,
-            linkedin_url: profile, source: review?.source ?? profile,
-            email: null, email_status: null, phone: null, phone_status: null, mutual_connection: null,
-            linkedin_status: review ? "confirmed" : "unconfirmed", enriched_at: ctx.now().toISOString(),
-            contact_sources: {
-              name_title_linkedin: { provider: "quickenrich via treg", endpoint: PEOPLE_SEARCH, fetched_at: ctx.now().toISOString(), cost_usd: 0 },
-              ...(review ? { role_review: review } : {}),
-            },
-          };
-          await ctx.store.insertContact(contact as unknown as Omit<ContactRow, "id">);
+        for (const { contact, review } of picked) {
+          await ctx.store.insertContact({ company_id: company.id, ...contact });
           bump("contacts_added");
           if (review) bump("contacts_confirmed");
         }

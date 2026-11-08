@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { eligibleForFreeResearch, enrichStage, PEOPLE_SEARCH, EMAIL_FIND, FOCUSED_TITLE_PHRASES, TITLE_PHRASES } from '../../src/pipeline/enrich.ts';
 import { contactReviewsSchema } from '../../src/pipeline/contact-review.ts';
+import { CONTACT_EVIDENCE_SEARCH, reviewIndexedContact } from '../../src/pipeline/contact-verification.ts';
 import { scoreStage } from '../../src/pipeline/stages.ts';
 import { scoreCompany } from '../../src/domain/ingestion/pipeline-score.ts';
 import { defaultSettings } from '../../src/domain/ingestion/settings.ts';
@@ -109,6 +110,53 @@ const review = (slug, result) => ({
   reviewed_on: '2026-10-13', source: 'https://research.example/speakers', ...result,
 });
 const peopleResult = data => ({ ok: true, status: 200, body: { data }, cost_usd: 0, call_id: 'free' });
+const indexedResult = results => ({ ok: true, status: 200, body: { results }, cost_usd: 0, call_id: 'index' });
+const workdayPost = date => `https://www.linkedin.com/posts/workday_conference-activity-${BigInt(Date.parse(date)) << 22n}-abc`;
+
+test('automatic evidence promotes a leader below the title cutoff and removes a stale employer before selecting three', async () => {
+  const leader = person('leader', 'VP of Global HR Service Delivery');
+  const former = { ...person('former', 'SVP Workday Technology'), employee_linkedin: profile('former-123ab45') };
+  const contacts = [...Array.from({ length: 21 }, (_, i) => person(`architect-${i}`, 'Workday Architect')), former, leader];
+  const treg = fakeTreg({
+    [PEOPLE_SEARCH]: () => peopleResult(contacts),
+    [CONTACT_EVIDENCE_SEARCH]: ({ query }) => indexedResult(
+      query.query.startsWith('"pat leader"') ? [
+        { url: profile('leader'), title: 'Pat Leader - Research', snippet: 'VP of Global HR Service Delivery at Research Company.' },
+        { url: workdayPost('2026-09-12'), title: 'Conference | Workday', snippet: 'Pat Leader, VP, Global HR Service Delivery at Research Company, will speak.' },
+      ] : query.query.startsWith('"pat former"') ? [
+        { url: profile('former'), title: 'Pat Former - New Employer', snippet: 'Chicago · Director of Technology · New Employer. Research Company Jun 2020 - Apr 2022.' },
+      ] : []),
+  });
+  const { ctx, id } = await world({ treg });
+  const result = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(result.counts.people_candidates, 23);
+  assert.equal(result.counts.contacts_auto_verified, 1);
+  assert.equal(result.counts.contacts_employer_mismatch, 1);
+  assert.equal(treg.calls.filter(call => call.endpoint === CONTACT_EVIDENCE_SEARCH).length, 5);
+  const saved = await ctx.store.contactsForCompany(id);
+  assert.equal(saved.length, 3);
+  assert.equal(saved[0].linkedin_url, profile('leader'));
+  assert.equal(saved[0].contact_sources.role_review.method, 'public_search_index');
+  assert.ok(!saved.some(contact => contact.linkedin_url === former.employee_linkedin));
+  const latest = await ctx.store.latestScore(id);
+  assert.deepEqual([latest.authority_score, latest.reachability_score], [18, 10]);
+});
+
+test('indexed role confirmation needs an exact profile and recent independent attribution', () => {
+  const candidate = { name: 'Pat Leader', title: 'VP of Global HR Service Delivery', profile: profile('leader') };
+  const company = { name: 'Research Company', domain: 'research.example' };
+  const own = { url: candidate.profile, title: 'Pat Leader - Research', snippet: 'VP of Global HR Service Delivery at Research Company.' };
+  const post = { url: workdayPost('2026-09-12'), title: 'Conference | Workday', snippet: 'Pat Leader, VP, Global HR Service Delivery at Research Company, will speak.' };
+  for (const results of [
+    [own], [post], [{ ...own, url: profile('somebody-else') }, post],
+    [own, { ...post, url: workdayPost('2024-09-12') }],
+    [own, { ...post, url: post.url.replace('/workday_', '/pat-leader_') }],
+    [own, { ...post, snippet: 'Pat Leader will join VP, Global HR Service Delivery at Research Company.' }],
+  ]) assert.equal(reviewIndexedContact({ results }, candidate, company, NOW), null);
+  const owns = { ...post, snippet: 'Pat Leader, VP, Global HR Service Delivery at Research Company, where they lead the Workday roadmap.' };
+  const verified = reviewIndexedContact({ results: [own, owns] }, candidate, company, NOW);
+  assert.equal(verified?.workday_source, owns.url);
+});
 
 test('focused search ranks independently reviewed leadership above title matches and excludes a former employee', async () => {
   const people = [
@@ -123,7 +171,7 @@ test('focused search ranks independently reviewed leadership above title matches
     review('reviewed', { status: 'confirmed', title: 'Vice President, HR Service Delivery' }),
   ]);
   const result = await enrichStage(ctx, { maxCompanies: 1 });
-  assert.deepEqual(treg.calls.map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES]);
+  assert.deepEqual(treg.calls.filter(call => call.endpoint === PEOPLE_SEARCH).map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES]);
   assert.equal(result.counts.contacts_confirmed, 1);
   const contacts = await ctx.store.contactsForCompany(id);
   assert.equal(contacts.length, 3);
@@ -139,7 +187,7 @@ test('an empty focused search falls back to broad titles and later reviews updat
     ? [] : [person('reviewed', 'HR Manager'), person('former', 'VP Workday')]) });
   const { ctx, id } = await world({ treg });
   await enrichStage(ctx, { maxCompanies: 1 });
-  assert.deepEqual(treg.calls.map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES, TITLE_PHRASES]);
+  assert.deepEqual(treg.calls.filter(call => call.endpoint === PEOPLE_SEARCH).map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES, TITLE_PHRASES]);
   ctx.contactReviews = contactReviewsSchema.parse([
     review('former', { status: 'different_employer' }),
     review('reviewed', { status: 'confirmed', title: 'Director, HRIS' }),

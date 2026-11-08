@@ -23,7 +23,14 @@ reported as a failure, and the response is not used to create contacts. Successf
 the existing `no_contacts_found` status. Existing terminal decisions remain respected.
 
 People search starts with Workday and HR systems titles and uses broader titles if it finds no usable
-candidates. Provider results stay unconfirmed. To use manually checked public evidence, point
+candidates. Enrichment keeps up to 50 results in the candidate pool and runs up to five free public
+evidence searches per company, starting with roles with the highest potential Authority. It checks
+the indexed profile against a recent, independently published attribution of the person's role and
+employer. It saves the source and quoted evidence with the contact. Profiles without sufficient
+evidence stay provisional, and a documented employer mismatch is excluded. The pipeline ranks the
+pool by per-contact Authority, then Reachability, and saves the top three.
+
+To use manually checked public evidence, point
 `PIPELINE_CONTACT_REVIEWS_FILE` at a JSON array. Each entry includes `company_domain`, `linkedin_url`
 (the provider's profile URL), `reviewed_on` (YYYY-MM-DD), and `source` (the public evidence URL).
 Use `status: "confirmed"` with the current `title` and an optional `workday_source` for documented
@@ -36,11 +43,6 @@ unconfirmed profile can earn the provisional Authority band. Email verification 
 Already researched companies below paid readiness do not consume new-research slots or repeat searches.
 The normal per-run company/contact caps still apply.
 
-No live provider or database was used to verify this change locally. Unit/fixture tests cover low-score
-research, paid gating and budget, duplicate prevention, scope, zero-item caps, evidence quality, retries,
-provider blocking, score provenance and unconfirmed roles. The in-memory store now selects the later
-insert when two fixture assessments share a timestamp. Real database integration remains a required
-review check; its expected score count includes the additional contact-enriched assessments.
-
-This change does not fix the separate release-scoring baseline or enable scheduling. It is intended as a
-small PR into `refined-pipeline`; Aadi's broader additions and the earlier combined draft remain separate.
+Unit fixtures cover the final cutoff, stale employers, insufficient verification evidence, free
+provider failures, and paid gating. The three-company pilot used live people search and public
+evidence with an isolated in-memory store.

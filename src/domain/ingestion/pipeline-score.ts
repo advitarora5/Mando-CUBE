@@ -72,7 +72,7 @@ const withinMonths = (date: string | null | undefined, months: number, now: Date
 
 // A contact counts as "confirmed current" when a person entered or confirmed them; people-search results do not.
 function roleReview(contact: ScoringContact) {
-  return (contact.contact_sources as { role_review?: { status?: string; reviewed_on?: string } } | null)?.role_review;
+  return (contact.contact_sources as { role_review?: { status?: string; reviewed_on?: string; workday_source?: string } } | null)?.role_review;
 }
 
 export function differentEmployer(contact: ScoringContact): boolean {
@@ -100,7 +100,7 @@ export function authorityFromContacts(contacts: ScoringContact[], company: Scori
     const base = confirmed ? band.base : Math.min(band.base, 5);
     const eligible = confirmed && base > 0;
     const size = eligible && (company.employee_count ?? 0) >= 3000 && http(company.employee_source) ? 3 : 0;
-    const workday = eligible && classifyTitle(contact.title).ownsWorkday === 4 ? 2 : 0;
+    const workday = eligible && (classifyTitle(contact.title).ownsWorkday === 4 || http(roleReview(contact)?.workday_source)) ? 2 : 0;
     return { contact, band, confirmed, base, size, workday, score: Math.min(rubric.authority.weight, base + size + workday), source: http(contact.source) ?? http(contact.linkedin_url) };
   }).filter(r => r.source).sort((a, b) => b.score - a.score);
   if (!rated.length) return needs("contacts have no source link for their role.");
