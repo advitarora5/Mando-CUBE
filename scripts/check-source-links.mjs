@@ -4,7 +4,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 // A real Workday careers site answers its job-search API (POST /wday/cxs/{tenant}/{site}/jobs) with 200;
-// a made-up tenant or site gives 404/422/500 even when the page itself loads. Cached per site.
+// a made-up tenant or site gives 404/410/422 even when the page itself loads. Anything else (429 rate limit, 5xx, timeout)
+// says nothing about the site and is reported as unknown. Cached per site.
 const siteChecks = new Map();
 export function workdaySite(url) {
   const u = new URL(url);
@@ -16,17 +17,17 @@ function verifySite({ origin, tenant, site }) {
   const key = `${origin}/${site}`;
   if (!siteChecks.has(key)) siteChecks.set(key, fetch(`${origin}/wday/cxs/${tenant}/${site}/jobs`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ limit: 1, offset: 0, searchText: "" }), signal: AbortSignal.timeout(15000),
-  }).then(r => r.ok, () => false));
+  }).then(r => (r.ok ? "verified" : [404, 410, 422].includes(r.status) ? "invalid" : "unknown"), () => "unknown"));
   return siteChecks.get(key);
 }
 
-// workday: "verified" (Workday careers site whose API answers), "invalid" (Workday host, site does not exist),
+// workday: "verified" (Workday careers site whose API answers), "invalid" (Workday host, site does not exist), "unknown" (could not tell),
 // "not-workday" (any other host: only the page text is checked, so treat a mention as weak evidence).
 export async function checkLink(url) {
   try {
     const res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "Mozilla/5.0 link-check" } });
     const wd = workdaySite(url);
-    if (wd) return { opens: res.ok, status: res.status, workday: (await verifySite(wd)) ? "verified" : "invalid" };
+    if (wd) return { opens: res.ok, status: res.status, workday: await verifySite(wd) };
     // ponytail: JS-rendered pages may hide "workday" from raw HTML; this is a hint, not proof
     return { opens: res.ok, status: res.status, workday: "not-workday", mentionsWorkday: res.ok && /workday/i.test(await res.text()) };
   } catch (e) {
@@ -57,14 +58,16 @@ if (process.argv[1]?.endsWith("check-source-links.mjs")) {
   const since = new Date(Date.now() - arg("days", 7) * 864e5).toISOString();
   const { data, error } = await db.from("companies").select("id, name, source, signals(source_url)").gte("created_at", since).order("created_at", { ascending: false }).limit(arg("limit", 50));
   if (error) throw new Error(error.message);
-  const rows = (await Promise.all(data.map(async c => Promise.all(linksOf(c).map(async u => ({ company: c.name, url: u, ...(await checkLink(u)) })))))).flat();
+  const jobs = data.flatMap(c => linksOf(c).map(u => ({ company: c.name, url: u })));
+  const rows = [];
+  for (let i = 0; i < jobs.length; i += 6) rows.push(...await Promise.all(jobs.slice(i, i + 6).map(async j => ({ ...j, ...(await checkLink(j.url)) })))); // ponytail: 6 at a time, Workday answers 429 to bursts
   for (const r of rows) {
     const site = r.workday === "verified" ? workdaySite(r.url) : null;
     if (site) r.tenantName = tenantMatchesName(site.tenant, r.company) ? "ok" : "check";
   }
   const noLink = data.filter(c => !linksOf(c).length).map(c => c.name);
   console.table(rows);
-  console.log(`${data.length} companies, ${rows.length} links: ${rows.filter(r => !r.opens).length} dead, ${rows.filter(r => r.workday === "invalid").length} not a real Workday site, ${rows.filter(r => r.workday === "not-workday").length} on a non-Workday host (check by hand), ${rows.filter(r => r.tenantName === "check").length} Workday tenants that do not resemble the company name (check by hand, not necessarily wrong)`);
+  console.log(`${data.length} companies, ${rows.length} links: ${rows.filter(r => !r.opens && r.status !== 429).length} dead, ${rows.filter(r => r.status === 429 || r.workday === "unknown").length} could not be checked (rate limit or timeout, re-run), ${rows.filter(r => r.workday === "invalid").length} not a real Workday site, ${rows.filter(r => r.workday === "not-workday").length} on a non-Workday host (check by hand), ${rows.filter(r => r.tenantName === "check").length} Workday tenants that do not resemble the company name (check by hand, not necessarily wrong)`);
   if (noLink.length) console.log(`No source link at all (fill by hand): ${noLink.join(", ")}`);
-  process.exitCode = rows.some(r => !r.opens || r.workday === "invalid") ? 1 : 0;
+  process.exitCode = rows.some(r => (!r.opens && r.status !== 429) || r.workday === "invalid") ? 1 : 0;
 }
