@@ -55,7 +55,7 @@ export type ScoringContact = {
 export type Financials = { fiscal_year_end: string; currency: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string; pre_tax?: boolean };
 
 // Company facts the rubric uses. Employee count earns the +3 Authority bonus only with a source link.
-export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; financials?: Financials | null };
+export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; employee_as_of?: string | null; financials?: Financials | null };
 
 export type CategoryResult = CategoryInput & { status: "met" | "partial" | "unknown" | "not_met"; detail: Record<string, number> };
 
@@ -106,11 +106,12 @@ export function authorityFromContacts(contacts: ScoringContact[], company: Scori
   if (!rated.length) return needs("contacts have no source link for their role.");
   const best = rated[0];
   if (!best.score) return { score: 0, source: best.source, status: "not_met", detail: { base: 0 }, reason: clip(`${best.contact.name}, ${best.contact.title ?? "title unknown"}: no relevant HR/IT systems role.`) };
+  const sizeEvidence = best.size ? ` Headcount ${company.employee_count}${company.employee_as_of ? ` as of ${company.employee_as_of}` : ""}: ${company.employee_source}` : "";
   const missing = !best.confirmed ? " Current role not yet confirmed (found by people search)." : !best.size ? " 3,000+ employer size not sourced." : "";
   return {
     score: best.score, source: best.source, status: best.confirmed ? "met" : "partial",
     detail: { base: best.base, size: best.size, workday: best.workday },
-    reason: clip(`${best.contact.name}, ${best.contact.title}: ${best.confirmed ? best.band.label : "role unconfirmed"} ${best.base} + size ${best.size} + Workday owner ${best.workday}.${missing}`),
+    reason: clip(`${best.contact.name}, ${best.contact.title}: ${best.confirmed ? best.band.label : "role unconfirmed"} ${best.base} + size ${best.size} + Workday owner ${best.workday}.${missing}`) + sizeEvidence,
   };
 }
 

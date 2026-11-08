@@ -52,3 +52,45 @@ The normal per-run company/contact caps still apply.
 Unit fixtures cover the final cutoff, stale employers, insufficient verification evidence, free
 provider failures, and paid gating. The three-company pilot used live people search and public
 evidence with an isolated in-memory store.
+
+
+## Reviewed employer headcount
+
+Set `PIPELINE_EMPLOYEE_EVIDENCE_FILE` to a JSON file containing reviewed employer
+headcounts. The standard pipeline context loads it for scoring, including rescoring
+after enrichment. This supplies the existing Authority size bonus with its missing
+source. It does not discover headcounts or update company employee-count fields.
+
+```json
+[
+  {
+    "company_domain": "employer.example",
+    "employee_count": 3500,
+    "as_of": "2026-06-30",
+    "source": "https://employer.example/annual-report"
+  }
+]
+```
+
+Review the linked annual report or employer publication before adding a row.
+Use the headcount's effective date, and the domain of the employer whose people are
+being scored. A parent's headcount must not be assigned to a subsidiary. The scorer
+matches normalized domains exactly, including subdomains. Duplicate domains,
+malformed dates, non-HTTP(S) sources and invalid counts fail context initialization.
+
+A confirmed relevant contact can earn the existing +3 bonus at 3,000 employees or
+above, within the Authority cap of 25. Reports older than 548 days are ignored,
+matching the financial scorer's annual-report window. Future dates are ignored.
+The reviewed count replaces any unsourced row count for this calculation. The
+assessment retains the headcount, effective date and full source URL alongside
+the contact's role source. Updated headcount provenance creates an assessment even
+when the point total stays the same. Keep the file available on subsequent scoring
+runs so the bonus continues to have evidence. Unconfigured runs retain zero size
+points. This input is manually reviewed evidence; URL validation alone does not
+verify the publisher or factual claim.
+
+For validation, the ingestion tests exercise the real scoring stage against the
+in-memory store. Before applying to shared data, preview a copy of the company's
+signals and contacts with and without the reviewed headcount and compare category
+scores under the same rubric version. Qualified promotions require all existing
+tier evidence checks as well as 70 points for the pipeline rubric.
