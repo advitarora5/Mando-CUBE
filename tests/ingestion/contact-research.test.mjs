@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eligibleForFreeResearch, enrichStage, PEOPLE_SEARCH, EMAIL_FIND } from '../../src/pipeline/enrich.ts';
+import { eligibleForFreeResearch, enrichStage, PEOPLE_SEARCH, EMAIL_FIND, FOCUSED_TITLE_PHRASES, TITLE_PHRASES } from '../../src/pipeline/enrich.ts';
+import { contactReviewsSchema } from '../../src/pipeline/contact-review.ts';
+import { scoreStage } from '../../src/pipeline/stages.ts';
 import { scoreCompany } from '../../src/domain/ingestion/pipeline-score.ts';
 import { defaultSettings } from '../../src/domain/ingestion/settings.ts';
-import { makeCtx, clock, worldTreg } from './helpers.mjs';
+import { makeCtx, clock, fakeTreg, worldTreg } from './helpers.mjs';
 
 const NOW = new Date('2026-10-13T12:00:00Z');
 const signal = extra => ({ type: 'known_customer', signal_date: null, source_url: 'https://employer.example/workday', quote: 'Our company uses Workday HCM.', confidence: 0.95, first_seen_at: NOW.toISOString(), last_seen_at: NOW.toISOString(), ...extra });
@@ -98,4 +100,80 @@ test('free calls request zero cost and no paid fallback; zero budget still permi
   assert.equal(call.opts.headers['X-Treg-Route-Max-Cost'], '0');
   assert.equal(call.opts.headers['X-Treg-Route-Waterfall'], '0');
   assert.equal(ctx.treg.calls.filter(c => c.endpoint === EMAIL_FIND).length, 0);
+});
+
+const profile = slug => `https://www.linkedin.com/in/${slug}`;
+const person = (last_name, title) => ({ first_name: 'Pat', last_name, title, employee_linkedin: profile(last_name) });
+const review = (slug, result) => ({
+  company_domain: 'research.example', linkedin_url: profile(slug),
+  reviewed_on: '2026-10-13', source: 'https://research.example/speakers', ...result,
+});
+const peopleResult = data => ({ ok: true, status: 200, body: { data }, cost_usd: 0, call_id: 'free' });
+
+test('focused search ranks independently reviewed leadership above title matches and excludes a former employee', async () => {
+  const people = [
+    person('former', 'VP Workday'), person('one', 'Workday Manager'),
+    person('two', 'Workday Architect'), person('three', 'Lead Workday Analyst'),
+    person('reviewed', 'VP Human Resources'),
+  ];
+  const treg = fakeTreg({ [PEOPLE_SEARCH]: () => peopleResult(people) });
+  const { ctx, id } = await world({ treg });
+  ctx.contactReviews = contactReviewsSchema.parse([
+    review('former', { status: 'different_employer' }),
+    review('reviewed', { status: 'confirmed', title: 'Vice President, HR Service Delivery' }),
+  ]);
+  const result = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.deepEqual(treg.calls.map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES]);
+  assert.equal(result.counts.contacts_confirmed, 1);
+  const contacts = await ctx.store.contactsForCompany(id);
+  assert.equal(contacts.length, 3);
+  assert.ok(!contacts.some(contact => contact.linkedin_url === profile('former')));
+  assert.equal(contacts[0].linkedin_url, profile('reviewed'));
+  const latest = await ctx.store.latestScore(id);
+  assert.deepEqual([latest.authority_score, latest.reachability_score], [18, 10]);
+  assert.match(latest.authority_evidence, /research\.example\/speakers/);
+});
+
+test('an empty focused search falls back to broad titles and later reviews update only the matched contacts', async () => {
+  const treg = fakeTreg({ [PEOPLE_SEARCH]: ({ body }) => peopleResult(body.title.include === FOCUSED_TITLE_PHRASES
+    ? [] : [person('reviewed', 'HR Manager'), person('former', 'VP Workday')]) });
+  const { ctx, id } = await world({ treg });
+  await enrichStage(ctx, { maxCompanies: 1 });
+  assert.deepEqual(treg.calls.map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES, TITLE_PHRASES]);
+  ctx.contactReviews = contactReviewsSchema.parse([
+    review('former', { status: 'different_employer' }),
+    review('reviewed', { status: 'confirmed', title: 'Director, HRIS' }),
+  ]);
+  ctx.treg = null;
+  const second = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(second.counts.contacts_confirmed, 1);
+  assert.equal(second.counts.contacts_employer_mismatch, 1);
+  const latest = await ctx.store.latestScore(id);
+  assert.deepEqual([latest.authority_score, latest.reachability_score], [20, 10]);
+  const count = ctx.store.scores.length;
+  await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(ctx.store.scores.length, count);
+  const contacts = await ctx.store.contactsForCompany(id);
+  const expired = scoreCompany(id, [], contacts, defaultSettings, new Date('2027-01-12T12:00:00Z'));
+  assert.deepEqual([expired.categories.authority.score, expired.categories.reachability.score], [5, 0]);
+});
+
+test('24 readiness points suppress email, while 25 permit a budgeted verified route and immediate rescore', async () => {
+  for (const budget of [11, 12]) {
+    const { ctx, id } = await world();
+    ctx.contact = 'fixture@example.com';
+    ctx.store.latestCapture = async () => ({ body: JSON.stringify({ 0: { title: 'Research Company', cik_str: 123 } }) });
+    const fact = (year, val) => ({ start: `${year}-01-01`, end: `${year}-12-31`, val, form: '10-K', filed: '2026-02-01', accn: '0000000123-26-000001' });
+    ctx.fetch = async () => Response.json({ facts: { 'us-gaap': {
+      OperatingIncomeLoss: { units: { USD: [fact(2025, 100), fact(2024, budget === 12 ? 90 : 110)] } },
+      Revenues: { units: { USD: [fact(2025, 200), fact(2024, 190)] } },
+    } } });
+    await scoreStage(ctx);
+    const previous = await ctx.store.latestScore(id);
+    assert.equal(previous.budget_score + previous.release_score + previous.timing_score, budget + 13);
+    const result = await enrichStage(ctx, { maxCompanies: 1 });
+    assert.equal(ctx.treg.calls.filter(call => call.endpoint === EMAIL_FIND).length, budget === 12 ? 1 : 0);
+    assert.equal(result.counts.email_valid ?? 0, budget === 12 ? 1 : 0);
+    assert.equal((await ctx.store.latestScore(id)).reachability_score, budget === 12 ? 15 : 0);
+  }
 });

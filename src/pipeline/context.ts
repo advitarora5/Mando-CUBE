@@ -1,5 +1,7 @@
 // Builds a PipelineContext from environment variables. Secrets are read from the environment only and never printed.
 import { LedgerSpendGuard } from "./ledger.ts";
+import { readFileSync } from "node:fs";
+import { contactReviewsSchema } from "./contact-review.ts";
 import { llmFromEnv } from "./llm.ts";
 import { MemoryStore } from "./store/memory.ts";
 import { SupabaseStore } from "./store/supabase.ts";
@@ -27,6 +29,9 @@ export function tregCap(env: NodeJS.ProcessEnv, maxSpend?: number): number {
 }
 
 export async function contextFromEnv(env: NodeJS.ProcessEnv, opts: { dryRun: boolean; maxSpend?: number; store?: PipelineStore; noLlm?: boolean; noTreg?: boolean }): Promise<PipelineContext> {
+  const contactReviews = env.PIPELINE_CONTACT_REVIEWS_FILE
+    ? contactReviewsSchema.parse(JSON.parse(readFileSync(env.PIPELINE_CONTACT_REVIEWS_FILE, "utf8")))
+    : [];
   const now = () => new Date();
   const store = opts.store ?? (opts.dryRun ? new MemoryStore() : databaseFromEnv(env));
   const llm = opts.noLlm ? null : llmFromEnv(env);
@@ -38,7 +43,7 @@ export async function contextFromEnv(env: NodeJS.ProcessEnv, opts: { dryRun: boo
     log: consoleLogger, now,
   });
   return {
-    store, now, log: consoleLogger, fetch: globalThis.fetch.bind(globalThis),
+    store, now, log: consoleLogger, fetch: globalThis.fetch.bind(globalThis), contactReviews,
     treg: opts.noTreg ? null : await tregFromEnv(env), llm, spend,
     contact: env.PIPELINE_CONTACT ?? "", sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)), runId: null,
   };
