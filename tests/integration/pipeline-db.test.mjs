@@ -7,20 +7,15 @@ import { randomUUID, createHash } from 'node:crypto';
 import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
 import { matchStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
-import { createClient } from '@supabase/supabase-js';
+import { integrationDatabase } from '../helpers/integration-database.mjs';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
 import { runPipeline } from '../../src/pipeline/runner.ts';
 import { discoveryScoreScope } from '../../scripts/discovery-score-scope.mjs';
 import { makeCtx, clock, worldFetch, worldTreg, groundedModel, randomNames, worldTenant } from '../ingestion/helpers.mjs';
 
 const url = process.env.PIPELINE_SUPABASE_URL, key = process.env.PIPELINE_SUPABASE_KEY;
-let reachable = false;
-if (url && key) {
-  try { assertAllowedTarget(url, undefined); reachable = (await fetch(`${url}/rest/v1/`, { headers: { apikey: key } })).status < 500; } catch { reachable = false; }
-}
-const skip = reachable ? false : 'local Supabase is not running (npx supabase start) or PIPELINE_SUPABASE_URL is remote';
+const { db, skip } = await integrationDatabase();
 const seed = Date.now();
-const db = reachable ? createClient(url, key, { auth: { persistSession: false } }) : null;
 const domainOf = name => `${worldTenant(name)}.example`;
 const count = async table => (await db.from(table).select('id', { count: 'exact', head: true })).count;
 

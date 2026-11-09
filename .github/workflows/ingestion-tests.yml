@@ -31,6 +31,9 @@ jobs:
       - name: Integration tests on the local database
         env:
           PIPELINE_SUPABASE_URL: http://127.0.0.1:54321
+          PIPELINE_REQUIRE_DATABASE_TESTS: '1'
         run: |
-          export PIPELINE_SUPABASE_KEY="$(npx supabase status -o env | grep '^SECRET_KEY=' | cut -d= -f2- | tr -d '"')"
+          set -euo pipefail
+          PIPELINE_SUPABASE_KEY="$(npx supabase status -o env | grep '^SECRET_KEY=' | cut -d= -f2- | tr -d '"')"
+          export PIPELINE_SUPABASE_KEY
           node --test tests/integration/*.test.mjs
