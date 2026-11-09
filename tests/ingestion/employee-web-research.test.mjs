@@ -232,3 +232,19 @@ test('reviewed metadata preserves publication labels and approximate counts cann
   const observations = employeeEvidenceSchema.parse([{ ...reviewed[0], as_of: '2026-10-01', date_basis: 'observed' }]);
   assert.equal(employeeEvidenceForCompany(observations, company.domain, NOW), null);
 });
+
+test('corporate fact cards and contractions establish employer totals without a prose template', () => {
+  const card = '<title>Pilot Newsroom</title><li><span>9K+</span><span>global employees</span></li>';
+  const result = employeeEvidenceFromHtml(card, company.name, 'https://pilot.example/company-news', NOW);
+  assert.equal(result.evidence.employee_count, 9000);
+  assert.equal(result.evidence.basis, 'lower_bound');
+  assert.equal(result.evidence.quote, '9K+ global employees');
+  assert.equal(result.evidence.date_basis, 'observed');
+  assert.equal(employeeEvidenceFromHtml(card.replace('employees','customers'), company.name, 'https://pilot.example/company-news', NOW).evidence, null);
+  assert.equal(employeeEvidenceFromHtml(card.replace('Pilot Newsroom','Otherco Newsroom'), company.name, 'https://pilot.example/company-news', NOW).evidence, null);
+  assert.equal(employeeEvidenceFromHtml(card, company.name, 'https://pilot.example/news/customer-story', NOW).evidence, null);
+  assert.equal(employeeEvidenceFromHtml('<meta property="article:published_time" content="2027-01-01">'+card, company.name, source, NOW).evidence, null);
+  assert.equal(extractText('We’re 800+ people across 38 countries.',{allowObserved:true}).evidence.employee_count,800);
+  assert.equal(extractText('As of March 31, 2026, we had 9,021 full-time employees and 299,458 Customers.',{}).evidence.employee_count,9021);
+  assert.equal(extractText('Our customers had 9,021 employees as of March 31, 2026.',{}).evidence,null);
+});

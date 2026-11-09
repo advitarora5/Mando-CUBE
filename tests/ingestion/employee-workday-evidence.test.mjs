@@ -6,7 +6,7 @@ const company = {id:'c1',name:'Pilot Corp'};
 function context(text='We employ more than 9000 employees worldwide.') {
  const ctx=makeCtx({now:clock('2026-11-08T12:00:00Z')});ctx.employeeWebResearch=true;
  ctx.store.workdaySites=async()=>[{company_id:'c1',normalized_name:'pilot',tenant:'pilot',pod:'wd5',site:'Careers',enabled:true}];
- ctx.store.websiteEvidenceCaptures=async()=>[{url:'https://pilot.wd5.myworkdayjobs.com/wday/cxs/pilot/Careers/job/Engineer',last_seen_at:'2026-11-01T12:00:00Z',meta:{kind:'workday_job',company_id:'c1'},body:JSON.stringify({jobPostingInfo:{jobDescription:`<p>${text}</p>`}})}];return ctx;
+ ctx.store.websiteEvidenceCaptures=async()=>[{url:'https://pilot.wd5.myworkdayjobs.com/wday/cxs/pilot/Careers/job/Engineer',last_seen_at:'2026-11-01T12:00:00Z',meta:{kind:'workday_job',company_id:'c1'},body:JSON.stringify({jobPostingInfo:{jobDescription:`<p>About Pilot Corp.</p><p>${text}</p>`}})}];return ctx;
 }
 test('reuses bound Workday employer description without fetching and preserves observation date',async()=>{
  const ctx=context();ctx.fetch=()=>{throw Error('must not fetch')};
@@ -14,13 +14,13 @@ test('reuses bound Workday employer description without fetching and preserves o
  assert.equal(evidence.employee_count,9000);assert.equal(evidence.basis,'lower_bound');assert.equal(evidence.as_of,'2026-11-01');assert.equal(evidence.date_basis,'observed');
 });
 test('Workday evidence requires current exact-company tenant and capture binding',async()=>{
- for(const change of ['disabled','stale','other-company','other-host','unbound-capture']){
+ for(const change of ['disabled','stale','other-company','other-host','conflicting-capture']){
  const ctx=context();const rows=await ctx.store.websiteEvidenceCaptures();
  if(change==='disabled')ctx.employeeWebResearch=false;
  if(change==='stale')rows[0].last_seen_at='2025-01-01T00:00:00Z';
  if(change==='other-company')company.id='other';
  if(change==='other-host')rows[0].url='https://other.wd5.myworkdayjobs.com/wday/cxs/pilot/Careers/job/Engineer';
- if(change==='unbound-capture')rows[0].meta.company_id=null;
+ if(change==='conflicting-capture')rows[0].meta.company_id='other';
  ctx.store.websiteEvidenceCaptures=async()=>rows;
  assert.equal(await lookupEmployeeWorkday(ctx,company),null,change);company.id='c1';
  }
@@ -43,4 +43,17 @@ test('normal scoring awards the size bonus from reused Workday evidence',async()
  assert.equal(result.counts.employee_evidence_workday,1);
  assert.equal((await ctx.store.latestScore(id)).authority_score,23);
  assert.match((await ctx.store.latestScore(id)).authority_evidence,/observed on 2026-11-01/);
+});
+
+test('pre-admission captures can use the subsequently confirmed company tenant binding',async()=>{
+ const ctx=context();const captures=await ctx.store.websiteEvidenceCaptures();captures[0].meta.company_id=null;
+ ctx.store.websiteEvidenceCaptures=async()=>captures;
+ assert.equal((await lookupEmployeeWorkday(ctx,company)).employee_count,9000);
+});
+
+test('a parent tenant cannot lend its identity to a differently named subsidiary description',async()=>{
+ const ctx=context();const captures=await ctx.store.websiteEvidenceCaptures();
+ captures[0].body=JSON.stringify({jobPostingInfo:{jobDescription:'Nordic Architecture is a design firm. We employ 4000 employees. Contact jobs@pilot.example.'}});
+ ctx.store.websiteEvidenceCaptures=async()=>captures;
+ assert.equal(await lookupEmployeeWorkday(ctx,company),null);
 });

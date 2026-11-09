@@ -15,7 +15,7 @@ export async function lookupEmployeeWorkday(ctx: PipelineContext, company: Pick<
   for (const capture of await ctx.store.websiteEvidenceCaptures(name, 20)) {
     const observed = new Date(capture.last_seen_at);
     const age = ctx.now().getTime() - observed.getTime();
-    if (!Number.isFinite(age) || age < 0 || age > 30 * 86400000 || capture.meta.company_id !== company.id || capture.meta.kind !== "workday_job") continue;
+    if (!Number.isFinite(age) || age < 0 || age > 30 * 86400000 || (capture.meta.company_id != null && capture.meta.company_id !== company.id) || capture.meta.kind !== "workday_job") continue;
     try {
       const url = new URL(capture.url);
       if (url.protocol !== "https:" || url.username || url.password || url.port || !sites.some(site =>
@@ -23,7 +23,12 @@ export async function lookupEmployeeWorkday(ctx: PipelineContext, company: Pick<
       const body = JSON.parse(capture.body);
       const description = body?.jobPostingInfo?.jobDescription;
       if (typeof description !== "string") continue;
-      const result = employeeEvidenceFromDocument({ text: htmlToText(description), companyName: company.name, source: capture.url, allowObserved: true }, ctx.now());
+      const text = htmlToText(description);
+      // A shared tenant can host subsidiaries. Require an explicit employer name
+      // in the description; an email/URL mentioning the parent is insufficient.
+      const employer = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!new RegExp(`(?<![a-z0-9@./-])${employer}(?![a-z0-9@./-])`, "i").test(text)) continue;
+      const result = employeeEvidenceFromDocument({ text, companyName: company.name, source: capture.url, allowObserved: true }, ctx.now());
       if (/Conflicting/.test(result.reason)) return null;
       if (!result.evidence || (result.evidence.basis === "approximate" && result.evidence.employee_count >= 3000)) continue;
       found.push({ ...result.evidence, observed_on: chicagoToday(observed),

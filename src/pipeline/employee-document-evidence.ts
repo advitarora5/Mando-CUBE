@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pageIdentity } from "./website.ts";
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import { chicagoToday, daysSince } from "../domain/scoring/go-live.ts";
 import { htmlToText } from "../domain/ingestion/quote.ts";
@@ -71,13 +72,15 @@ export function employeeEvidenceFromDocument(input: { text: string; companyName:
     const prefix = text.slice(start, match.index);
     const sentenceStart = Math.max(prefix.lastIndexOf('. '), prefix.lastIndexOf('! '), prefix.lastIndexOf('? '));
     const lead = prefix.slice(sentenceStart < 0 ? 0 : sentenceStart + 2);
-    const tail = text.slice(match.index! + match[0].length, match.index! + match[0].length + 200);
+    const tail = text.slice(match.index! + match[0].length, match.index! + match[0].length + 200)
+      // A separately numbered customer population is not a qualifier of employees.
+      .replace(/^\s+and\s+[\d,.]+\s+customers?\b[\s\S]*/i, "");
     const full = `${lead}${match[0]}${tail.split(/\.\s/)[0]}`;
     const namedGroup = full.match(/\b([A-Z][A-Za-z0-9&-]+)\s+Group\b/)?.[1];
     if (namedGroup && normalizeName(namedGroup) !== brand) continue;
     if (/\bgroup\b/i.test(full) && !/\bgroup\b/i.test(input.companyName)) continue;
     const namedAfterCount = new RegExp(`^\\s*,?\\s*${escape(brand)}\\b`, "i").test(tail);
-    if (!subject.test(lead) || !(/\b(has|have|are|employs?|employed|employing|workforce|team|delivery model)\b/i.test(lead) || /\b(?:with|our(?: global)?)\s*$/i.test(lead) || (namedAfterCount && /\bwith\b.*\bour\b/i.test(lead)))) continue;
+    if (!subject.test(lead) || !(/\b(has|have|had|are|we['’]re|we['’]ve|employs?|employed|employing|workforce|team|delivery model)\b/i.test(lead) || /\b(?:with|our(?: global)?)\s*$/i.test(lead) || (namedAfterCount && /\bwith\b.*\bour\b/i.test(lead)))) continue;
     if (/\b(subsidiar\w*|acquir\w*|dealers?|customers?|clients?|suppliers?|contractors?|graduates?|hired|hiring|recruit|between|up to|fewer than|less than|previously)\b/i.test(lead)) continue;
     if (/^(?:\s+(?:based |working )?in\s+)(?!more than|over|approximately|\d|countries|locations|offices)/i.test(tail)) continue;
     // Scope and modality apply to the entire claim, including qualifiers after the count.
@@ -118,7 +121,7 @@ export function employeeEvidenceFromHtml(html: string, companyName: string, sour
     && !/reports?|annual|press|news|\b20\d{2}\b/i.test(path);
   const published = publishedDate(html);
   const prose = employeeEvidenceFromDocument({ text: htmlToText(html), companyName, source, published, allowObserved }, now);
-  if (/Conflicting|Customer, partner/.test(prose.reason)) return prose;
+  if (/Conflicting|Customer, partner|Publication date/.test(prose.reason)) return prose;
   // Organization JSON-LD is useful for corporate fact cards. Do not recurse into
   // customers, subsidiaries, departments, or job-posting hiringOrganization nodes.
   const structured: WebEmployeeEvidence[] = [];
@@ -144,6 +147,24 @@ export function employeeEvidenceFromHtml(html: string, companyName: string, sour
         if (parsed.success) structured.push(parsed.data);
       }
     } catch { /* malformed structured data never establishes headcount */ }
+  }
+  // Short corporate fact cards are employer statements even without a sentence.
+  // Require publisher identity, an eligible corporate profile page, and an entire
+  // card containing only an employee total. Customer cards and prose cannot match.
+  const profile = allowObserved || /\/(?:company-news|newsroom)\/?$/i.test(path);
+  const identity = pageIdentity(html, companyName) || pageIdentity(html, `${normalizeName(companyName)} newsroom`);
+  if (profile && identity) for (const card of html.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)) {
+    const quote = htmlToText(card[1]).replace(/\s+/g, " ").trim();
+    const count = quote.match(/^(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(k|thousand|million)?\s*(\+)?\s+(?:global |worldwide )?employees(?: worldwide| globally)?$/i);
+    if (!count) continue;
+    const value = Number(count[1].replaceAll(",", "")) * (/million/i.test(count[2] ?? "") ? 1e6 : count[2] ? 1000 : 1);
+    const as_of = published ?? chicagoToday(now);
+    const age = daysSince(as_of, now);
+    if (age === null || age < 0 || age > (published ? 548 : 30)) continue;
+    const parsed = webEmployeeEvidenceSchema.safeParse({ employee_count: value, as_of, source, quote,
+      basis: count[3] ? "lower_bound" : "exact", date_basis: published ? "publication" : "observed",
+      ...(published ? { published_on: published } : {}), observed_on: chicagoToday(now) });
+    if (parsed.success) structured.push(parsed.data);
   }
   const candidates = [...(prose.evidence ? [prose.evidence] : []), ...structured].sort((a, b) => b.as_of.localeCompare(a.as_of));
   const latest = candidates[0];
