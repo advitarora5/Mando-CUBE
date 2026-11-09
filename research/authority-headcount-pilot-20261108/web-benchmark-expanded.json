@@ -1,0 +1,102 @@
+[
+  {
+    "name": "GEA Group",
+    "domain": "gea.com",
+    "segment": "Germany/public"
+  },
+  {
+    "name": "Medtronic plc",
+    "domain": "medtronic.com",
+    "segment": "Ireland/public"
+  },
+  {
+    "name": "Norconsult",
+    "domain": "norconsult.com",
+    "segment": "Norway/public"
+  },
+  {
+    "name": "Ferring Pharmaceuticals",
+    "domain": "ferring.com",
+    "segment": "Switzerland/private"
+  },
+  {
+    "name": "Workday Inc",
+    "domain": "workday.com",
+    "segment": "US/public"
+  },
+  {
+    "name": "Caterpillar Inc",
+    "domain": "cat.com",
+    "segment": "US/public"
+  },
+  {
+    "name": "Shell plc",
+    "domain": "shell.com",
+    "segment": "UK/public"
+  },
+  {
+    "name": "Datadog Inc",
+    "domain": "datadoghq.com",
+    "segment": "US/public"
+  },
+  {
+    "name": "Canva",
+    "domain": "canva.com",
+    "segment": "Australia/private"
+  },
+  {
+    "name": "Atlassian",
+    "domain": "atlassian.com",
+    "segment": "US/public"
+  },
+  {
+    "name": "Deloitte",
+    "domain": "deloitte.com",
+    "segment": "UK/private network"
+  },
+  {
+    "name": "Washington State University",
+    "domain": "wsu.edu",
+    "segment": "US/public university"
+  },
+  {
+    "name": "GitLab Inc",
+    "domain": "gitlab.com",
+    "segment": "US/public"
+  },
+  {
+    "name": "HubSpot Inc",
+    "domain": "hubspot.com",
+    "segment": "US/public"
+  },
+  {
+    "name": "SAP SE",
+    "domain": "sap.com",
+    "segment": "Germany/public"
+  },
+  {
+    "name": "Siemens AG",
+    "domain": "siemens.com",
+    "segment": "Germany/public"
+  },
+  {
+    "name": "Bosch Group",
+    "domain": "bosch.com",
+    "segment": "Germany/private"
+  },
+  {
+    "name": "IKEA",
+    "domain": "ikea.com",
+    "segment": "Sweden/private group"
+  },
+  {
+    "name": "Automattic",
+    "domain": "automattic.com",
+    "segment": "US/private"
+  },
+  {
+    "name": "Zapier",
+    "domain": "zapier.com",
+    "segment": "US/private"
+  }
+]

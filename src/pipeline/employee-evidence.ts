@@ -8,6 +8,10 @@ export const employeeEvidenceSchema = z.array(z.strictObject({
   company_domain: z.string().transform(normalizeDomain).pipe(z.string()),
   employee_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   as_of: z.iso.date(),
+  basis: z.enum(["exact", "lower_bound", "approximate"]).optional(),
+  date_basis: z.enum(["effective", "publication", "observed"]).optional(),
+  published_on: z.iso.date().optional(),
+  observed_on: z.iso.date().optional(),
   source: z.url({ protocol: /^https?$/ }),
 })).superRefine((rows, ctx) => {
   const seen = new Set<string>();
@@ -25,5 +29,5 @@ export function employeeEvidenceForCompany(rows: EmployeeEvidence[], domain: str
   if (!normalized) return null;
   const row = rows.find(row => row.company_domain === normalized);
   const age = daysSince(row?.as_of, now);
-  return row && age !== null && age >= 0 && age <= 548 ? row : null;
+  return row && age !== null && age >= 0 && age <= (row.date_basis === "observed" ? 30 : 548) ? row : null;
 }

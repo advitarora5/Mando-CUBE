@@ -1,0 +1,137 @@
+{
+  "checked_at": "2026-11-09T01:21:25.558Z",
+  "mode": "recorded_search_URLs_with_live_document_fetch",
+  "dns": "cloudflare_https_actual_A_records",
+  "database_accessed": false,
+  "companies": 12,
+  "found": 1,
+  "results": [
+    {
+      "name": "GEA Group",
+      "domain": "gea.com",
+      "segment": "Germany/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 12,
+      "spend": 0
+    },
+    {
+      "name": "Medtronic plc",
+      "domain": "medtronic.com",
+      "segment": "Ireland/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 11,
+      "spend": 0
+    },
+    {
+      "name": "Norconsult",
+      "domain": "norconsult.com",
+      "segment": "Norway/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 9,
+      "spend": 0
+    },
+    {
+      "name": "Ferring Pharmaceuticals",
+      "domain": "ferring.com",
+      "segment": "Switzerland/private",
+      "evidence": {
+        "employee_count": 7500,
+        "as_of": "2026-02-16",
+        "source": "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/",
+        "quote": "Ferring was founded in 1950 and employs more than 7,500 people worldwide",
+        "basis": "lower_bound",
+        "date_basis": "publication"
+      },
+      "status": "found",
+      "reason": "Dated official workforce evidence found.",
+      "requests": 11,
+      "spend": 0
+    },
+    {
+      "name": "Workday Inc",
+      "domain": "workday.com",
+      "segment": "US/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 12,
+      "spend": 0
+    },
+    {
+      "name": "Caterpillar Inc",
+      "domain": "cat.com",
+      "segment": "US/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 11,
+      "spend": 0
+    },
+    {
+      "name": "Shell plc",
+      "domain": "shell.com",
+      "segment": "UK/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 8,
+      "spend": 0
+    },
+    {
+      "name": "Datadog Inc",
+      "domain": "datadoghq.com",
+      "segment": "US/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 13,
+      "spend": 0
+    },
+    {
+      "name": "Canva",
+      "domain": "canva.com",
+      "segment": "Australia/private",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 10,
+      "spend": 0
+    },
+    {
+      "name": "Atlassian",
+      "domain": "atlassian.com",
+      "segment": "US/public",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 11,
+      "spend": 0
+    },
+    {
+      "name": "Deloitte",
+      "domain": "deloitte.com",
+      "segment": "UK/private network",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 10,
+      "spend": 0
+    },
+    {
+      "name": "Washington State University",
+      "domain": "wsu.edu",
+      "segment": "US/public university",
+      "evidence": null,
+      "status": "needs_review",
+      "reason": "No current dated employer-wide headcount was established.",
+      "requests": 9,
+      "spend": 0
+    }
+  ]
+}

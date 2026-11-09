@@ -1,0 +1,72 @@
+{
+  "gea.com": [
+    "https://www.gea.com/en/company/",
+    "https://www.gea.com/en/about-us/"
+  ],
+  "medtronic.com": [
+    "https://www.medtronic.com/no-nn/about.html",
+    "https://news.medtronic.com/Medtronic-named-one-of-the-2026-Worlds-Most-Ethical-Companies-R",
+    "https://www.medtronic.com/en-us/our-impact/inclusion-diversity-equity.html"
+  ],
+  "norconsult.com": [
+    "https://investor.norconsult.com/stock-exchange-and-press-releases/norconsult-annual-report-2025/",
+    "https://norconsult.com/news/solid-organic-growth-and-stable-profitability/"
+  ],
+  "ferring.com": [
+    "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/"
+  ],
+  "workday.com": [
+    "https://newsroom.workday.com/company-overview",
+    "https://en-ca.newsroom.workday.com/company-overview",
+    "https://www.workday.com/en-us/company/careers/life-at-workday.html"
+  ],
+  "cat.com": [
+    "https://www.cat.com/en_IN/support/dealer-network.html"
+  ],
+  "shell.com": [
+    "https://www.shell.com/who-we-are.html",
+    "https://www.shell.com/investors/results-and-reporting/annual-report.html"
+  ],
+  "datadoghq.com": [
+    "https://investors.datadoghq.com/static-files/5b3df1c8-8a56-4bee-8b2d-2e2f70239c36",
+    "https://careers.datadoghq.com/inclusion/"
+  ],
+  "canva.com": [
+    "https://www.canva.com/newsroom/news/marketing-ai-report-2026/"
+  ],
+  "atlassian.com": [
+    "https://www.atlassian.com/company"
+  ],
+  "deloitte.com": [
+    "https://www.deloitte.com/global/en/about/press-room/global-revenue-announcement.html",
+    "https://www.deloitte.com/global/en/about/governance/global-impact-report.html"
+  ],
+  "wsu.edu": [
+    "https://governmentrelations.wsu.edu/documents/2026/01/2025-2026-wsu-facts-sheet.pdf/",
+    "https://wpcdn.web.wsu.edu/wp-fais/uploads/sites/3077/2026/01/FY25-WSU-Financial-Report-Final.pdf"
+  ],
+  "gitlab.com": [
+    "https://about.gitlab.com/company/"
+  ],
+  "bosch.com": [
+    "https://www.bosch.com/company/"
+  ],
+  "zapier.com": [
+    "https://zapier.com/about"
+  ],
+  "automattic.com": [
+    "https://automattic.com/about/"
+  ],
+  "sap.com": [
+    "https://www.sap.com/about/company.html"
+  ],
+  "siemens.com": [
+    "https://www.siemens.com/global/en/company/about.html"
+  ],
+  "hubspot.com": [
+    "https://www.hubspot.com/our-story"
+  ],
+  "ikea.com": [
+    "https://www.ikea.com/global/en/our-business/"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "audit_method": "Fresh original-source HTTP fetch, final parser recheck, and manual entity/date/unit review; source hashes retained, full pages omitted.",
+  "results": [
+    {
+      "company": "GEA Group",
+      "source": "https://www.gea.com/en/about-us/",
+      "response_url": "https://www.gea.com/en/about-us/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T01:35:58.359Z",
+      "sha256": "9e85a03bb59cba2e94fd9092d57732ad8387319656ea8e527e365f9549a61342",
+      "final_parser_matches_benchmark": true,
+      "published_on": null,
+      "employee_count": 18000,
+      "basis": "lower_bound",
+      "date_basis": "observed",
+      "as_of": "2026-11-08",
+      "review": "Own global business statement; group prospect matches GEA group wording. 18,000 is a lower bound, not the separately reviewed year-end headcount or FTE figure."
+    },
+    {
+      "company": "Ferring Pharmaceuticals",
+      "source": "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/",
+      "response_url": "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T01:35:59.856Z",
+      "sha256": "163f20b6c9a9c460b9a8aada38ad9d996179adebe510a804ab217ca8c651bf14",
+      "final_parser_matches_benchmark": true,
+      "published_on": "2026-02-16",
+      "employee_count": 7500,
+      "basis": "lower_bound",
+      "date_basis": "publication",
+      "as_of": "2026-02-16",
+      "review": "Own worldwide employer statement in About Ferring. 2026-02-16 is article publication, not an explicit workforce effective date. Lower bound 7,500."
+    },
+    {
+      "company": "Atlassian",
+      "source": "https://www.atlassian.com/",
+      "response_url": "https://www.atlassian.com/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T01:36:00.754Z",
+      "sha256": "4abb4cb9b4e3951d10e1beac23e819b0da77a705209b356ea88807639fdfe07f",
+      "final_parser_matches_benchmark": true,
+      "published_on": null,
+      "employee_count": 12000,
+      "basis": "exact",
+      "date_basis": "observed",
+      "as_of": "2026-11-08",
+      "review": "Homepage Organization JSON-LD names Atlassian Corporation and asserts 12,000 employees. Observation of self-published metadata; no reporting date is asserted."
+    },
+    {
+      "company": "GitLab Inc",
+      "source": "https://about.gitlab.com/",
+      "response_url": "https://about.gitlab.com/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T01:36:01.038Z",
+      "sha256": "805932aaf6ae8f58e1d8780b67b2f522cc848f73b2320caa497c6324fd61bac6",
+      "final_parser_matches_benchmark": true,
+      "published_on": null,
+      "employee_count": 2500,
+      "basis": "exact",
+      "date_basis": "observed",
+      "as_of": "2026-11-08",
+      "review": "Redirected official corporate homepage names GitLab Inc. in Organization JSON-LD with 2,500 employees. Below bonus threshold. No effective date asserted."
+    },
+    {
+      "company": "Automattic",
+      "source": "https://automattic.com/",
+      "response_url": "https://automattic.com/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T01:36:01.311Z",
+      "sha256": "418ecac4c53be76dedd8ee54640c75a34975fb4887a5a06614f25bcc130a54d0",
+      "final_parser_matches_benchmark": true,
+      "published_on": null,
+      "employee_count": 1347,
+      "basis": "exact",
+      "date_basis": "observed",
+      "as_of": "2026-11-08",
+      "review": "Homepage Organization JSON-LD names Automattic and asserts 1,347 employees. Below bonus threshold. No effective date asserted."
+    }
+  ]
+}

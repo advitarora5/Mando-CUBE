@@ -55,7 +55,7 @@ export type ScoringContact = {
 export type Financials = { fiscal_year_end: string; currency: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string; pre_tax?: boolean };
 
 // Company facts the rubric uses. Employee count earns the +3 Authority bonus only with a source link.
-export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; employee_as_of?: string | null; financials?: Financials | null };
+export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; employee_as_of?: string | null; employee_basis?: "exact" | "lower_bound" | "approximate"; employee_date_basis?: "effective" | "publication" | "observed"; financials?: Financials | null };
 
 export type CategoryResult = CategoryInput & { status: "met" | "partial" | "unknown" | "not_met"; detail: Record<string, number> };
 
@@ -99,14 +99,14 @@ export function authorityFromContacts(contacts: ScoringContact[], company: Scori
     // A relevant person whose current role is unconfirmed gets the 5-point band and no bonuses.
     const base = confirmed ? band.base : Math.min(band.base, 5);
     const eligible = confirmed && base > 0;
-    const size = eligible && (company.employee_count ?? 0) >= 3000 && http(company.employee_source) ? 3 : 0;
+    const size = eligible && company.employee_basis !== "approximate" && (company.employee_count ?? 0) >= 3000 && http(company.employee_source) ? 3 : 0;
     const workday = eligible && (classifyTitle(contact.title).ownsWorkday === 4 || http(roleReview(contact)?.workday_source)) ? 2 : 0;
     return { contact, band, confirmed, base, size, workday, score: Math.min(rubric.authority.weight, base + size + workday), source: http(contact.source) ?? http(contact.linkedin_url) };
   }).filter(r => r.source).sort((a, b) => b.score - a.score);
   if (!rated.length) return needs("contacts have no source link for their role.");
   const best = rated[0];
   if (!best.score) return { score: 0, source: best.source, status: "not_met", detail: { base: 0 }, reason: clip(`${best.contact.name}, ${best.contact.title ?? "title unknown"}: no relevant HR/IT systems role.`) };
-  const sizeEvidence = best.size ? ` Headcount ${company.employee_count}${company.employee_as_of ? ` as of ${company.employee_as_of}` : ""}: ${company.employee_source}` : "";
+  const sizeEvidence = best.size ? ` Headcount ${company.employee_basis === "lower_bound" ? "at least " : company.employee_basis === "approximate" ? "approximately " : ""}${company.employee_count}${company.employee_as_of ? ` ${company.employee_date_basis === "observed" ? "observed on" : company.employee_date_basis === "publication" ? "reported on" : "as of"} ${company.employee_as_of}` : ""}: ${company.employee_source}` : "";
   const missing = !best.confirmed ? " Current role not yet confirmed (found by people search)." : !best.size ? " 3,000+ employer size not sourced." : "";
   return {
     score: best.score, source: best.source, status: best.confirmed ? "met" : "partial",

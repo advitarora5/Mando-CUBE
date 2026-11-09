@@ -85,8 +85,7 @@ The reviewed count replaces any unsourced row count for this calculation. The
 assessment retains the headcount, effective date and full source URL alongside
 the contact's role source. Updated headcount provenance creates an assessment even
 when the point total stays the same. Keep the file available on subsequent scoring
-runs so the bonus continues to have evidence. Unconfigured runs retain zero size
-points. This input is manually reviewed evidence; URL validation alone does not
+runs so the bonus continues to have evidence. Without reviewed input, scoring can use the automatic SEC path below. This input is manually reviewed evidence; URL validation alone does not
 verify the publisher or factual claim.
 
 For validation, the ingestion tests exercise the real scoring stage against the
@@ -94,3 +93,38 @@ in-memory store. Before applying to shared data, preview a copy of the company's
 signals and contacts with and without the reviewed headcount and compare category
 scores under the same rubric version. Qualified promotions require all existing
 tier evidence checks as well as 70 points for the pipeline rubric.
+
+
+## Automatic SEC employee evidence
+
+Scoring also reads `dei.EntityNumberOfEmployees`, in employee units, from the
+companyfacts response already fetched for Budget. No additional SEC request is
+made. The response CIK and normalized entity name must match the pipeline's
+existing unambiguous SEC-name lookup. Only whole-filing-entity facts are accepted.
+The newest nonfuture reporting period and filing win, including amendments.
+Malformed, conflicting, stale, negative and noninteger counts earn no bonus.
+The existing 548-day evidence window applies. A valid count below 3,000 earns no
+size points. A manual reviewed record takes precedence over an automatic count.
+
+The score reason retains the SEC filing URL, count and effective date. During a
+transient financial lookup failure, a still-current SEC headcount recorded in the
+same company's latest assessment can be reused. Contact eligibility is recalculated.
+A successful fresh disclosure, including a lower count, replaces the previous count.
+The existing Budget deferral behavior can still defer the whole assessment if the
+financial lookup fails and would reduce Budget; coordinate that behavior with Budget
+work separately. Source status counters distinguish reviewed, SEC, retained and
+missing evidence.
+
+This path requires the existing SEC-list capture and `PIPELINE_CONTACT`, as the
+financial lookup does. Private companies, unmatched entities and filers without the
+standard employee tag still need reviewed evidence. This does not scrape narrative
+annual reports or infer headcount from revenue or unrelated subsidiaries.
+
+A seven-company public API check is recorded under
+`research/authority-headcount-pilot-20261108/sec-live-validation.json`.
+Two yielded usable facts. Constellium exceeded the workforce threshold; Green Brick
+Partners was below it. Five returned no usable matched employee fact. This sample
+measures source availability only and is not representative of overall coverage.
+It establishes no current dashboard tier changes.
+
+Final employee-headcount validation and rollout requirements: `research/authority-headcount-pilot-20261108/FINAL_REPORT.md`. The web sample returned 4/20 direct and 5/20 replay-assisted counts; live treg search and current score uplift remain unmeasured. Approximate counts cannot earn the size bonus.

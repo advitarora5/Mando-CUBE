@@ -1,5 +1,7 @@
 // In-memory PipelineStore with the same dedupe and atomicity rules as the database.
 // Used by unit tests, failure-injection tests and --dry-run. `failAfter` makes a named method throw.
+import type { EmployeeResearchRecord, EmployeeResearchStatus } from "../employee-research-record.ts";
+import type { WebEmployeeEvidence } from "../employee-document-evidence.ts";
 import { randomUUID } from "node:crypto";
 import { defaultSettings, parseSettings, type PipelineSettings } from "../../domain/ingestion/settings.ts";
 import { normalizeName } from "../../domain/ingestion/normalize.ts";
@@ -26,6 +28,30 @@ type Run = { id: string; job: string; source_id: string | null; trigger: string;
 
 export class MemoryStore implements PipelineStore {
   readonly kind = "memory" as const;
+  employeeResearchRows = new Map<string, EmployeeResearchRecord>();
+  async employeeResearch(id: string) { return structuredClone(this.employeeResearchRows.get(id) ?? null); }
+  async claimEmployeeResearch(id: string, domain: string, name: string) {
+    const previous = this.employeeResearchRows.get(id);
+    const now = this.now();
+    if (previous?.lease_until && Date.parse(previous.lease_until) > now.getTime()) return null;
+    const same = previous?.company_domain === domain && previous?.company_name === name;
+    if (same && Date.parse(previous!.next_check_at) > now.getTime()) return null;
+    const row: EmployeeResearchRecord = { company_id: id, company_domain: domain, company_name: name,
+      status: "running", evidence: same ? previous!.evidence : null, checked_at: previous?.checked_at ?? null,
+      next_check_at: previous?.next_check_at ?? now.toISOString(), lease_token: randomUUID(),
+      lease_until: new Date(now.getTime() + 120000).toISOString(), reason: "" };
+    this.employeeResearchRows.set(id, row);
+    return structuredClone(row);
+  }
+  async finishEmployeeResearch(id: string, token: string, status: EmployeeResearchStatus, evidence: WebEmployeeEvidence | null, reason: string) {
+    const row = this.employeeResearchRows.get(id);
+    if (!row || row.lease_token !== token || !row.lease_until || Date.parse(row.lease_until) <= this.now().getTime()) return false;
+    const days = status === "found" ? 30 : status === "needs_review" ? 7 : 1;
+    this.employeeResearchRows.set(id, { ...row, status, evidence: status === "unavailable" ? row.evidence : evidence,
+      checked_at: this.now().toISOString(), next_check_at: new Date(this.now().getTime() + days * 86400000).toISOString(),
+      lease_token: null, lease_until: null, reason });
+    return true;
+  }
   settingsRows: { key: string; value: unknown }[] = [];
   sourceRows: SourceRow[] = DEFAULT_SOURCES.map(s => ({ ...s, config: { ...s.config } }));
   runs: Run[] = [];

@@ -3,6 +3,7 @@
 // is converted: years are compared within one currency. A company is matched by exact normalized name to one SEC CIK;
 // anything ambiguous, stale or missing returns null and Budget stays "Needs evidence" for that part. Never estimated.
 // A filer with no usable operating figure (banks and insurers often have none) falls back to pre-tax income, labeled as such.
+import { parseSecEmployeeEvidence, type SecEmployeeEvidence } from "./sec-employee-evidence.ts";
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { Financials } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineContext } from "./types.ts";
@@ -95,12 +96,12 @@ export function cikIndex(secListJson: string): Map<string, number> {
 
 // Why a company has filing figures or not. The run reports these counts, so missing capacity is never silent.
 export type FinancialsStatus = "found" | "no_contact" | "no_sec_list" | "fetch_failed" | "no_sec_match" | "no_filing_facts" | "no_operating_income" | "stale_filing";
-export type FinancialsLookup = { financials: Financials | null; status: FinancialsStatus; requests: number };
+export type FinancialsLookup = { financials: Financials | null; status: FinancialsStatus; requests: number; employeeEvidence?: SecEmployeeEvidence };
 
 // The lookup could not run, which says nothing about the company. Every other status is an answer about its filings.
 export const financialsUnavailable = (status: FinancialsStatus) => status === "no_contact" || status === "no_sec_list" || status === "fetch_failed";
 
-export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<FinancialsLookup, "financials" | "status"> {
+export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<FinancialsLookup, "financials" | "status" | "employeeEvidence"> {
   const financials = parseFinancials(rawFacts, cik, now);
   if (financials) return { financials, status: "found" };
   const facts = rawFacts as Facts;
@@ -110,7 +111,7 @@ export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<F
   return { financials: null, status: figure && !isCurrent(figure, now) ? "stale_filing" : "no_operating_income" };
 }
 
-type LookupState = { index: Map<string, number> | null; byCik: Map<number, Pick<FinancialsLookup, "financials" | "status">>; stopped: boolean };
+type LookupState = { index: Map<string, number> | null; byCik: Map<number, Pick<FinancialsLookup, "financials" | "status" | "employeeEvidence">>; employeeNames: Map<number, string>; stopped: boolean };
 const cache = new WeakMap<PipelineContext, LookupState>();
 
 // Financials for one company, with the reason when there are none. Needs the SEC list capture and PIPELINE_CONTACT
@@ -118,7 +119,7 @@ const cache = new WeakMap<PipelineContext, LookupState>();
 export async function lookupFinancials(ctx: PipelineContext, companyName: string): Promise<FinancialsLookup> {
   if (!ctx.contact) return { financials: null, status: "no_contact", requests: 0 };
   let state = cache.get(ctx);
-  if (!state) { state = { index: null, byCik: new Map(), stopped: false }; cache.set(ctx, state); }
+  if (!state) { state = { index: null, byCik: new Map(), employeeNames: new Map(), stopped: false }; cache.set(ctx, state); }
   if (!state.index) {
     const capture = await ctx.store.latestCapture("sec-company-list");
     state.index = capture ? cikIndex(capture.body) : new Map();
@@ -127,16 +128,27 @@ export async function lookupFinancials(ctx: PipelineContext, companyName: string
   const cik = state.index.get(normalizeName(companyName));
   if (!cik) return { financials: null, status: "no_sec_match", requests: 0 };
   const known = state.byCik.get(cik);
-  if (known) return { ...known, requests: 0 };
+  if (known) {
+    const { employeeEvidence, ...financials } = known;
+    return { ...financials, requests: 0,
+      ...(employeeEvidence && state.employeeNames.get(cik) === normalizeName(companyName) ? { employeeEvidence } : {}) };
+  }
   if (state.stopped) return { financials: null, status: "fetch_failed", requests: 0 };
-  let found: Pick<FinancialsLookup, "financials" | "status"> = { financials: null, status: "fetch_failed" };
+  let found: Pick<FinancialsLookup, "financials" | "status" | "employeeEvidence"> = { financials: null, status: "fetch_failed" };
   try {
     // The SEC wants "Name contact" as the User-Agent; the pipeline's standard agent string is answered with 403.
     const res = await ctx.fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${String(cik).padStart(10, "0")}.json`, {
       headers: { "user-agent": `Mando-CUBE ${ctx.contact}`, accept: "application/json" }, signal: AbortSignal.timeout(30000), redirect: "error",
     });
-    if (res.ok) found = classifyFacts(((await res.json()) as { facts?: unknown }).facts, cik, ctx.now());
-    else if (res.status === 404) found = { financials: null, status: "no_filing_facts" }; // the SEC has no XBRL facts for this CIK
+    if (res.ok) {
+      const body = await res.json() as { facts?: unknown };
+      found = classifyFacts(body.facts, cik, ctx.now());
+      const employees = parseSecEmployeeEvidence(body, companyName, cik, ctx.now());
+      if (employees) {
+        found.employeeEvidence = employees;
+        state.employeeNames.set(cik, normalizeName(companyName));
+      }
+    } else if (res.status === 404) found = { financials: null, status: "no_filing_facts" }; // the SEC has no XBRL facts for this CIK
     else { ctx.log.warn(`SEC company facts ${cik}: HTTP ${res.status}`); state.stopped = true; }
   } catch (error) { ctx.log.warn(`SEC company facts ${cik}: ${(error as Error).message}`); state.stopped = true; }
   await ctx.sleep(150); // SEC fair access: at most 10 requests a second

@@ -38,6 +38,8 @@ jobs:
           PIPELINE_SUPABASE_KEY: ${{ secrets.PIPELINE_SUPABASE_KEY }}
           PIPELINE_ALLOW_REMOTE: ${{ vars.PIPELINE_ALLOW_REMOTE }}
           PIPELINE_CONTACT: ${{ vars.PIPELINE_CONTACT }}
+          PIPELINE_EMPLOYEE_WEB_RESEARCH: ${{ vars.PIPELINE_EMPLOYEE_WEB_RESEARCH }}
+          PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES: ${{ vars.PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES }}
           TREG_TOKEN: ${{ secrets.TREG_TOKEN }}
         run: node scripts/discovery-execute-approved.mjs
       - name: Show discovery health

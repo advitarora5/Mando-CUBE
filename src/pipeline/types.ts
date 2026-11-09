@@ -5,6 +5,8 @@ import type { SignalType, ProjectType, ScoringContact } from "../domain/ingestio
 import type { ScoreRow } from "../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../domain/ingestion/score-change.ts";
 import type { LedgerEntry } from "../domain/ingestion/budget.ts";
+import type { EmployeeResearchRecord, EmployeeResearchStatus } from "./employee-research-record.ts";
+import type { WebEmployeeEvidence } from "./employee-document-evidence.ts";
 import type { EmployeeEvidence } from "./employee-evidence.ts";
 import type { ContactReview } from "./contact-review.ts";
 
@@ -164,6 +166,9 @@ export type ExtractionRecord = {
 
 export interface PipelineStore {
   readonly kind: "supabase" | "memory";
+  employeeResearch(companyId: string): Promise<EmployeeResearchRecord | null>;
+  claimEmployeeResearch(companyId: string, domain: string, name: string): Promise<EmployeeResearchRecord | null>;
+  finishEmployeeResearch(companyId: string, token: string, status: EmployeeResearchStatus, evidence: WebEmployeeEvidence | null, reason: string): Promise<boolean>;
   settings(): Promise<PipelineSettings>;
   sources(): Promise<SourceRow[]>;
   startRun(run: { job: string; source_id: string | null; trigger: "schedule" | "manual" | "import_button" }): Promise<string>;
@@ -238,6 +243,8 @@ export type PipelineContext = {
   store: PipelineStore;
   contactReviews?: ContactReview[];
   employeeEvidence?: EmployeeEvidence[];
+  employeeWebResearch?: boolean;
+  employeeWebMaxCompanies?: number;
   now: () => Date;
   log: Logger;
   fetch: typeof fetch;

@@ -48,6 +48,8 @@ export async function contextFromEnv(env: NodeJS.ProcessEnv, opts: { dryRun: boo
   });
   return {
     store, now, log: consoleLogger, fetch: globalThis.fetch.bind(globalThis), contactReviews, employeeEvidence,
+    employeeWebResearch: env.PIPELINE_EMPLOYEE_WEB_RESEARCH === "1",
+    employeeWebMaxCompanies: Math.max(1, Math.min(20, Math.trunc(Number(env.PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES) || 5))),
     treg: opts.noTreg ? null : await tregFromEnv(env), llm, spend,
     contact: env.PIPELINE_CONTACT ?? "", sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)), runId: null,
   };
