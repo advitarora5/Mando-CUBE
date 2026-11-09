@@ -109,7 +109,7 @@ for (const required of [false, true]) {
   test(`the actual integration command ${required ? 'fails in CI' : 'skips locally'} without database configuration`, () => {
     const env = { ...process.env, CI: required ? 'true' : 'false' };
     for (const key of ['PIPELINE_SUPABASE_URL', 'PIPELINE_SUPABASE_KEY', 'PIPELINE_REQUIRE_DATABASE_TESTS', 'NODE_TEST_CONTEXT']) delete env[key];
-    const result = spawnSync(process.execPath, ['--test', 'tests/integration/pipeline-db.test.mjs'], {
+    const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', 'tests/integration/pipeline-db.test.mjs'], {
       cwd: new URL('..', import.meta.url), env, encoding: 'utf8', timeout: 10000,
     });
     assert.equal(result.error, undefined);
