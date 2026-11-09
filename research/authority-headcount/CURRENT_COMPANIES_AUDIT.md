@@ -18,11 +18,9 @@ search provider was invoked; discovery here is the bounded direct-site path.
 | **Unresolved** | **199/207** | 162 have readable sources but no accepted current employer-wide count; 37 have unavailable sources. |
 
 The final-result crawler request counter totals 1,617 public requests, excluding
-superseded reads for the three corrected cases. The complete initial sweep used
-six workers, then resumed unfinished companies with sixteen workers. Original
-company limits were preserved. The three affected companies were re-fetched with
-the corrected extractor; all Authority comparisons were then recomputed using
-current GET-only records. Capture bodies and contact details remain outside Git.
+superseded reads for the three corrected cases. Those cases were re-fetched with
+the corrected extractor before the final Authority comparison. Original company
+limits were preserved. Capture bodies and contact details remain outside Git.
 
 | Company | Count | Precision/date basis | Automatic source |
 | --- | ---: | --- | --- |

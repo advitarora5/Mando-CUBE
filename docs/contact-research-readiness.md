@@ -121,10 +121,10 @@ standard employee tag still need reviewed evidence. This does not scrape narrati
 annual reports or infer headcount from revenue or unrelated subsidiaries.
 
 A seven-company public API check is recorded under
-`research/authority-headcount-pilot-20261108/sec-live-validation.json`.
+`research/authority-headcount/validation/20261108/sec-live-validation.json`.
 Two yielded usable facts. Constellium exceeded the workforce threshold; Green Brick
 Partners was below it. Five returned no usable matched employee fact. This sample
 measures source availability only and is not representative of overall coverage.
 It establishes no current dashboard tier changes.
 
-Final employee-headcount validation and rollout requirements: `research/authority-headcount-pilot-20261108/FINAL_REPORT.md`. The web sample returned 4/20 direct and 5/20 replay-assisted counts; live treg search and current score uplift remain unmeasured. Approximate counts cannot earn the size bonus.
+Current employee-headcount coverage and Authority comparisons: [current-company audit](../research/authority-headcount/CURRENT_COMPANIES_AUDIT.md). Setup, source precedence and reproducible validation: [headcount guide](../research/authority-headcount/README.md). Current automatic coverage is 8/207; no additional points are supported against saved Authority scores. Web research is disabled by default; live search-provider and Supabase/PostgREST integration validation remain pending. Approximate counts cannot earn the size bonus.
