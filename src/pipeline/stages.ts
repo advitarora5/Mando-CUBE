@@ -1,3 +1,4 @@
+import { lookupEmployeeWorkday } from "./employee-workday-evidence.ts";
 // The pipeline stages. Each one reads from and writes to the store only, so any stage can run on its own.
 // Failures are counted and logged per item; a stage never throws out of a run.
 import { createHash } from "node:crypto";
@@ -288,11 +289,13 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       const latest = await ctx.store.latestScore(company.id);
       const savedEmployees = financialsUnavailable(lookup.status)
         ? savedSecEmployeeEvidence(latest?.authority_evidence, now) : null;
-      const web = !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees && ctx.employeeWebResearch
+      const workdayEmployees = !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees
+        ? await lookupEmployeeWorkday(ctx, company).catch(() => { ctx.log.warn("Saved Workday employee evidence could not be read."); return null; }) : null;
+      const web = !workdayEmployees && !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees && ctx.employeeWebResearch
         ? await lookupEmployeeWebsite(ctx, company) : null;
       r.requests += web?.requests ?? 0;
       r.treg_spend_usd += web?.spend ?? 0;
-      const employees = reviewedEmployees ?? lookup.employeeEvidence ?? savedEmployees ?? web?.evidence;
+      const employees = reviewedEmployees ?? lookup.employeeEvidence ?? savedEmployees ?? workdayEmployees ?? web?.evidence;
       const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: employees?.employee_count ?? null, employee_source: employees?.source ?? null, employee_as_of: employees?.as_of ?? null, employee_basis: employees?.basis ?? "exact", employee_date_basis: employees?.date_basis ?? "effective", financials: lookup.financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
@@ -311,7 +314,7 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
         bump(r, "ready_for_contacts");
       }
       // Coverage comes after the writes, so a failing store still leaves this stage with no work and a failed status.
-      bump(r, reviewedEmployees ? "employee_evidence_reviewed" : lookup.employeeEvidence ? "employee_evidence_sec" : savedEmployees ? "employee_evidence_retained" : web?.evidence ? "employee_evidence_web" : "employee_evidence_missing");
+      bump(r, reviewedEmployees ? "employee_evidence_reviewed" : lookup.employeeEvidence ? "employee_evidence_sec" : savedEmployees ? "employee_evidence_retained" : workdayEmployees ? "employee_evidence_workday" : web?.evidence ? "employee_evidence_web" : "employee_evidence_missing");
       if (web && !web.evidence) bump(r, `employee_web_${web.status}`);
       bump(r, `financials_${lookup.status}`);
       bump(r, contacts.length ? "with_contacts" : "without_contacts");

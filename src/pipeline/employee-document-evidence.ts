@@ -16,7 +16,7 @@ export type EmployeeDocumentResult = { evidence: WebEmployeeEvidence | null; rea
 const isoDate = z.iso.date();
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 const number = "(?:\\d{1,3}(?:[, \\u00a0]\\d{3})+|\\d+(?:\\.\\d+)?)";
-const countPattern = new RegExp(`((?:more than|over|at least|approximately|about|around)\\s+)?(${number})\\s*(thousand|million|k)?\\s*(?:\\+|-plus)?\\s*(?:(?:talented|dedicated|passionate|skilled|global)\\s+)?(?:full[ -]time\\s+|permanent\\s+)?(employees?|people|colleagues|team members)\\b`, "gi");
+const countPattern = new RegExp(`((?:more than|over|at least|approximately|about|around|roughly|some)\\s+)?(${number})\\s*(thousand|million|k)?\\s*(?:\\+|-plus)?\\s*(?:(?:talented|dedicated|passionate|skilled|global)\\s+)?(?:full[ -]time\\s+|permanent\\s+)?(employees?|people|colleagues|team members|staff|associates)\\b`, "gi");
 const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export function documentDates(text: string): string[] {
