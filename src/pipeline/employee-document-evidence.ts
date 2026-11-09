@@ -72,6 +72,13 @@ export function employeeEvidenceFromDocument(input: { text: string; companyName:
     const prefix = text.slice(start, match.index);
     const sentenceStart = Math.max(prefix.lastIndexOf('. '), prefix.lastIndexOf('! '), prefix.lastIndexOf('? '));
     const lead = prefix.slice(sentenceStart < 0 ? 0 : sentenceStart + 2);
+    // Workday descriptions can carry a local employer-profile heading directly
+    // before the count after HTML is flattened: “Shell in the US With ...”.
+    if (new RegExp(`\\b${escape(brand)}\\s+(?:in|across|within)\\b[^.!?]{0,100}\\bwith\\s*$`, "i").test(lead)) continue;
+    // “People” can be customers or beneficiaries. A distant “we have” is
+    // insufficient (for example, “we have helped 700,000 people to hear”).
+    // Require a workforce predicate immediately before the number/qualifier.
+    if (/^people$/i.test(match[4]) && !/\b(?:employs?|employed|employing|(?:team|workforce)(?:\s+of)?|has|have|had|are|we['’]re|we['’]ve|with)\s*$/i.test(lead)) continue;
     const tail = text.slice(match.index! + match[0].length, match.index! + match[0].length + 200)
       // A separately numbered customer population is not a qualifier of employees.
       .replace(/^\s+and\s+[\d,.]+\s+customers?\b[\s\S]*/i, "");
@@ -102,7 +109,8 @@ export function employeeEvidenceFromDocument(input: { text: string; companyName:
     const multiplier = /million/i.test(match[3] ?? "") ? 1e6 : match[3] ? 1000 : 1;
     const employee_count = Number(match[2].replace(/[, \u00a0]/g, "")) * multiplier;
     const evidence = webEmployeeEvidenceSchema.safeParse({ employee_count, as_of, date_basis, observed_on: chicagoToday(now), ...(input.published ? { published_on: input.published } : {}), source: input.source,
-      quote: full.trim().slice(0, 1000), basis: /more than|over|at least/i.test(match[1] ?? "") || /\+|-plus/i.test(match[0]) ? "lower_bound"
+      quote: full.trim().slice(0, 1000), basis: /[~≈]\s*$/.test(lead) ? "approximate"
+        : /more than|over|at least/i.test(match[1] ?? "") || /\+|-plus/i.test(match[0]) ? "lower_bound"
         : match[1] ? "approximate" : "exact" });
     if (evidence.success) candidates.push(evidence.data);
   }

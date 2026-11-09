@@ -10,6 +10,31 @@ const source = 'https://pilot.example/about';
 const company = { id: 'c1', name: 'Pilot Corp', domain: 'pilot.example' };
 const page = text => `<title>Pilot Corp</title><p>${text}</p>`;
 const extractText = (text, extra = {}) => extract({ text, companyName: company.name, source, ...extra }, NOW);
+
+test('beneficiary populations are not workforce counts', () => {
+  for (const text of [
+    'As the global leader in implantable hearing solutions, we have helped over 700,000 people to hear with one of our implantable solutions.',
+    'We have supported 9000 people around the world.',
+    'We have reached more than 9000 people.',
+    'Our team has trained 9000 people.',
+  ]) assert.equal(extractText(text, { allowObserved: true }).evidence, null, text);
+  for (const text of ['We have 3500 people worldwide.', 'Our passionate team of 3500 people is dedicated to innovation.',
+    'We’re 3500+ people across 38 countries.', 'We employ more than 3500 people worldwide.']) {
+    assert.equal(extractText(text, { allowObserved: true }).evidence?.employee_count, 3500, text);
+  }
+});
+
+test('local employer headings and symbolic approximations keep their scope and precision', () => {
+  const local = extract({ text: 'Shell in The United States With more than 11,000 employees, Shell has been in the US for more than 100 years.',
+    companyName: 'Shell', source, allowObserved: true }, NOW);
+  assert.equal(local.evidence, null);
+  for (const sign of ['~', '≈']) {
+    const result = extractText(`We are helping our ${sign}56,000 employees develop their careers.`, { allowObserved: true });
+    assert.equal(result.evidence?.employee_count, 56000);
+    assert.equal(result.evidence?.basis, 'approximate');
+    assert.equal(extractText(`We employ ${sign}56,000+ employees.`, { allowObserved: true }).evidence?.basis, 'approximate');
+  }
+});
 function context(html = page('As of December 31, 2025, Pilot employs 3,500 employees worldwide.')) {
   const fetch = fakeFetch([
     { match: /\/robots.txt$/, respond: () => response(200, '') },
