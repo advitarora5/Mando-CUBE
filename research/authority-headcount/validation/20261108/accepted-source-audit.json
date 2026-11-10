@@ -1,0 +1,91 @@
+{
+  "method": "Fresh original-source fetch and current extractor verification; no database or search provider.",
+  "results": [
+    {
+      "company": "GEA Group",
+      "source": "https://www.gea.com/en/about-us/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T02:36:06.166Z",
+      "source_sha256": "b2443e9d2a2a587e932d9896d5926b627c790673f548a9a684f029f19fef42e7",
+      "evidence": {
+        "employee_count": 18000,
+        "as_of": "2026-11-08",
+        "source": "https://www.gea.com/en/about-us/",
+        "quote": "With the support of our four business divisions and more than 18,000 dedicated employees, GEA generates over five billion euros in revenue in more than 150 countries",
+        "basis": "lower_bound",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      },
+      "matches_previous_count_and_precision": true
+    },
+    {
+      "company": "Ferring Pharmaceuticals",
+      "source": "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T02:36:06.637Z",
+      "source_sha256": "163f20b6c9a9c460b9a8aada38ad9d996179adebe510a804ab217ca8c651bf14",
+      "evidence": {
+        "employee_count": 7500,
+        "as_of": "2026-02-16",
+        "source": "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/",
+        "quote": "Ferring was founded in 1950 and employs more than 7,500 people worldwide",
+        "basis": "lower_bound",
+        "published_on": "2026-02-16",
+        "observed_on": "2026-11-08",
+        "date_basis": "publication"
+      },
+      "matches_previous_count_and_precision": true
+    },
+    {
+      "company": "Atlassian",
+      "source": "https://www.atlassian.com/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T02:36:06.853Z",
+      "source_sha256": "6db949c2b27626ca26ac6762b8290f9f42bfab3ef2182a8b350b1d180d3f5769",
+      "evidence": {
+        "employee_count": 12000,
+        "as_of": "2026-11-08",
+        "source": "https://www.atlassian.com/",
+        "quote": "{\"name\":\"Atlassian Corporation\",\"numberOfEmployees\":{\"@type\":\"QuantitativeValue\",\"value\":12000}}",
+        "basis": "exact",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      },
+      "matches_previous_count_and_precision": true
+    },
+    {
+      "company": "GitLab Inc",
+      "source": "https://about.gitlab.com/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T02:36:05.814Z",
+      "source_sha256": "805932aaf6ae8f58e1d8780b67b2f522cc848f73b2320caa497c6324fd61bac6",
+      "evidence": {
+        "employee_count": 2500,
+        "as_of": "2026-11-08",
+        "source": "https://about.gitlab.com/",
+        "quote": "{\"name\":\"GitLab Inc.\",\"numberOfEmployees\":{\"@type\":\"QuantitativeValue\",\"value\":2500}}",
+        "basis": "exact",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      },
+      "matches_previous_count_and_precision": true
+    },
+    {
+      "company": "Automattic",
+      "source": "https://automattic.com/",
+      "http_status": 200,
+      "checked_at": "2026-11-09T02:36:05.871Z",
+      "source_sha256": "6b13c7afb55a50974bc995c14650fe7913dfd190dc89cda210e909cfbcd2b617",
+      "evidence": {
+        "employee_count": 1347,
+        "as_of": "2026-11-08",
+        "source": "https://automattic.com/",
+        "quote": "{\"name\":\"Automattic\",\"numberOfEmployees\":{\"@type\":\"QuantitativeValue\",\"value\":1347}}",
+        "basis": "exact",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      },
+      "matches_previous_count_and_precision": true
+    }
+  ]
+}

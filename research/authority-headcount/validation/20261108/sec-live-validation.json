@@ -1,0 +1,51 @@
+{
+  "as_of": "2026-11-08",
+  "results": [
+    {
+      "name": "BANK OF AMERICA CORP /DE/",
+      "cik": 70858,
+      "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000070858.json",
+      "status": "no_usable_matched_employee_fact"
+    },
+    {
+      "name": "CATERPILLAR INC",
+      "cik": 18230,
+      "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000018230.json",
+      "status": "no_usable_matched_employee_fact"
+    },
+    {
+      "name": "Shell plc",
+      "cik": 1306965,
+      "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001306965.json",
+      "status": "no_usable_matched_employee_fact"
+    },
+    {
+      "name": "Medtronic plc",
+      "cik": 1613103,
+      "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001613103.json",
+      "status": "no_usable_matched_employee_fact"
+    },
+    {
+      "name": "Workday, Inc.",
+      "cik": 1327811,
+      "source": "https://data.sec.gov/api/xbrl/companyfacts/CIK0001327811.json",
+      "status": "no_usable_matched_employee_fact"
+    },
+    {
+      "name": "CONSTELLIUM SE",
+      "cik": 1563411,
+      "source": "https://www.sec.gov/Archives/edgar/data/1563411/000156341126000200/",
+      "status": "found",
+      "employee_count": 11500,
+      "as_of": "2026-09-30"
+    },
+    {
+      "name": "Green Brick Partners, Inc.",
+      "cik": 1373670,
+      "source": "https://www.sec.gov/Archives/edgar/data/1373670/000162828026033478/",
+      "status": "found",
+      "employee_count": 620,
+      "as_of": "2025-12-31"
+    }
+  ]
+}

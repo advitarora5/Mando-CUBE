@@ -1,5 +1,7 @@
 // PipelineStore on Supabase. Refuses any non-local database unless PIPELINE_ALLOW_REMOTE names that project's ref,
 // so a teammate's .env.local pointing at production can never receive test or experimental data by accident.
+import type { EmployeeResearchRecord, EmployeeResearchStatus } from "../employee-research-record.ts";
+import type { WebEmployeeEvidence } from "../employee-document-evidence.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseSettings } from "../../domain/ingestion/settings.ts";
 import type { ScoreRow } from "../../domain/scoring/assessment.ts";
@@ -48,6 +50,15 @@ export class SupabaseStore implements PipelineStore {
     return result.data;
   }
 
+  async employeeResearch(id: string) {
+    return this.check(await this.db.from("company_employee_research").select("*").eq("company_id", id).maybeSingle(), "employee research") as EmployeeResearchRecord | null;
+  }
+  async claimEmployeeResearch(id: string, domain: string, name: string) {
+    return this.check(await this.db.rpc("claim_employee_research", { p_company: id, p_domain: domain, p_name: name }).maybeSingle(), "claim employee research") as EmployeeResearchRecord | null;
+  }
+  async finishEmployeeResearch(id: string, token: string, status: EmployeeResearchStatus, evidence: WebEmployeeEvidence | null, reason: string) {
+    return this.check(await this.db.rpc("finish_employee_research", { p_company: id, p_token: token, p_status: status, p_evidence: evidence, p_reason: reason }), "finish employee research") as boolean;
+  }
   async settings() { return parseSettings(this.check(await this.db.from("pipeline_settings").select("key, value"), "settings") ?? []); }
   async sources() { return this.check(await this.db.from("sources").select("id, type, name, config, frequency, max_requests_per_run, min_delay_ms, enabled"), "sources") as SourceRow[]; }
 

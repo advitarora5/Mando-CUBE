@@ -1,0 +1,56 @@
+{
+  "checked_at": "2026-11-09T02:56:38.192Z",
+  "database_accessed": false,
+  "live_treg_used": false,
+  "results": [
+    {
+      "company": "HubSpot Inc",
+      "source": "https://www.hubspot.com/company-news",
+      "method": "new_official_source_or_new_statement_pattern",
+      "source_sha256": "018352af56dcd584c2d947eec3ce27cb80dfaaa109ddd2662d3ea0ad53d55a31",
+      "evidence": {
+        "employee_count": 9000,
+        "as_of": "2026-11-08",
+        "source": "https://www.hubspot.com/company-news",
+        "quote": "9K+ global employees",
+        "basis": "lower_bound",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      }
+    },
+    {
+      "company": "Zapier",
+      "source": "https://zapier.com/about",
+      "method": "new_official_source_or_new_statement_pattern",
+      "source_sha256": "cb5f473421130d95c573a46e116fb5570e295829339304ece93951c08644cb31",
+      "evidence": {
+        "employee_count": 800,
+        "as_of": "2026-11-08",
+        "source": "https://zapier.com/about",
+        "quote": "81 billion tasks automated on Zapier 25 million Zaps created 69% of the Fortune 1000 use Zapier We’ve been working remotely since day one We’re 800+ people across 38 countries, committed to helping you streamline your most important work",
+        "basis": "lower_bound",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      }
+    },
+    {
+      "company": "Medtronic plc",
+      "source": "https://medtronic.wd1.myworkdayjobs.com/wday/cxs/medtronic/MedtronicCareers/job/Senior-Customer-Experience-Specialist_R70106",
+      "method": "live_Workday_API_replayed_as_capture_for_collector_validation_not_a_database_measurement",
+      "source_sha256": "ab80676eb9730e158bd5209dbe55d6fcf417fcc0740b9965747da7badd38a095",
+      "binding_source": "https://www.medtronic.com/en-us/our-company/careers.html",
+      "binding_source_sha256": "616e690aad886eb57a41a8a4ad90539a8b54f3b494db6dff1380007844c9aa45",
+      "active_job": true,
+      "job_end_date": "2026-11-27",
+      "evidence": {
+        "employee_count": 95000,
+        "as_of": "2026-11-08",
+        "source": "https://medtronic.wd1.myworkdayjobs.com/wday/cxs/medtronic/MedtronicCareers/job/Senior-Customer-Experience-Specialist_R70106",
+        "quote": "Our 95,000 employees work across more than 150 countries to put patients first — developing innovative medical technologies that improve the lives of 72+ million patients each year",
+        "basis": "exact",
+        "observed_on": "2026-11-08",
+        "date_basis": "observed"
+      }
+    }
+  ]
+}

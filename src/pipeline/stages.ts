@@ -1,3 +1,4 @@
+import { lookupEmployeeWorkday } from "./employee-workday-evidence.ts";
 // The pipeline stages. Each one reads from and writes to the store only, so any stage can run on its own.
 // Failures are counted and logged per item; a stage never throws out of a run.
 import { createHash } from "node:crypto";
@@ -5,6 +6,9 @@ import { companyAliases } from "../data/company-aliases.ts";
 import { decideMatch } from "../domain/ingestion/matching.ts";
 import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
+import { lookupEmployeeWebsite } from "./employee-web-research.ts";
+import { savedSecEmployeeEvidence } from "./sec-employee-evidence.ts";
+import { employeeEvidenceForCompany } from "./employee-evidence.ts";
 import { financialsUnavailable, lookupFinancials } from "./financials.ts";
 import { isSignalFresh, mayScore } from "../domain/ingestion/settings.ts";
 import { categories } from "../domain/contracts/company.ts";
@@ -258,7 +262,8 @@ const RESCORE_DAYS = 14;
 const evidenceLink = (value: unknown) => String(value ?? "").split(" | ")[0];
 export function sameScore(a: StoredScore | null, b: Record<string, unknown>): boolean {
   if (!a) return false;
-  return categories.every(c => Number(a[`${c}_score`]) === Number(b[`${c}_score`]) && evidenceLink(a[`${c}_evidence`]) === evidenceLink(b[`${c}_evidence`])) && a.tier === b.tier;
+  return categories.every(c => Number(a[`${c}_score`]) === Number(b[`${c}_score`]) && evidenceLink(a[`${c}_evidence`]) === evidenceLink(b[`${c}_evidence`])) && a.tier === b.tier
+    && String(a.authority_evidence ?? "").split(" Headcount ")[1] === String(b.authority_evidence ?? "").split(" Headcount ")[1];
 }
 
 import { buildScoreChange, type ScoreTrigger } from "../domain/ingestion/score-change.ts";
@@ -277,13 +282,22 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       const contacts = await ctx.store.contactsForCompany(company.id);
       // A company with no evidence yet still gets a row, so the dashboard shows "Needs evidence" instead of nothing.
       if (!signals.length && !contacts.length) bump(r, "no_evidence");
-      // The employee count has no source link on the company row, so the +3 size bonus is not awarded automatically.
+      const reviewedEmployees = employeeEvidenceForCompany(ctx.employeeEvidence ?? [], company.domain, now);
       // ponytail: SEC facts are refetched on every score pass (once per company per run); cache them in a table if that gets slow.
       const lookup = await lookupFinancials(ctx, company.name);
       r.requests += lookup.requests;
-      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials: lookup.financials });
-      if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const latest = await ctx.store.latestScore(company.id);
+      const savedEmployees = financialsUnavailable(lookup.status)
+        ? savedSecEmployeeEvidence(latest?.authority_evidence, now) : null;
+      const workdayEmployees = !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees
+        ? await lookupEmployeeWorkday(ctx, company).catch(() => { ctx.log.warn("Saved Workday employee evidence could not be read."); return null; }) : null;
+      const web = !workdayEmployees && !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees && ctx.employeeWebResearch
+        ? await lookupEmployeeWebsite(ctx, company) : null;
+      r.requests += web?.requests ?? 0;
+      r.treg_spend_usd += web?.spend ?? 0;
+      const employees = reviewedEmployees ?? lookup.employeeEvidence ?? savedEmployees ?? workdayEmployees ?? web?.evidence;
+      const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: employees?.employee_count ?? null, employee_source: employees?.source ?? null, employee_as_of: employees?.as_of ?? null, employee_basis: employees?.basis ?? "exact", employee_date_basis: employees?.date_basis ?? "effective", financials: lookup.financials });
+      if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
       // A lookup that could not run is not evidence that capacity disappeared: keep the saved assessment until it can.
       const deferred = financialsUnavailable(lookup.status) && !!latest && Number(assessment.result.row.budget_score) < Number(latest.budget_score);
@@ -300,6 +314,8 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
         bump(r, "ready_for_contacts");
       }
       // Coverage comes after the writes, so a failing store still leaves this stage with no work and a failed status.
+      bump(r, reviewedEmployees ? "employee_evidence_reviewed" : lookup.employeeEvidence ? "employee_evidence_sec" : savedEmployees ? "employee_evidence_retained" : workdayEmployees ? "employee_evidence_workday" : web?.evidence ? "employee_evidence_web" : "employee_evidence_missing");
+      if (web && !web.evidence) bump(r, `employee_web_${web.status}`);
       bump(r, `financials_${lookup.status}`);
       bump(r, contacts.length ? "with_contacts" : "without_contacts");
       if (!deferred) for (const category of categories) if (assessment.categories[category].score === 0) bump(r, `zero_${category}`);

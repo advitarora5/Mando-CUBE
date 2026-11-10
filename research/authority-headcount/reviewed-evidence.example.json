@@ -1,0 +1,34 @@
+[
+  {
+    "company_domain": "gea.com",
+    "employee_count": 18970,
+    "as_of": "2025-12-31",
+    "source": "https://cdn.gea.com/-/media/investors/annual-report/2025/sustainability-report-2025-en.pdf?rev=1c8a81f4cd0842879914c11d7c3a83c6",
+    "basis": "exact",
+    "date_basis": "effective"
+  },
+  {
+    "company_domain": "medtronic.com",
+    "employee_count": 95000,
+    "as_of": "2026-04-24",
+    "source": "https://app.quotemedia.com/data/downloadFiling?cdn=90112680366a16357877b3f99d658939&companyName=Medtronic+plc.&dateFiled=2026-06-18&formType=10-K&ref=320141818&symbol=MDT&type=HTML&webmasterId=101533",
+    "basis": "lower_bound",
+    "date_basis": "effective"
+  },
+  {
+    "company_domain": "norconsult.com",
+    "employee_count": 7200,
+    "as_of": "2026-04-10",
+    "source": "https://investor.norconsult.com/stock-exchange-and-press-releases/norconsult-annual-report-2025/",
+    "basis": "approximate",
+    "date_basis": "publication"
+  },
+  {
+    "company_domain": "ferring.com",
+    "employee_count": 7500,
+    "as_of": "2026-02-16",
+    "source": "https://www.ferring.com/ferring-announces-changes-to-board-of-directors-and-executive-committee/",
+    "basis": "lower_bound",
+    "date_basis": "publication"
+  }
+]

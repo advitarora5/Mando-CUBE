@@ -40,8 +40,12 @@ export class WebsiteHttp {
   private last = new Map<string, number>();
   private ctx: PipelineContext;
   private maxRequests: number;
-  constructor(ctx: PipelineContext, maxRequests = 300) { this.ctx = ctx; this.maxRequests = maxRequests; }
-  private async read(url: URL, maxBody = MAX_WEBSITE_BODY, jsonBody?: unknown, jsonMode = false): Promise<{ status: number; body: string; location: string | null; type: string }> {
+  private robotsRedirectLimit: number;
+  constructor(ctx: PipelineContext, maxRequests = 300, robotsRedirectLimit = 3) {
+    this.ctx = ctx; this.maxRequests = maxRequests;
+    this.robotsRedirectLimit = Math.min(6, Math.max(0, Math.floor(robotsRedirectLimit)));
+  }
+  private async read(url: URL, maxBody = MAX_WEBSITE_BODY, jsonBody?: unknown, jsonMode = false): Promise<{ status: number; body: string; location: string | null; type: string; bytes: Uint8Array }> {
     const addresses = await (this.ctx.lookupHost ?? (host => lookup(host, { all: true })))(url.hostname);
     if (!addresses.length || addresses.some(a => !publicAddress(a.address))) throw Error("website resolves to a non-public address");
     if (this.requests >= this.maxRequests) throw Error("website request cap reached");
@@ -59,7 +63,8 @@ export class WebsiteHttp {
       if (reader) try {
         while (true) { const { done, value } = await reader.read(); if (done) break; bytes += value.length; if (bytes > maxBody) throw Error("website response exceeds size limit"); chunks.push(value); }
       } finally { void reader.cancel().catch(() => {}); }
-      return { status: res.status, body: Buffer.concat(chunks).toString("utf8"), location: res.headers.get("location"), type: res.headers.get("content-type") ?? "" };
+      const content = Buffer.concat(chunks);
+      return { status: res.status, body: content.toString("utf8"), bytes: content, location: res.headers.get("location"), type: res.headers.get("content-type") ?? "" };
     } finally { clearTimeout(timer); }
   }
   // Redirected robots rules govern the original origin. Fetching robots itself does not recurse
@@ -67,7 +72,7 @@ export class WebsiteHttp {
   private async readRobots(origin: string): Promise<string> {
     let url = safeUrl(new URL("/robots.txt", origin).href);
     const visited = new Set<string>();
-    for (let hop = 0; hop <= 3; hop++) {
+    for (let hop = 0; hop <= this.robotsRedirectLimit; hop++) {
       if (visited.has(url.href)) throw Error("website robots redirect loop");
       visited.add(url.href);
       const res = await this.read(url, MAX_ROBOTS_BODY);
@@ -87,27 +92,33 @@ export class WebsiteHttp {
     }
     throw Error("website robots redirect limit reached");
   }
-  // maxBody defaults to MAX_WEBSITE_BODY; only callers with a reason (e.g. SEC filing documents) raise it.
-  async page(value: string, maxBody = MAX_WEBSITE_BODY): Promise<{ url: string; html: string }> {
+  private async resource(value: string, maxBody: number) {
     let url = safeUrl(value);
     for (let hop = 0; hop <= 3; hop++) {
       let robots = this.robots.get(url.origin);
-      if (robots === undefined) {
-        robots = await this.readRobots(url.origin);
-        this.robots.set(url.origin, robots);
-      }
+      if (robots === undefined) { robots = await this.readRobots(url.origin); this.robots.set(url.origin, robots); }
       if (!robotsAllows(parseRobots(robots, "mando-cube-ingestion"), url.pathname + url.search)) throw Error("website disallowed by robots.txt");
       const res = await this.read(url, maxBody);
       if (res.status >= 300 && res.status < 400 && res.location) { url = safeUrl(new URL(res.location, url).href); continue; }
       if (res.status !== 200) throw Error(`website HTTP ${res.status}`);
-      const head = res.body.slice(0, 20000);
-      // A normal careers page can load reCAPTCHA for an application form. That is not itself
-      // an access challenge; actual challenge markup/messages still stop verification.
-      const challenge = /cf-chl-|challenge-platform|verify you are human|<title[^>]*>\s*(captcha|just a moment|access denied)/i.test(head) || /^captcha\b/i.test(htmlToText(head));
-      if (!/text\/html|application\/xhtml\+xml/i.test(res.type) || challenge) throw Error("website is not readable HTML");
-      return { url: url.href, html: res.body };
+      return { url: url.href, ...res };
     }
     throw Error("website redirect limit reached");
+  }
+  // maxBody defaults to MAX_WEBSITE_BODY; only callers with a reason raise it.
+  async page(value: string, maxBody = MAX_WEBSITE_BODY): Promise<{ url: string; html: string }> {
+    const res = await this.resource(value, maxBody);
+    const head = res.body.slice(0, 20000);
+    const challenge = /cf-chl-|challenge-platform|verify you are human|<title[^>]*>\s*(captcha|just a moment|access denied)/i.test(head) || /^captcha\b/i.test(htmlToText(head));
+    if (!/text\/html|application\/xhtml\+xml/i.test(res.type) || challenge) throw Error("website is not readable HTML");
+    return { url: res.url, html: res.body };
+  }
+  async document(value: string): Promise<{ url: string; html?: string; pdf?: Uint8Array }> {
+    const res = await this.resource(value, 12 * 1024 * 1024);
+    if (/application\/pdf/i.test(res.type) && Buffer.from(res.bytes).subarray(0, 5).toString() === "%PDF-") return { url: res.url, pdf: res.bytes };
+    const head = res.body.slice(0, 20000);
+    if (!/text\/html|application\/xhtml\+xml/i.test(res.type) || /cf-chl-|challenge-platform|verify you are human|<title[^>]*>\s*(captcha|just a moment|access denied)/i.test(head)) throw Error("employee source is not readable HTML or PDF");
+    return { url: res.url, html: res.body };
   }
   // Identity sampling uses the same DNS, robots, body, timeout and request limits as website checks.
   // JSON redirects are refused: a posting must come from the exact Workday API requested.
