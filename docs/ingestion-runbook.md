@@ -20,6 +20,8 @@ ollama pull qwen2.5:7b                # default local model
 npm test && npm run test:integration
 ```
 
+Database integration tests may skip locally when local Supabase is unavailable. In CI (`CI=true` or `CI=1`), or with `PIPELINE_REQUIRE_DATABASE_TESTS=1`, the suite instead fails before running tests if configuration is missing, the target is remote, or an authenticated `companies` read fails. The read has a five-second timeout. To require a real local database run yourself, use `PIPELINE_REQUIRE_DATABASE_TESTS=1 npm run test:integration`. Production database credentials are never needed for these tests.
+
 `.env.pipeline.local` for a local run:
 
 | Variable | Meaning |
