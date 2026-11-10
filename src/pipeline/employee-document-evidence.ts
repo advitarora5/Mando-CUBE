@@ -3,6 +3,7 @@ import { pageIdentity } from "./website.ts";
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import { chicagoToday, daysSince } from "../domain/scoring/go-live.ts";
 import { htmlToText } from "../domain/ingestion/quote.ts";
+import { employeeTableEvidence } from "./employee-table-evidence.ts";
 
 export const webEmployeeEvidenceSchema = z.strictObject({
   employee_count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
@@ -63,7 +64,7 @@ export function employeeEvidenceFromDocument(input: { text: string; companyName:
     return { evidence: null, reason: "Customer, partner and community pages cannot establish the publisher's own workforce." };
   }
   const text = input.text.replace(/\u00ad/g, "").replace(/\s+/g, " ");
-  const candidates: WebEmployeeEvidence[] = [];
+  const candidates: WebEmployeeEvidence[] = employeeTableEvidence(input.text, input.companyName, input.source, now);
   for (const match of text.matchAll(countPattern)) {
     // Do not accept the tail of a range, malformed grouping, or decimal without units.
     if (/[\d,.–—-]$/.test(text.slice(0, match.index).trimEnd()) ||

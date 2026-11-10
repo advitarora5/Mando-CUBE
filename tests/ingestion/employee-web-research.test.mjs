@@ -273,3 +273,54 @@ test('corporate fact cards and contractions establish employer totals without a 
   assert.equal(extractText('As of March 31, 2026, we had 9,021 full-time employees and 299,458 Customers.',{}).evidence.employee_count,9021);
   assert.equal(extractText('Our customers had 9,021 employees as of March 31, 2026.',{}).evidence,null);
 });
+
+test('annual-report headings identify generic Download links on external PDF hosts', async () => {
+  const fetched = [];
+  const ctx = context(page('Welcome.') + '<a href="/investor">Investor relations</a><a href="/sustainability/goals">Sustainability goals</a>');
+  ctx.fetch = async url => {
+    fetched.push(String(url));
+    if (String(url).endsWith('/robots.txt')) return response(200, '');
+    if (String(url).endsWith('/investor')) return response(200, page('Reports') + '<a href="/reports/annual">Annual reports</a>', {'content-type':'text/html'});
+    if (String(url).endsWith('/reports/annual')) return response(200, page('Reports') + '<h2>2025 Annual Report</h2><h4><a href="https://cdn.example/115/1-en.pdf">Download<i></i></a></h4>', {'content-type':'text/html'});
+    if (String(url).includes('cdn.example')) return response(404, '');
+    return response(200, page('Welcome.') + '<a href="/investor">Investor relations</a><a href="/sustainability/goals">Sustainability goals</a>', {'content-type':'text/html'});
+  };
+  const result = await researchEmployeeWebsite(ctx, company);
+  assert.ok(fetched.includes('https://cdn.example/115/1-en.pdf'));
+  assert.ok(!fetched.includes('https://pilot.example/sustainability/goals') || fetched.indexOf('https://pilot.example/investor') < fetched.indexOf('https://pilot.example/sustainability/goals'));
+  assert.ok(result.requests <= 18);
+});
+
+test('generic external Download links do not inherit a distant or unrelated report heading', async () => {
+  for (const fragment of [
+    '<h2>Customer tools</h2><a href="https://cdn.example/file.pdf">Download</a>',
+    '<h2>Annual Report</h2>'+' '.repeat(1300)+'<a href="https://cdn.example/file.pdf">Download</a>',
+    '<h2>Annual Report</h2><h3>Customer tools</h3><a href="https://cdn.example/file.pdf">Download</a>',
+  ]) {
+    const ctx = context(page('Welcome.')+fragment);
+    await researchEmployeeWebsite(ctx,company);
+    assert.ok(ctx.fetch.calls.every(c=>!c.url.includes('cdn.example')));
+  }
+});
+
+test('headcount robots handling can reach a bounded terminal 404 without bypassing disallow or DNS checks', async () => {
+  for (const mode of ['missing', 'deny', 'loop', 'private', 'endless']) {
+    const ctx = context();let pages=0;
+    ctx.fetch = async url => {
+      const path = new URL(url).pathname;
+      if (path.startsWith('/robots')) {
+        const step = Number(path.match(/\d+$/)?.[0] ?? 0);
+        if (mode === 'loop') return response(302,'',{location:'/robots.txt'});
+        if (mode === 'private') return response(302,'',{location:'https://127.0.0.1/robots.txt'});
+        if (step < 5 || mode === 'endless') return response(302,'',{location:`/robots-${step+1}`});
+        return mode === 'deny' ? response(200,'User-agent: *\nDisallow: /') : response(404,'');
+      }
+      pages++;
+      return response(200,page('As of March 31, 2026 we have 3500 employees.'),{'content-type':'text/html'});
+    };
+    const result = await researchEmployeeWebsite(ctx,company);
+    assert.equal(pages,mode==='missing'?1:0,mode);
+    assert.equal(!!result.evidence,mode==='missing',mode);
+    assert.ok(result.requests<=18);
+  }
+});

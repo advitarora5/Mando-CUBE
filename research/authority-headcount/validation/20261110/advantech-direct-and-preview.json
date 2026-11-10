@@ -1,0 +1,71 @@
+{
+  "checked_at": "2026-11-10T20:30:56.763Z",
+  "mode": "direct_official_sites_no_search_provider",
+  "dns": "system",
+  "database_accessed": false,
+  "companies": 1,
+  "found": 1,
+  "results": [
+    {
+      "name": "Advantech",
+      "domain": "advantech.com",
+      "evidence": {
+        "employee_count": 9512,
+        "as_of": "2026-03-31",
+        "source": "https://advcloudfiles.advantech.com/investor/Shareholder-Annual-Report/115/1-en.pdf",
+        "basis": "exact",
+        "date_basis": "effective",
+        "observed_on": "2026-11-10",
+        "quote": "3. \tEmployee information March 31, 2026\nYear \t2024 \t2025 \tAs of March\n31, 2026\nNo. of\nEmployee\nDirect staff \t2,664 \t3,109 \t3,025\nIndirect staff \t6,185 \t6,385 \t6,487\nTotal \t8,849 \t9,494 \t9,512"
+      },
+      "status": "found",
+      "reason": "Official workforce evidence found with its date basis recorded.",
+      "requests": 17,
+      "spend": 0,
+      "documents": [
+        {
+          "url": "https://www.advantech.com/en-us",
+          "outcome": "No current, dated statement about the employer's workforce was established."
+        },
+        {
+          "url": "https://www.advantech.com/en-us/investor?area=Investor",
+          "outcome": "No current, dated statement about the employer's workforce was established."
+        },
+        {
+          "url": "https://www.advantech.com/en-us/investor/annual-report",
+          "outcome": "No current, dated statement about the employer's workforce was established."
+        },
+        {
+          "url": "https://advcloudfiles.advantech.com/investor/Shareholder-Annual-Report/115/1-en.pdf",
+          "outcome": "Dated employer workforce statement found."
+        },
+        {
+          "url": "https://advcloudfiles.advantech.com/investor/Shareholder-Annual-Report/114/1-en.pdf",
+          "outcome": "No current, dated statement about the employer's workforce was established."
+        },
+        {
+          "url": "https://advcloudfiles.advantech.com/investor/Shareholder-Annual-Report/113/1-en.pdf",
+          "outcome": "No current, dated statement about the employer's workforce was established."
+        }
+      ]
+    }
+  ],
+  "source_pdf_sha256": "8ae9b3b6a203815eebac8ec791326a9037476035eb73a510674de9f8cb756c86",
+  "preview_basis": "November 9 saved read-only audit; no fresh Supabase credentials available in this checkout",
+  "authority_preview": {
+    "snapshot_checked_at": "2026-11-09T16:36:50.437Z",
+    "company": "Advantech",
+    "domain": "advantech.com",
+    "authority_without_size": 15,
+    "authority_with_size": 18,
+    "size_component": 3,
+    "increment_after_cap": 3,
+    "saved_authority": 5,
+    "saved_size_documented": false,
+    "saved_assessed_at": "2026-10-28T04:45:51.245713+00:00",
+    "authority_after": null,
+    "additional_points": null,
+    "comparison_status": "saved_authority_not_reproduced",
+    "note": "No score changes; current-contact eligibility and latest score require recheck before application."
+  }
+}

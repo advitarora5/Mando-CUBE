@@ -1,4 +1,5 @@
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
+import { htmlToText } from "../domain/ingestion/quote.ts";
 import { daysSince } from "../domain/scoring/go-live.ts";
 import { links, pageIdentity, WebsiteHttp } from "./website.ts";
 import { employeePdfText } from "./employee-pdf.ts";
@@ -22,13 +23,25 @@ const owned = (url: string, domain: string) => {
 };
 
 function documentLinks(html: string, base: string, domain: string) {
-  return links(html, base).flatMap(({ url, label }) => {
+  // Download links often inherit their meaning from an immediately preceding
+  // report heading. Preserve that association, never a distant page title.
+  const contextual = html.replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, (tag, offset: number) => {
+    const before = html.slice(Math.max(0, offset - 1200), offset);
+    const heading = htmlToText([...before.matchAll(/<h[1-6]\b[^>]*>[\s\S]*?<\/h[1-6]>/gi)].at(-1)?.[0] ?? "");
+    if (/annual|sustainability|integrated|financial.*report/i.test(heading)
+      && /^(?:download|pdf|read|view)(?:\s+(?:report|pdf))?$/i.test(htmlToText(tag).trim())) {
+      return tag.replace(/<a\b[^>]*>/i, (opening: string) => `${opening}${heading} `);
+    }
+    return tag;
+  });
+  return links(contextual, base).flatMap(({ url, label }) => {
+    if (url.href === base) return [];
     if (/login|privacy|cookie|terms|job-search|vacanc|suppliers?|customers?|partners?|case-stud/i.test(`${url.pathname} ${label}`)) return [];
     const isPdf = /\.pdf$/i.test(url.pathname);
-    const report = /annual|sustainability|integrated|impact|financial.*report/i.test(`${label} ${url.pathname}`);
+    const report = /annual|(?:sustainability|integrated|impact|financial)[^/]{0,40}report/i.test(`${label} ${url.pathname}`);
     if (!owned(url.href, domain) && !(isPdf && report)) return [];
-    const score = /about|at.a.glance|facts|company.overview|our.people/i.test(`${label} ${url.pathname}`) ? 100
-      : report ? 80 : /press|news|investor|reports/i.test(`${label} ${url.pathname}`) ? 30 : 0;
+    const score = report ? 120 : /about|at.a.glance|facts|company.overview|our.people/i.test(`${label} ${url.pathname}`) ? 100
+      : /investor|reports/i.test(`${label} ${url.pathname}`) ? 110 : /press|news/i.test(`${label} ${url.pathname}`) ? 30 : 0;
     if (!score) return [];
     url.hash = "";
     return [{ url: url.href, externalPdf: !owned(url.href, domain), score: score - url.pathname.split("/").filter(Boolean).length }];
@@ -44,7 +57,9 @@ export async function researchEmployeeWebsite(ctx: PipelineContext, company: Com
   const deadline = AbortSignal.timeout(45000);
   const scoped = { ...ctx, fetch: ((url, init) => ctx.fetch(url, { ...init,
     signal: AbortSignal.any([deadline, ...(init?.signal ? [init.signal] : []), ...(ctx.signal ? [ctx.signal] : [])]) })) as typeof fetch };
-  const http = new WebsiteHttp(scoped, 18);
+  // Some corporate robots endpoints traverse locale + error-page redirects.
+  // Keep the same total request/deadline caps and all DNS/robots protections.
+  const http = new WebsiteHttp(scoped, 18, 6);
   const queue = [{ url: `https://${domain}/`, externalPdf: false, score: 100 }];
   const seen = new Set<string>();
   const found: WebEmployeeEvidence[] = [];

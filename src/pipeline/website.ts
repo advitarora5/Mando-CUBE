@@ -40,7 +40,11 @@ export class WebsiteHttp {
   private last = new Map<string, number>();
   private ctx: PipelineContext;
   private maxRequests: number;
-  constructor(ctx: PipelineContext, maxRequests = 300) { this.ctx = ctx; this.maxRequests = maxRequests; }
+  private robotsRedirectLimit: number;
+  constructor(ctx: PipelineContext, maxRequests = 300, robotsRedirectLimit = 3) {
+    this.ctx = ctx; this.maxRequests = maxRequests;
+    this.robotsRedirectLimit = Math.min(6, Math.max(0, Math.floor(robotsRedirectLimit)));
+  }
   private async read(url: URL, maxBody = MAX_WEBSITE_BODY, jsonBody?: unknown, jsonMode = false): Promise<{ status: number; body: string; location: string | null; type: string; bytes: Uint8Array }> {
     const addresses = await (this.ctx.lookupHost ?? (host => lookup(host, { all: true })))(url.hostname);
     if (!addresses.length || addresses.some(a => !publicAddress(a.address))) throw Error("website resolves to a non-public address");
@@ -68,7 +72,7 @@ export class WebsiteHttp {
   private async readRobots(origin: string): Promise<string> {
     let url = safeUrl(new URL("/robots.txt", origin).href);
     const visited = new Set<string>();
-    for (let hop = 0; hop <= 3; hop++) {
+    for (let hop = 0; hop <= this.robotsRedirectLimit; hop++) {
       if (visited.has(url.href)) throw Error("website robots redirect loop");
       visited.add(url.href);
       const res = await this.read(url, MAX_ROBOTS_BODY);

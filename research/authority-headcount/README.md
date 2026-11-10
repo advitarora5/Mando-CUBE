@@ -5,6 +5,12 @@ automatic headcount evidence. No additional points are supported against saved
 Authority scores. The audit separates automatic coverage from manual/investigator
 evidence and evaluates Authority independently of qualification tiers.
 
+[November 10 Advantech case](ADVANTECH_EXTRACTION_20261110.md): bounded report
+discovery and dated workforce-table extraction now recover 9,512 employees;
+the saved-score discrepancy remains held. This targeted check is separate from
+the 207-company audit. [Estimate admission proposal](ESTIMATE_POLICY_PROPOSAL.md)
+awaits team/client decision; current admission rules are unchanged.
+
 ## Behavior and configuration
 
 Source precedence is reviewed domain-matched evidence, employee facts reused from
