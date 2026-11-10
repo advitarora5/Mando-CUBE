@@ -1,6 +1,6 @@
 // Explicit local experiment: discovery -> signal collection -> AI admission.
 // No score, enrich, paid provider, schedule or production mode exists here.
-// npm run pipeline:admission:local -- --input candidates.json --output var/admission-run [--admission-only] [--max-checks 50]
+// npm run pipeline:admission:local -- --input candidates.json --output var/admission-run [--collect-only|--admission-only]
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -16,11 +16,15 @@ const flags = {};
 try {
   for (let i = 2; i < process.argv.length; i++) {
     const key = process.argv[i];
-    if (!['--input', '--output', '--admission-only', '--max-checks', '--packets', '--reuse-results'].includes(key) || key in flags) throw Error(`Unknown or repeated argument ${key}`);
-    if (key === '--admission-only') flags[key] = true;
+    if (!['--input', '--output', '--collect-only', '--admission-only', '--max-checks', '--packets', '--reuse-results'].includes(key) || key in flags) throw Error(`Unknown or repeated argument ${key}`);
+    if (key === '--admission-only' || key === '--collect-only') flags[key] = true;
     else { const value = process.argv[++i]; if (!value || value.startsWith('--')) throw Error(`Missing value for ${key}`); flags[key] = value; }
   }
   if (!flags['--input'] || !flags['--output']) throw Error('--input and --output are required');
+  const collectOnly = flags['--collect-only'];
+  if (collectOnly && (flags['--admission-only'] || flags['--max-checks'] || flags['--packets'] || flags['--reuse-results'])) {
+    throw Error('--collect-only cannot use admission options');
+  }
   assertLocalAdmissionUrl(process.env.PIPELINE_SUPABASE_URL ?? '');
   if (process.env.PIPELINE_ALLOW_REMOTE) throw Error('Unset PIPELINE_ALLOW_REMOTE for the local admission experiment');
   const root = path.resolve('var'), output = path.resolve(flags['--output']);
@@ -46,7 +50,7 @@ try {
   };
   save('selected-candidates', candidates);
   if (frozenPackets) save('frozen-input-packets', frozenPackets);
-  const state = { started_at: new Date().toISOString(), mode: 'local_ai_admission',
+  const state = { started_at: new Date().toISOString(), mode: collectOnly ? 'local_collection' : 'local_ai_admission',
     input_sha256: createHash('sha256').update(raw).digest('hex'), selected: candidates, max_checks: maxChecks,
     scoring: false, contact_research: false, paid_services: false, direct_link_required: false,
     signal_confidence_gate: false, accuracy: 'not measured; independent reference labels required', stages: [] };
@@ -77,8 +81,6 @@ try {
       const value = Reflect.get(target, key); return typeof value === 'function' ? value.bind(target) : value;
     },
   });
-  // Check the local model before any collection or admission writes.
-  const identity = await localIdentityAdmission(ctx, candidates, { host: process.env.IDENTITY_OLLAMA_HOST ?? 'http://127.0.0.1:11434', model: 'qwen2.5:7b', maxChecks, packets: frozenPackets, cachedResults, save });
   if (!flags['--admission-only']) {
     const sec = JSON.parse(fs.readFileSync(process.env.PIPELINE_SEC_FILE ?? 'sec.json', 'utf8'));
     const selected = Object.fromEntries(Object.entries(sec).filter(([, row]) => allowed.has(normalizeName(row.title))));
@@ -92,15 +94,19 @@ try {
       if (report.jobs.some(j => j.blocked || j.status === 'failed')) throw Error('Discovery stage failed or blocked; inspect saved stages before continuing');
     }
   }
-  const runId = await original.startRun({ job: 'match', source_id: null, trigger: 'manual' }); ctx.runId = runId;
-  try {
-    const report = await matchStage(ctx, { localIdentity: identity });
-    state.admission = report;
-    await original.finishRun(runId, { status: report.errors.length ? 'partial' : 'succeeded', counts: report.counts, requests: report.requests,
-      treg_spend_usd: 0, llm_spend_usd: 0, error: report.errors.join('; ') || null });
-  } catch (error) {
-    await original.finishRun(runId, { status: 'failed', counts: {}, requests: 0, treg_spend_usd: 0, llm_spend_usd: 0, error: error.message }); throw error;
-  } finally { ctx.runId = null; }
+  if (!collectOnly) {
+    // A failed model preflight leaves the collected sites and signals available for admission-only.
+    const identity = await localIdentityAdmission(ctx, candidates, { host: process.env.IDENTITY_OLLAMA_HOST ?? 'http://127.0.0.1:11434', model: 'qwen2.5:7b', maxChecks, packets: frozenPackets, cachedResults, save });
+    const runId = await original.startRun({ job: 'match', source_id: null, trigger: 'manual' }); ctx.runId = runId;
+    try {
+      const report = await matchStage(ctx, { localIdentity: identity });
+      state.admission = report;
+      await original.finishRun(runId, { status: report.errors.length ? 'partial' : 'succeeded', counts: report.counts, requests: report.requests,
+        treg_spend_usd: 0, llm_spend_usd: 0, error: report.errors.join('; ') || null });
+    } catch (error) {
+      await original.finishRun(runId, { status: 'failed', counts: {}, requests: 0, treg_spend_usd: 0, llm_spend_usd: 0, error: error.message }); throw error;
+    } finally { ctx.runId = null; }
+  }
   const sites = await original.workdaySites(false), reviews = await original.reviewItems(), companies = await original.companies();
   const reviewSignals = (await Promise.all(reviews.filter(r => allowed.has(r.normalized_name)).map(r => original.signalsForReview(r.id)))).flat();
   const companySignals = (await Promise.all(companies.filter(c => allowed.has(normalizeName(c.name))).map(c => original.signalsForCompany(c.id)))).flat();
@@ -113,10 +119,10 @@ try {
   state.counts = { selected: candidates.length,
     names_with_sites: state.candidate_outcomes.filter(c => c.sites.length).length,
     names_without_sites: state.candidate_outcomes.filter(c => !c.sites.length).length,
-    new_companies: companies.filter(c => !baseline.companies.some(old => old.id === c.id)).length,
-    attached_existing: state.admission.counts.attached_existing ?? 0,
+    new_companies: state.admission?.counts.new_companies ?? 0,
+    attached_existing: state.admission?.counts.attached_existing ?? 0,
     pending_reviews: state.candidate_outcomes.reduce((n, c) => n + c.pending_reviews.length, 0) };
-  const identityResults = JSON.parse(fs.readFileSync(path.join(output, 'identity-results.json'))).results;
+  const identityResults = collectOnly ? [] : JSON.parse(fs.readFileSync(path.join(output, 'identity-results.json'))).results;
   state.identity_counts = { pairs: identityResults.length,
     model_decisions: identityResults.filter(r => r.status === 'done').length,
     same_company: identityResults.filter(r => r.status === 'done' && r.verdict === 'same_company').length,
@@ -126,5 +132,5 @@ try {
     model_or_output_errors: identityResults.filter(r => ['model_error', 'invalid_output'].includes(r.status)).length };
   state.finished_at = new Date().toISOString(); save('summary', state);
   console.log(JSON.stringify({ output, counts: state.counts, admission: state.admission }, null, 2));
-  if (state.admission.errors.length) process.exitCode = 1;
+  if (state.admission?.errors.length) process.exitCode = 1;
 } catch (error) { console.error(`Local AI admission: ${error.message}`); process.exitCode = 1; }

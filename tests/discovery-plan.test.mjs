@@ -38,6 +38,17 @@ test('admission-only processes stored candidates and scores without unused colle
   assert.equal(result.status, 'succeeded');
 });
 
+test('local admission-only matches stored candidates without collectors or scoring', async () => {
+  const calls = [];
+  const ctx = { store: { sources: async () => { throw Error('Collectors must not be read'); } } };
+  const result = await executeDiscovery(ctx, async (_, opts) => {
+    calls.push(opts.plan);
+    return { jobs: [{ status: 'succeeded' }] };
+  }, { ...discoveryPlan(2), steps: [{ plan: 'match' }] });
+  assert.deepEqual(calls, ['match']);
+  assert.equal(result.status, 'succeeded');
+});
+
 test('missing archive sources still block full discovery and collection variants before writes', async () => {
   const sources = DISCOVERY_SOURCES.filter(id => !['workday-tenant-crawl', 'workday-tenant-wayback'].includes(id))
     .map(id => ({ id, enabled: true }));

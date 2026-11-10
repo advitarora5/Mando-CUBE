@@ -53,12 +53,11 @@ opts into the existing local identity-admission policy. Both the database and mo
 must use explicit loopback endpoints; the model is pinned to `qwen2.5:7b`.
 The local entry point refuses production. A separate, disabled-by-default
 [approved AI path](discovery-approved-ai.md) is prepared for an operator-reviewed pilot.
-The model is checked before collection writes. No GitHub-hosted AI mode is provided.
-The normal execution command remains model-free.
-Add `--ai-admission-only` alongside `--local-ai` to run only matching and scoped
-scoring against already collected candidates. It refreshes identity evidence as needed
-but does not run the discovery collectors or extraction stages. This diagnostic mode
-still requires local targets and uses the same model/admission limits.
+Use `--collect-only` on the local launcher to collect and extract evidence without Ollama.
+Use `--local-ai --ai-admission-only` to match saved candidates without scoring. A combined
+local AI run checks Ollama at matching time, so an unavailable model leaves the collected
+evidence saved for a later admission run. The separate approved workflow keeps its own
+execution checks.
 
 This pilot selects at most one candidate, excludes human-only/rejected decisions
 and disabled sibling sites, and allows at most three model checks across the selected
@@ -71,9 +70,8 @@ The local AI supervisor has a ten-minute overall deadline and an admission cap o
 one; individual collection budgets are the same as above. The local AI profile allows
 up to four minutes per model request; the dedicated admission CLI retains its two-minute
 default. This longer deadline is local
-only. Slow model calls may exhaust the window. Scoring follows matching and stays
-limited to touched companies. Inspect actual admission/assessment counts; a completed
-run or an empty scoring stage does not establish growth.
+only. Slow model calls may exhaust the window. In the combined run, scoring follows
+matching and stays limited to touched companies. Inspect the admission counts to measure growth.
 
 Identity evidence/results are stored under the run's `identity/` directory for local
 inspection. They are not part of the GitHub summary artifact pattern. Only safe job

@@ -96,8 +96,10 @@ Input is an array such as `[{"name":"Example Inc","corporate_urls":["https://exa
 (corporate URLs optional), or a saved SEC-object subset with `title` fields. Maximum 25
 names. Discovery names must exist in the saved SEC snapshot. The experiment scopes
 discovery/collection to that list, enables corporate-careers discovery only for this run,
-and retains captures and signals. `--admission-only` instead evaluates already collected
-candidates. Extraction is structured; Qwen is used for identity only.
+and retains captures and signals. Run `--collect-only` to save candidates with Ollama
+offline. Later, use the same input with `--admission-only` and a fresh output directory
+to match the saved candidates. A combined run also saves its collection before it checks
+Ollama. Extraction is structured; Qwen is used for identity only.
 For a frozen comparison, combine `--admission-only --packets packets.json` to use the
 exact previously collected identity evidence without refreshing the paired pages/jobs.
 Packets must match the selected name and each exact site, and remain within the normal

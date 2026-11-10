@@ -14,21 +14,26 @@ const save = summary => {
 const args = process.argv.slice(2);
 let failureStage = 'configuration';
 try {
-  let limit = 10, execute = false, approved = false, localAi = false, approvedAi = false, admissionOnly = false;
+  let limit = 10, execute = false, approved = false, localAi = false, approvedAi = false, admissionOnly = false, collectOnly = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--execute-local') execute = true;
     else if (args[i] === '--execute-approved') { execute = true; approved = true; }
     else if (args[i] === '--local-ai') localAi = true;
     else if (args[i] === '--approved-ai') approvedAi = true;
     else if (args[i] === '--ai-admission-only') admissionOnly = true;
+    else if (args[i] === '--collect-only') collectOnly = true;
     else if (args[i] === '--limit') limit = Number(args[++i]);
     else throw Error(`Unknown argument: ${args[i]}`);
   }
   const plan = discoveryPlan(limit);
   if (localAi && approvedAi) throw Error('Choose one identity execution mode');
+  if (collectOnly) {
+    if (!execute || approved || localAi || approvedAi || admissionOnly) throw Error('Collection-only requires local execution without admission options');
+    plan.steps = plan.steps.slice(0, -2);
+  }
   if (admissionOnly) {
     if (!(localAi || approvedAi) || !execute || (localAi && approved)) throw Error('Admission-only discovery requires explicit identity execution');
-    plan.steps = [{ plan: 'match' }, { plan: 'score' }];
+    plan.steps = approvedAi ? [{ plan: 'match' }, { plan: 'score' }] : [{ plan: 'match' }];
   }
   let identityConfig = null, prepareLocalDiscoveryIdentity;
   if (localAi || approvedAi) {
@@ -47,9 +52,9 @@ try {
     failureStage = 'database_setup';
     const ctx = await contextFromEnv({ ...process.env, PIPELINE_ALLOW_REMOTE: approved ? process.env.PIPELINE_ALLOW_REMOTE : '', TREG_BUDGET_USD: '0', PIPELINE_LLM_BUDGET_USD: '0' },
       { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
-    if (identityConfig) {
+    if (approvedAi) {
       failureStage = 'local_model_preflight';
-      await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true, approvedAi ? process.env : null);
+      await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true, process.env);
     }
     failureStage = 'run_bounds';
     const maxNew = Number(process.env.DISCOVERY_MAX_NEW || 3), maxRequests = Number(process.env.DISCOVERY_MAX_REQUESTS || 20);
@@ -62,7 +67,7 @@ try {
         // One archive attempt per run: preserve the real outage status instead of
         // spending the deadline in nested retries against the same busy service.
         ? { ...s.config, index_page_size: 1, index_candidate_limit: Math.max(30, plan.limit * 6), request_timeout_ms: s.id === 'workday-tenant-wayback' ? 65000 : 30000, index_retries: 0, http_retries: 0, index_fail_fast: true }
-        : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true, ...(identityConfig ? { corporate_discovery: true } : {}) } : s.config }));
+        : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true, ...(identityConfig || collectOnly ? { corporate_discovery: true } : {}) } : s.config }));
     // Discovery scores only companies touched by matching. Periodic full rescoring
     // remains the responsibility of the existing daily/rescore plans.
     const prepareScoreScope = discoveryScoreScope(ctx.store);
