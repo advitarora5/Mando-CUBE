@@ -154,8 +154,9 @@ export function careersLinks(html: string, base: string, companyHost: string): s
 }
 // loose: the page's name only has to start with the target (a tenant slug "nexstar" for "Nexstar Media Group").
 // It is used for guessed domains only, which must also pass the reciprocal Workday-link proof.
+// "brand" lets discovery use a shorter page name ("Otis" for "Otis Worldwide") as a candidate.
 const compact = (value: string) => normalizeName(value).replace(/ /g, "");
-export function pageIdentity(html: string, name: string, loose = false): string | null {
+export function pageIdentity(html: string, name: string, mode: boolean | "brand" = false): string | null {
   const target = normalizeName(name); if (!target) return null;
   const names: string[] = [];
   for (const match of html.matchAll(/<meta\b[^>]*>/gi)) if (/^(og:site_name|application-name)$/i.test(attr(match[0], "property") || attr(match[0], "name"))) names.push(attr(match[0], "content"));
@@ -184,7 +185,12 @@ export function pageIdentity(html: string, name: string, loose = false): string 
       walk(JSON.parse(match[1]));
     } catch { /* broken structured data is not evidence */ }
   }
-  return names.find(value => loose ? compact(value.replace(/<[^>]+>/g, " ")).startsWith(compact(name)) : normalizeName(value.replace(/<[^>]+>/g, " ")) === target) ?? null;
+  return names.find(value => {
+    const text = value.replace(/<[^>]+>/g, " ");
+    if (mode === true) return compact(text).startsWith(compact(name));
+    const observed = normalizeName(text);
+    return observed === target || (mode === "brand" && observed.length >= 4 && target.startsWith(`${observed} `));
+  }) ?? null;
 }
 // tenantOnly (guessed slug domains): a link to any career site of the tenant proves the tenant is theirs. The company may link
 // a different site than the one picked as primary (M&T Bank links /MTB while the primary pick was Wilmington Trust's site).
@@ -192,8 +198,11 @@ function workdayLink(html: string, base: string, sites: WorkdaySite[], tenantOnl
   return links(html, base).find(({ url }) => sites.some(site => url.hostname === `${site.tenant}.${site.pod}.myworkdayjobs.com` && (tenantOnly || decodeURIComponent(url.pathname).split("/").includes(site.site))))?.url.href ?? null;
 }
 // A branded page on a shared social/document/ATS platform is not a corporate website.
-function sharedPlatform(domain: string): boolean {
-  return ["sharepoint.com", "myworkdayjobs.com", "myworkdaysite.com", "linkedin.com", "facebook.com", "instagram.com", "youtube.com"].some(host => domain === host || domain.endsWith(`.${host}`));
+export function sharedPlatform(domain: string): boolean {
+  return [
+    "sharepoint.com", "myworkdayjobs.com", "myworkdaysite.com", "linkedin.com", "facebook.com", "instagram.com", "youtube.com",
+    "docs.google.com", "drive.google.com", "accounts.google.com",
+  ].some(host => domain === host || domain.endsWith(`.${host}`));
 }
 
 // Only stored JSON from the exact enabled Workday tenant/site can vouch for an employer link.

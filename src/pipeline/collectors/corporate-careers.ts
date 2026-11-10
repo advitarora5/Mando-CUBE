@@ -7,7 +7,7 @@ export type CorporateWorkdayLink = { tenant: string; pod: string; site: string; 
 
 export function corporateWorkdayLinks(html: string, base: string, name: string): CorporateWorkdayLink[] {
   const home = new URL(base);
-  if (home.protocol !== "https:" || home.username || home.password || home.port || !pageIdentity(html, name)) return [];
+  if (home.protocol !== "https:" || home.username || home.password || home.port || !pageIdentity(html, name, "brand")) return [];
   const out: CorporateWorkdayLink[] = [];
   const visible = html.replace(/<!--[\s\S]*?-->|<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ");
   for (const match of visible.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/gi)) {
@@ -53,7 +53,7 @@ export async function discoverCorporateCareers(ctx: PipelineContext, name: strin
       }
     };
     const home = await visit(candidate);
-    if (!home || !pageIdentity(home.html, name)) continue;
+    if (!home || !pageIdentity(home.html, name, "brand")) continue;
     if (corporateWorkdayLinks(home.html, home.url, name).length) { pages.push(home); break; }
     const root = normalizeDomain(new URL(home.url).hostname)!;
     const urls = [...careersLinks(home.html, home.url, root), `https://careers.${root}/`, `https://jobs.${root}/`, new URL("/careers", home.url).href];
@@ -62,8 +62,7 @@ export async function discoverCorporateCareers(ctx: PipelineContext, name: strin
       if (!page) continue;
       const domain = normalizeDomain(new URL(page.url).hostname);
       if (!domain || !(domain === root || domain.endsWith(`.${root}`))) continue;
-      // Every returned page independently names the target; an inferred domain or a
-      // search result cannot supply identity, and off-domain ATS redirects are rejected.
+      // An observed brand can provide a site candidate. Admission still verifies the employer.
       if (corporateWorkdayLinks(page.html, page.url, name).length) { pages.push(page); break; }
     }
     if (pages.length) break;

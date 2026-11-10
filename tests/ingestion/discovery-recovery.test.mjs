@@ -69,6 +69,32 @@ test('resolver discovers the non-name ghr tenant through official pages and extr
  assert.ok(bank.includes(store.signals[0].quote));assert.equal((await store.companies()).length,0);
 });
 
+test('a shorter employer brand exposes a Workday link for admission to verify', async () => {
+ const store = new MemoryStore();
+ const careers = html('Northstar') + '<a href="https://northstar.wd504.myworkdayjobs.com/Careers">Jobs</a>';
+ const ctx = makeCtx({ store, fetch: fakeFetch([
+  { match: /myworkdayjobs.com\/robots.txt$/, respond: () => response(422, 'unknown tenant') },
+  { match: /\/robots.txt$/, respond: () => response(200, 'User-agent: *\nAllow: /') },
+  { match: /^https:\/\/northstarworldwide.com\/$/, respond: () => response(404, 'not found') },
+  { match: /^https:\/\/northstar.com\/$/, respond: () => response(200, careers, { 'content-type': 'text/html' }) },
+ ]) });
+ await store.saveCapture({
+  source: 'sec-company-list', url: 'https://www.sec.gov/files/company_tickers.json',
+  raw: JSON.stringify({ 0: { title: 'Northstar Worldwide Corp' } }), fetched_at: ctx.now().toISOString(),
+  http_status: 200, content_type: 'application/json', fingerprint: 'sec',
+ }, null);
+ const resolver = { ...source('workday-site-resolver'), config: {
+  corporate_discovery: true, names_per_site: 1, full_name_pods: 1, first_word_pods: 1,
+ } };
+ await collectStage(ctx, resolver, { limit: 1, dryRun: false });
+ await extractStage(ctx, { limit: 10 });
+ const [site] = await store.workdaySites(true);
+ assert.equal(site?.normalized_name, 'northstar worldwide');
+ assert.equal(site?.pod, 'wd504');
+ assert.equal(store.signals[0]?.confidence, 0.6);
+ assert.equal((await store.companies()).length, 0);
+});
+
 test('corporate discovery honors shared request limits, rejects off-domain redirects and does not cross a mismatched homepage',async()=>{
  const fetch=officialWorld();const ctx=makeCtx({fetch});const capped=await discoverCorporateCareers(ctx,'Bank of America',['https://bankofamerica.com/'],2);assert.ok(fetch.calls.length<=2);assert.equal(capped.pages.length,0);assert.equal(capped.incomplete,true);
  const wrong=fakeFetch([{match:/robots.txt$/,respond:()=>response(200,'User-agent: *\nAllow: /')},{match:/bankofamerica.com\/$/,respond:()=>response(200,html('Other Company'),{'content-type':'text/html'})}]);

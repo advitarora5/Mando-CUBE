@@ -7,7 +7,7 @@ import { prepareIdentityCase } from "./identity-evidence.ts";
 import { IDENTITY_MODEL_OPTIONS, MAX_IDENTITY_AGE_MS, reusableIdentity, sourceIdentityGroups, verifyIdentity, type IdentityCase, type IdentityResult } from "./identity.ts";
 import { OllamaProvider } from "./llm.ts";
 import type { EmployerWebsiteLink, PipelineContext, WebsiteResolution, WorkdaySite } from "./types.ts";
-import type { WebsiteHttp } from "./website.ts";
+import { sharedPlatform, type WebsiteHttp } from "./website.ts";
 
 export function assertLocalAdmissionUrl(value: string): void {
   const url = new URL(value);
@@ -40,7 +40,10 @@ const careersParent = (url: string) => {
 };
 export function identityCorporateUrls(evidenceUrls: string[], guessedUrls: string[], nameTerms: string[] = []): string[] {
   const safe = (url: string) => {
-    try { const u = new URL(url); return u.protocol === "https:" && !u.username && !u.password && !u.port; } catch { return false; }
+    try {
+      const u = new URL(url);
+      return u.protocol === "https:" && !u.username && !u.password && !u.port && !sharedPlatform(u.hostname);
+    } catch { return false; }
   };
   const named = (url: string) => hostCarriesName(url, nameTerms);
   const isCom = (url: string) => new URL(url).hostname.endsWith(".com");

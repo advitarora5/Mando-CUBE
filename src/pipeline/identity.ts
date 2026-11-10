@@ -4,8 +4,8 @@ import { z } from "zod";
 import { verifyQuote } from "../domain/ingestion/quote.ts";
 import type { LLMProvider } from "./types.ts";
 
-// v7.2: a shared word is not enough when full names differ and businesses are unrelated; the corporate domain can anchor a shared name.
-export const IDENTITY_VERSION = "identity-v7.2";
+// v7.3: a shared employer brand can establish identity across regional hiring entities.
+export const IDENTITY_VERSION = "identity-v7.3";
 export const MAX_IDENTITY_AGE_MS = 14 * 86400000;
 export const IDENTITY_MODEL_OPTIONS = { numCtx: 12288, maxOutputTokens: 1536 };
 export const EMPLOYER_CONTEXT = /\b(about us|who we are|our (?:company|business|mission|products|services)|we (?:are|provide|manufacture|design|develop|serve)|headquartered|global leader|leading provider)\b|\b(?:name|legalName|alternateName|description|industry)\s*[":]/i;
@@ -106,11 +106,13 @@ Work in this order, filling the fields in the order they appear.
 4. Then summarize each employer's business (null if unavailable), list supporting_factors, contradictions and
    uncertainties, and only then give the verdict.
 
-same_company: shared_name is not null, and the Workday employers are that organization or entities carrying its name
-(legal entities, regional subsidiaries, internal entity codes, divisions), or the sources themselves connect the names.
-Legal, regional or coded employer names such as "1568 Acme Americas, Inc." or "Acme Atlantique Canada Inc." are NOT a
-reason to reject or hold, and neither is one differently named legal employer on a posting that otherwise carries the
-shared brand. No direct hyperlink, formal alias declaration or subsidiary sentence is required.
+same_company: the corporate page and the Workday postings use the same distinctive brand as their own employer
+identity, or the sources themselves connect the employer names. Use same_company when the postings identify
+themselves with that shared brand, even if the hiring organization fields list different regional entities or internal
+codes. For example, a "Northstar Medical Holdings" corporate page and jobs that say "At Northstar Medical" are a
+match even when the hiring fields say "032 Northstar Medical Hungary Kft." and "077 Northstar Precision LLC".
+The employer's own branding in the posting supplies the connection. No direct hyperlink, formal alias declaration
+or subsidiary sentence is required.
 different_company: the two sides name different organizations and no source connects them.
 A shared industry, similar products or services, similar customers or similar mission wording NEVER makes two
 differently named organizations the same. Do not explain away different names as "different legal entities within

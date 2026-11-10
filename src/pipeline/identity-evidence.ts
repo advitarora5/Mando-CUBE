@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { htmlToText } from "../domain/ingestion/quote.ts";
 import { normalizeName } from "../domain/ingestion/normalize.ts";
-import { WebsiteHttp } from "./website.ts";
+import { sharedPlatform, WebsiteHttp } from "./website.ts";
 import { corporateFallback, MIN_CORPORATE_TEXT } from "./corporate-fallback.ts";
 import { digest, EMPLOYER_CONTEXT, identityCaseSchema, MAX_IDENTITY_AGE_MS, type IdentityCase, type IdentitySource, type IdentityGroup } from "./identity.ts";
 import type { PipelineContext, WebsiteCapture } from "./types.ts";
@@ -80,6 +80,7 @@ export async function prepareIdentityCase(ctx: PipelineContext, input: unknown, 
   let corporatePage: { url: string; html: string } | null = null;
   try {
     const home = await http.page(target.corporate_url, MAX_CORPORATE_PAGE);
+    if (sharedPlatform(new URL(home.url).hostname)) throw Error("corporate URL resolved to a shared platform");
     corporatePage = home;
     // Record the final corporate URL after guarded redirects for subsequent provenance checks.
     packet.corporate_url = home.url;

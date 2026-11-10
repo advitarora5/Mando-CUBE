@@ -214,6 +214,20 @@ test('identity evidence: exact-site jobs retain first-party employer names and i
   assert.equal(reads, 1); assert.throws(() => jobIdentityText('{}'), /job description/);
 });
 
+test('identity evidence: a shared sign-in redirect supplies no corporate evidence', async () => {
+  const target = identityTargetSchema.strip().parse(packet());
+  const ctx = makeCtx({ now: () => now, fetch: fakeFetch([
+    { match: /robots.txt$/, respond: () => response(200, 'User-agent: *\nAllow: /') },
+    { match: /^https:\/\/westerndigital.com\/$/, respond: () => response(302, '', { location: 'https://accounts.google.com/signin' }) },
+    { match: /^https:\/\/accounts.google.com\/signin$/, respond: () => response(200, '<title>Sign in</title>', { 'content-type': 'text/html' }) },
+    { match: /\/jobs$/, method: 'POST', respond: () => response(200, { jobPostings: [] }) },
+  ]) });
+  const out = await prepareIdentityCase(ctx, target, new WebsiteHttp(ctx));
+  assert.equal(out.corporate_url, target.corporate_url);
+  assert.deepEqual(out.sources, []);
+  assert.ok(out.errors.includes('corporate: corporate URL resolved to a shared platform'));
+});
+
 test('identity evidence: unsafe job paths and JSON redirects never fetch outside the exact site', async () => {
   const target = identityTargetSchema.strip().parse(packet());
   for (const path of ['/job/../../Other/job/X', '//evil.example/job/X', '/job/%2e%2e/Other', '/job/X?other=1']) {
@@ -394,8 +408,8 @@ test('identity v7.2: the prompt warns against one shared word with unrelated bus
   });
 });
 
-test('identity v7: the version is identity-v7.2 and the verdict is generated after names and the shared name', () => {
-  assert.equal(IDENTITY_VERSION, 'identity-v7.2');
+test('identity v7: the version is identity-v7.3 and the verdict is generated after names and the shared name', () => {
+  assert.equal(IDENTITY_VERSION, 'identity-v7.3');
   const { p, answer } = contextualPair();
   const llm = model(answer);
   return verifyIdentity(p, llm, 'v1', now).then(() => {

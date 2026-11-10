@@ -35,6 +35,11 @@ test('a short name term must be a whole host label', () => {
     ['https://ing.example/', 'https://ing.com/', 'https://marketing.example/']);
 });
 
+test('document and sign-in links cannot take an employer website slot', () => {
+  const links = ['https://docs.google.com/', 'https://accounts.google.com/', 'https://drive.google.com/', 'https://google.com/'];
+  assert.deepEqual(identityCorporateUrls(links, []), ['https://google.com/']);
+});
+
 test('candidate URL ordering remains deduplicated, HTTPS only and capped at three', () => {
   assert.deepEqual(identityCorporateUrls(['http://bad.example/', 'https://user:pass@bad.example/',
     'https://bad.example:8443/', 'not a url', 'https://official.example/', 'https://official.example/'],

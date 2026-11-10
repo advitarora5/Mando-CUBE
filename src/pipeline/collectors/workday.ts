@@ -166,9 +166,10 @@ export class WorkdayResolver implements Collector {
       if (result.blocked || http.remaining - corporateRequests < 1 || foundNames >= limits.maxItems) break;
       let probes = 0, found = false, incomplete = false, transient = false;
       // Revalidate known hosts directly, including pods outside the guessing list.
+      const guesses = tenantCandidates(name);
       const targets = [
         ...knownSites.filter(s => s.normalized_name === normalized).map(s => ({ tenant: s.tenant, pod: s.pod, kind: s.match_kind, known: true })),
-        ...tenantCandidates(name).flatMap(c => podsFor(c.kind).map(pod => ({ ...c, pod, known: false }))),
+        ...guesses.flatMap(c => podsFor(c.kind).map(pod => ({ ...c, pod, known: false }))),
       ];
       const visited = new Set<string>();
       for (const candidate of targets) {
@@ -201,7 +202,10 @@ export class WorkdayResolver implements Collector {
       if (!found && !result.blocked && corporateEnabled && http.remaining - corporateRequests >= 2) {
         const domains = [...companies.filter(c => normalizeName(c.name) === normalized).map(c => c.domain), ...reviews.filter(r => r.normalized_name === normalized).map(r => r.candidate_domain)].filter((d): d is string => !!d);
         const configured = (source.config.corporate_websites as Record<string, unknown> | undefined)?.[normalized];
-        const discovered = await discoverCorporateCareers(ctx, name, corporateCandidates(name, domains, configured), http.remaining - corporateRequests);
+        const brand = guesses.find(candidate => candidate.kind === "first_word")?.tenant;
+        const candidates = corporateCandidates(name, domains, configured);
+        if (brand) candidates.push(`https://${brand}.com/`);
+        const discovered = await discoverCorporateCareers(ctx, name, candidates, http.remaining - corporateRequests);
         corporateRequests += discovered.requests;
         for (const page of discovered.pages) result.items.push(item(source.id, page.url, 200, "text/html", page.html, ctx.now(), { kind: "corporate_careers", company_name: name, normalized_name: normalized }));
         found = discovered.pages.length > 0;
