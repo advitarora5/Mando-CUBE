@@ -30,18 +30,17 @@ try {
   if (collectOnly) {
     if (!execute || approved || localAi || approvedAi || admissionOnly) throw Error('Collection-only requires local execution without admission options');
     plan.steps = plan.steps.slice(0, -2);
+  } else if (execute && !approved) {
+    localAi = true;
+    plan.steps = plan.steps.slice(0, -1);
   }
   if (admissionOnly) {
     if (!(localAi || approvedAi) || !execute || (localAi && approved)) throw Error('Admission-only discovery requires explicit identity execution');
     plan.steps = approvedAi ? [{ plan: 'match' }, { plan: 'score' }] : [{ plan: 'match' }];
   }
-  let identityConfig = null, prepareLocalDiscoveryIdentity;
-  if (localAi || approvedAi) {
-    const identity = await import('./discovery-local-identity.mjs');
-    identityConfig = approvedAi ? identity.assertApprovedIdentityMode({ execute, approved }, process.env)
-      : identity.assertLocalIdentityMode({ execute, approved }, process.env);
-    prepareLocalDiscoveryIdentity = identity.prepareLocalDiscoveryIdentity;
-  }
+  if (localAi && (!execute || approved)) throw Error('AI discovery is local-only');
+  const identity = localAi || approvedAi ? await import('./discovery-local-identity.mjs') : null;
+  const approvedConfig = approvedAi ? identity.assertApprovedIdentityMode({ execute, approved }, process.env) : null;
   let summary = { status: 'prepared', ...plan };
   if (execute) {
     if (args.includes('--execute-local') && approved) throw Error('Choose one database mode');
@@ -54,31 +53,45 @@ try {
       { dryRun: false, noLlm: true, noTreg: true, maxSpend: 0 });
     if (approvedAi) {
       failureStage = 'local_model_preflight';
-      await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, true, process.env);
+      await identity.prepareLocalDiscoveryIdentity(ctx, output, approvedConfig, true, process.env);
     }
     failureStage = 'run_bounds';
     const maxNew = Number(process.env.DISCOVERY_MAX_NEW || 3), maxRequests = Number(process.env.DISCOVERY_MAX_REQUESTS || 20);
     if (![maxNew, maxRequests].every(n => Number.isInteger(n) && n >= 1 && n <= 100)) throw Error('Invalid run bounds');
+    const maxCandidates = Math.min(maxNew, 3);
     const settings = ctx.store.settings.bind(ctx.store), sources = ctx.store.sources.bind(ctx.store);
-    ctx.store.settings = async () => { const current = await settings(); return { ...current, max_new_companies_per_run: Math.min(current.max_new_companies_per_run, identityConfig ? 1 : maxNew) }; };
+    ctx.store.settings = async () => { const current = await settings(); return { ...current, max_new_companies_per_run: Math.min(current.max_new_companies_per_run, approvedAi ? 1 : maxNew) }; };
     ctx.store.sources = async () => (await sources()).map(s => ({ ...s,
       max_requests_per_run: Math.min(s.max_requests_per_run, maxRequests),
       config: ['workday-tenant-crawl', 'workday-tenant-wayback'].includes(s.id)
         // One archive attempt per run: preserve the real outage status instead of
         // spending the deadline in nested retries against the same busy service.
         ? { ...s.config, index_page_size: 1, index_candidate_limit: Math.max(30, plan.limit * 6), request_timeout_ms: s.id === 'workday-tenant-wayback' ? 65000 : 30000, index_retries: 0, http_retries: 0, index_fail_fast: true }
-        : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true, ...(identityConfig || collectOnly ? { corporate_discovery: true } : {}) } : s.config }));
+        : s.id === 'workday-site-resolver' ? { ...s.config, discovery_only: true, ...(identity || collectOnly ? { corporate_discovery: true } : {}) } : s.config }));
     // Discovery scores only companies touched by matching. Periodic full rescoring
     // remains the responsibility of the existing daily/rescore plans.
     const prepareScoreScope = discoveryScoreScope(ctx.store);
-    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: 'running', jobs: [] };
+    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, collect_only: collectOnly, status: 'running', jobs: [] };
     save(summary);
     failureStage = 'source_preflight';
     const result = await executeDiscovery(ctx, async (...options) => {
       failureStage = options[1].plan;
       prepareScoreScope(options[1].plan);
-      if (identityConfig && options[1].plan === 'match') options[1].localIdentity = await prepareLocalDiscoveryIdentity(ctx, output, identityConfig, false, approvedAi ? process.env : null);
-      const report = options[1].plan === 'collect'
+      let report;
+      if (identity && options[1].plan === 'match') {
+        const config = approvedConfig ?? {
+          ...identity.assertLocalIdentityMode({ execute, approved }, process.env),
+          maxCandidates, maxChecks: 3 * maxCandidates,
+        };
+        try {
+          options[1].localIdentity = await identity.prepareLocalDiscoveryIdentity(ctx, output, config, false, approvedAi ? process.env : null);
+        } catch (error) {
+          if (!localAi || !(error instanceof identity.IdentityModelUnavailable)) throw error;
+          report = { jobs: [{ job: 'match', source_id: null, status: 'blocked', ms: 0, counts: { admission_deferred: 1 },
+            blocked: 'local identity model unavailable' }] };
+        }
+      }
+      report ??= options[1].plan === 'collect'
         ? await withSourceBudget(options[0], scoped => runPipeline(scoped, options[1]), sourceBudgetMs(options[1].source))
         : await runPipeline(...options);
       summary.jobs.push(...report.jobs.map(summarizeJob));
@@ -88,7 +101,7 @@ try {
     }, plan);
     // Persist counts and statuses only; raw errors/provider payloads may contain private data.
     const jobs = result.reports.flatMap(r => r.jobs.map(summarizeJob));
-    summary = { ...plan, local_ai: localAi, approved_ai: approvedAi, status: result.status, jobs, rollup: discoveryRollup(jobs) };
+    summary = { ...summary, status: result.status, jobs, rollup: discoveryRollup(jobs) };
     if (result.status !== 'succeeded') process.exitCode = 1;
   }
   save(summary);

@@ -6,6 +6,7 @@ import { guessDomains } from '../src/pipeline/website.ts';
 import { tenantName } from '../src/pipeline/collectors/crawl.ts';
 import { assertLocalAdmissionUrl, assertLocalAdmissionStore, assertApprovedIdentityTarget, localIdentityAdmission, approvedIdentityAdmission } from '../src/pipeline/local-identity-admission.ts';
 import { assertApprovedTarget } from './discovery-plan.mjs';
+export { IdentityModelUnavailable } from '../src/pipeline/local-identity-admission.ts';
 
 export function assertLocalIdentityMode({ execute, approved }, env) {
   if (!execute || approved || env.PIPELINE_ALLOW_REMOTE) throw Error('AI discovery is local-only');
@@ -26,9 +27,8 @@ export function assertApprovedIdentityMode({ execute, approved }, env) {
   return { host, model: 'qwen2.5:7b', maxChecks: 3, timeoutMs: 240000 };
 }
 
-// First local pilot: one candidate, all enabled sibling sites checked by the
-// existing identity policy. Human-only and rejected decisions remain protected.
-export async function selectLocalIdentityCandidates(store, { retries = {}, now = Date.now(), heldFirst = false } = {}) {
+// The approved pilot keeps its one-candidate limit. Human decisions and disabled sites stay protected.
+export async function selectLocalIdentityCandidates(store, { retries = {}, now = Date.now(), heldFirst = false, limit = 1 } = {}) {
   const [reviews, sites, signals] = await Promise.all([store.reviewItems(), store.workdaySites(false), store.unassignedSignals()]);
   const protectedNames = new Set(reviews.filter(r => r.status !== 'pending' || r.reason === 'similar_name').map(r => r.normalized_name));
   const eligible = new Set(sites.filter(site => site.enabled && !site.company_id && !sites.some(other => other.normalized_name === site.normalized_name && !other.enabled)).map(site => site.normalized_name));
@@ -39,27 +39,30 @@ export async function selectLocalIdentityCandidates(store, { retries = {}, now =
   const slugNamed = name => sites.some(s => s.normalized_name === normalizeName(name) && s.tenant && s.company_name === tenantName(s.tenant));
   const fresh = [...new Set(signals.map(signal => signal.company_name).filter(Boolean))].filter(name => !heldNames.has(normalizeName(name)))
     .sort((a, b) => slugNamed(a) - slugNamed(b));
-  const ordered = heldFirst ? [...held, ...fresh] : [...fresh, ...held];
+  const ordered = new Map();
+  for (const name of (heldFirst ? [...held, ...fresh] : [...fresh, ...held])) {
+    const key = normalizeName(name);
+    if (!ordered.has(key)) ordered.set(key, name);
+  }
   const signature = name => createHash('sha256').update(JSON.stringify({
     sites: sites.filter(s => s.normalized_name === normalizeName(name)).map(s => [s.id, s.capture_id, s.enabled, s.company_id]).sort(),
     // Assigning signals to a new review is bookkeeping, not new identity evidence.
     // Human decisions are protected above; only a new domain hypothesis changes this part.
     domains: [...new Set(reviews.filter(r => r.normalized_name === normalizeName(name)).map(r => r.candidate_domain).filter(Boolean))].sort(),
   })).digest('hex');
-  const name = ordered.find(name => {
-    const key = normalizeName(name), previous = retries[key];
-    return eligible.has(key) && !protectedNames.has(key)
-      && !(previous?.signature === signature(name) && previous.retry_after > now);
-  });
-  if (!name) return [];
-  const key = normalizeName(name);
-  // Candidate hypotheses only: reuse the normal resolver's bounded .com/.org/.edu guesses. The observed
-  // tenant comes first because it is usually the brand: cisco.com, not ciscosystems.com.
-  // Every page and Workday sibling still needs the full identity check.
-  const slugs = [...new Set([...sites.filter(site => site.enabled && site.normalized_name === key).map(site => site.tenant), key.replace(/ /g, '')])]
-    .filter(slug => typeof slug === 'string' && /^[a-z0-9-]{2,63}$/.test(slug));
-  const corporate_urls = [...new Set([...slugs.map(slug => `${slug}.com`), ...slugs.flatMap(guessDomains)])].slice(0, 3).map(domain => `https://${domain}/`);
-  return [{ name, corporate_urls, retry_signature: signature(name) }];
+  const selected = [];
+  for (const [key, name] of ordered) {
+    if (selected.length >= limit) break;
+    if (!eligible.has(key) || protectedNames.has(key)) continue;
+    const retry_signature = signature(name), previous = retries[key];
+    if (previous?.signature === retry_signature && previous.retry_after > now) continue;
+    // The observed tenant comes first because it is usually the brand.
+    const slugs = [...new Set([...sites.filter(site => site.enabled && site.normalized_name === key).map(site => site.tenant), key.replace(/ /g, '')])]
+      .filter(slug => typeof slug === 'string' && /^[a-z0-9-]{2,63}$/.test(slug));
+    const corporate_urls = [...new Set([...slugs.map(slug => `${slug}.com`), ...slugs.flatMap(guessDomains)])].slice(0, 3).map(domain => `https://${domain}/`);
+    selected.push({ name, corporate_urls, retry_signature });
+  }
+  return selected;
 }
 
 export async function prepareLocalDiscoveryIdentity(ctx, output, config, preflight = false, approvedEnv = null) {
@@ -72,7 +75,10 @@ export async function prepareLocalDiscoveryIdentity(ctx, output, config, preflig
     try { retryState = JSON.parse(readFileSync(retryPath, 'utf8')); }
     catch (error) { if (error.code !== 'ENOENT') throw Error('Identity retry state unreadable; inspect before execution'); }
   }
-  const candidates = preflight ? [] : await selectLocalIdentityCandidates(ctx.store, { retries: retryState[targetKey] ?? {}, now: +ctx.now(), heldFirst: process.env.DISCOVERY_HELD_FIRST === 'true' });
+  const candidates = preflight ? [] : await selectLocalIdentityCandidates(ctx.store, {
+    retries: retryState[targetKey] ?? {}, now: +ctx.now(), heldFirst: process.env.DISCOVERY_HELD_FIRST === 'true',
+    limit: approvedEnv ? 1 : config.maxCandidates,
+  });
   const directory = join(output, 'identity');
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const options = { ...config,

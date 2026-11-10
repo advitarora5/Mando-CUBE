@@ -45,7 +45,8 @@ export function discoveryRollup(jobs) {
 export function summarizeJob(job) {
   return { job: job.job, source: job.source_id, status: job.status, ms: job.ms, counts: job.counts,
     requests: job.requests ?? 0, cache_hit: job.cache_hit === true, candidate_keys: candidateKeys(job),
-    reason: job.blocked === 'source time budget reached' ? 'source_deadline' : job.blocked ? 'source_blocked' : null,
+    reason: job.blocked === 'local identity model unavailable' ? 'admission_deferred'
+      : job.blocked === 'source time budget reached' ? 'source_deadline' : job.blocked ? 'source_blocked' : null,
     diagnostics: (job.errors || []).slice(0, 5).map(error => {
       const value = String(error);
       let host = null;

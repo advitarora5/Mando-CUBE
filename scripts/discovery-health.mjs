@@ -18,7 +18,12 @@ export function discoveryHealthMarkdown(summary) {
   const sum = (rows, key) => rows.reduce((total, row) => total + count(row.counts?.[key]), 0);
   const reviewKeys = ['no_website', 'similar_name', 'untrusted_signal', 'over_run_cap'];
   const newReviews = reviewKeys.reduce((total, reason) => total + sum(match, `review_${reason}`), 0);
-  const complete = jobs.every(job => job.status === 'succeeded')
+  const localPlan = summary.local_ai === true || summary.collect_only === true;
+  const complete = localPlan
+    ? Array.isArray(summary.steps) && jobs.length > 0 && jobs.length === summary.steps.length
+      && jobs.every((job, index) => job.status === 'succeeded' && job.job === summary.steps[index]?.plan
+        && (job.source ?? null) === (summary.steps[index]?.source ?? null))
+    : jobs.every(job => job.status === 'succeeded')
     && DISCOVERY_SOURCES.every(source => jobs.some(job => job.job === 'collect' && job.source === source && job.status === 'succeeded'))
     && jobs.filter(job => job.job === 'extract' && job.status === 'succeeded').length === 2
     && match.some(job => job.status === 'succeeded') && score.some(job => job.status === 'succeeded');
@@ -33,6 +38,7 @@ export function discoveryHealthMarkdown(summary) {
     lines.push(`| ${labels[index]} | ${job ? safeStatus(job.status) : 'not run'} | ${count(job?.counts?.items)} | ${count(job?.requests)} | ${job?.cache_hit === true ? 'yes' : 'no'} |`);
   });
   lines.push('', `Matching: **${match.length ? safeStatus(match.at(-1).status) : 'not run'}**. Scoring: **${score.length ? safeStatus(score.at(-1).status) : 'not run'}**.`, '');
+  if (match.some(job => job.reason === 'admission_deferred')) lines.push('Local Ollama is unavailable. Saved candidates can be checked in a later admission run.', '');
   if (!complete || status !== 'succeeded') lines.push('The full run is not confirmed healthy. Successful stages may still have saved useful work.', '');
   if (['time_limit', 'interrupted'].includes(status) || summary.interrupted_writes_may_have_completed === true)
     lines.push('The worker stopped early. In-flight writes may have completed; do not assume a rollback.', '');
@@ -41,7 +47,7 @@ export function discoveryHealthMarkdown(summary) {
     if (held) lines.push(`Existing reviews still held (${reason}): **${held}**.`, '');
   }
   lines.push(...coverageLines(discoveryRollup(jobs)));
-  lines.push('A successful scoring stage with zero assessments does not establish that new admissions were scored.', '');
+  if (!localPlan) lines.push('A successful scoring stage with zero assessments does not establish that new admissions were scored.', '');
   return lines.join('\n');
 }
 

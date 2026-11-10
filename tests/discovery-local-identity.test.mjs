@@ -4,11 +4,14 @@ import { assertLocalIdentityMode, selectLocalIdentityCandidates } from '../scrip
 import { runPipeline } from '../src/pipeline/runner.ts';
 import { makeCtx } from './ingestion/helpers.mjs';
 import { SupabaseStore } from '../src/pipeline/store/supabase.ts';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { DISCOVERY_SOURCES } from '../scripts/discovery-plan.mjs';
 
 test('AI discovery rejects remote databases, remote models, wrong models and non-execution mode', () => {
   const mode = { execute: true, approved: false };
@@ -47,6 +50,15 @@ test('new candidates go before held ones, and a held candidate runs once nothing
   assert.equal((await selectLocalIdentityCandidates(store))[0].name, 'Newco');
   signals = [{ company_name: 'Heldco' }];
   assert.equal((await selectLocalIdentityCandidates(store))[0].name, 'Heldco', 'a new signal on a held name does not make it new');
+});
+
+test('the local batch limit counts each eligible company only once', async () => {
+  const store = {
+    reviewItems: async () => [{ candidate_name: 'Protected', normalized_name: 'protected', status: 'pending', reason: 'similar_name' }],
+    workdaySites: async () => ['protected', 'alpha', 'beta', 'gamma', 'delta'].map(normalized_name => ({ normalized_name, enabled: true })),
+    unassignedSignals: async () => ['Protected', 'Alpha Inc', 'Alpha', 'Beta', 'Gamma', 'Delta'].map(company_name => ({ company_name })),
+  };
+  assert.deepEqual((await selectLocalIdentityCandidates(store, { limit: 3 })).map(candidate => candidate.name), ['Alpha Inc', 'Beta', 'Gamma']);
 });
 
 test('held first still respects the cooldown, so a batch without due holds moves on to new names', async () => {
@@ -123,6 +135,69 @@ test('admission-only CLI refuses prepare and approved modes before connecting or
     }
   } finally {
     if (!resolve(directory).startsWith(resolve(tmpdir()) + '\\') && !resolve(directory).startsWith(resolve(tmpdir()) + '/')) throw Error('Unexpected temporary path');
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('default local execution saves collection before deferring AI admission', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'discovery-ai-default-'));
+  const events = [];
+  let modelAvailable = false;
+  const server = createServer((req, res) => {
+    const path = req.url.split('?')[0];
+    let body = [];
+    if (path === '/rest/v1/sources') body = DISCOVERY_SOURCES.map(id => ({
+      id, type: 'sec_company_list', enabled: true, config: {}, max_requests_per_run: 1, min_delay_ms: 1000,
+    }));
+    if (req.method === 'POST') {
+      req.resume();
+      body = { id: 'fixture-row' };
+      if (path === '/rest/v1/raw_captures') events.push('capture');
+    }
+    if (path === '/api/tags') {
+      events.push('model');
+      if (modelAvailable) body = { models: [{ name: 'qwen2.5:7b', digest: 'fixture-digest' }] };
+      else res.statusCode = 503;
+    }
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(body));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const url = `http://127.0.0.1:${server.address().port}`;
+    const cli = fileURLToPath(new URL('../scripts/discovery.mjs', import.meta.url));
+    const env = {
+      ...process.env, DISCOVERY_OUTPUT: directory, PIPELINE_SUPABASE_URL: url, PIPELINE_SUPABASE_KEY: 'test-key',
+      PIPELINE_ALLOW_REMOTE: '', PIPELINE_CONTACT: '', OLLAMA_HOST: url, OLLAMA_MODEL: '',
+      PIPELINE_SEC_FILE: fileURLToPath(new URL('../sec.json', import.meta.url)),
+    };
+    const run = flags => promisify(execFile)(process.execPath, [cli, '--execute-local', ...flags], { cwd: directory, env, timeout: 15000 });
+    await assert.rejects(run([]), { code: 1 });
+    const summary = JSON.parse(readFileSync(join(directory, 'summary.json'), 'utf8'));
+    assert.equal(summary.local_ai, true);
+    assert.equal(summary.status, 'needs_attention');
+    assert.deepEqual(events, [...DISCOVERY_SOURCES.map(() => 'capture'), 'model']);
+    assert.equal(summary.jobs.at(-1).reason, 'admission_deferred');
+    assert.ok(summary.jobs.slice(0, -1).every(job => job.status === 'succeeded'));
+    assert.ok(summary.jobs.every(job => job.job !== 'score'));
+
+    events.length = 0;
+    await assert.rejects(run(['--ai-admission-only']), { code: 1 });
+    assert.deepEqual(events, ['model']);
+    const admission = JSON.parse(readFileSync(join(directory, 'summary.json'), 'utf8'));
+    assert.deepEqual(admission.steps, [{ plan: 'match' }]);
+    assert.equal(admission.jobs[0].reason, 'admission_deferred');
+
+    modelAvailable = true;
+    events.length = 0;
+    await run(['--ai-admission-only']);
+    const resumed = JSON.parse(readFileSync(join(directory, 'summary.json'), 'utf8'));
+    assert.equal(resumed.status, 'succeeded');
+    assert.deepEqual(events, ['model']);
+    assert.deepEqual(resumed.jobs.map(job => job.job), ['match']);
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
     rmSync(directory, { recursive: true, force: true });
   }
 });

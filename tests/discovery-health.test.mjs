@@ -29,6 +29,15 @@ test('a nominal success missing scoring is shown as needing attention', () => {
   assert.match(text, /not confirmed healthy/);
 });
 
+test('local admission-only reports success without requiring collection or scoring', () => {
+  const summary = {
+    status: 'succeeded', local_ai: true, steps: [{ plan: 'match' }],
+    jobs: [{ job: 'match', status: 'succeeded' }],
+  };
+  assert.match(discoveryHealthMarkdown(summary), /Result: \*\*succeeded/);
+  assert.match(discoveryHealthMarkdown(summary), /Scoring: \*\*not run/);
+});
+
 test('partial sources and early interruption do not imply a rollback or lost successes', () => {
   const summary = healthy();
   summary.status = 'time_limit';

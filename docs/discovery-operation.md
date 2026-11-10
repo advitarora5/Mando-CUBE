@@ -14,10 +14,10 @@ With credentials for the isolated local database configured privately:
 node --env-file=.env.pipeline.local scripts/discovery-execute-local.mjs
 ```
 
-The local entry point requests two items/sites per source, limits each source to at most
-20 requests, and admits at most three new companies per matching pass. The approved batch
-requests five per source with 60 requests each, and still checks at most five candidates.
-The supervisor stops its worker after five minutes. Providers may return fewer results.
+The local entry point collects and extracts evidence, then uses AI to admit up to three
+queued candidates. It requests two items/sites per source and limits each source to
+20 requests. The approved batch requests five per source with 60 requests each.
+Providers may return fewer results.
 Each collection stage also has a cooperative time budget, 75 seconds or 120 for the two
 archives (`scripts/discovery-source-budget.mjs`): requests are cancelled, retry waits wake,
 and buffered items are retained before the next source runs.
@@ -40,38 +40,29 @@ hits. Matching reports `pending_reason_*` counts for existing reviews without
 changing admission or human-review rules. Wayback captures retain Wayback provenance.
 This prevents a stalled index source from consuming the entire worker window. Processing
 stages still share the remaining overall deadline.
-No Treg or model client is created. SEC names can come from committed sec.json.
-No migration is executed. Discovery scoring is limited to companies touched by this run;
-the existing daily/rescore plans remain responsible for periodic full rescoring.
+Collection uses no Treg or model client. SEC names can come from committed sec.json.
+Local discovery and admission leave scoring to the existing score/rescore plans.
 
 ## Overlap and interruption
 
-### Optional local Ollama pilot
+### Local AI admission
 
-`node --env-file=.env.pipeline.local scripts/discovery-execute-local.mjs --local-ai`
-opts into the existing local identity-admission policy. Both the database and model
+The normal local command uses the existing AI identity-admission policy. Both the database and model
 must use explicit loopback endpoints; the model is pinned to `qwen2.5:7b`.
 The local entry point refuses production. A separate, disabled-by-default
 [approved AI path](discovery-approved-ai.md) is prepared for an operator-reviewed pilot.
 Use `--collect-only` on the local launcher to collect and extract evidence without Ollama.
-Use `--local-ai --ai-admission-only` to match saved candidates without scoring. A combined
-local AI run checks Ollama at matching time, so an unavailable model leaves the collected
-evidence saved for a later admission run. The separate approved workflow keeps its own
-execution checks.
+Use `--ai-admission-only` to match saved candidates. The combined command checks Ollama
+after collection. If Ollama is unavailable, the summary shows admission as deferred and
+the collected evidence is available for the next run.
 
-This pilot selects at most one candidate, excludes human-only/rejected decisions
-and disabled sibling sites, and allows at most three model checks across the selected
-candidate's possible corporate domains/sites. Missing evidence, errors, contradictory
-sites and exhausted checks remain held. It does not relax the checker or change
-stored signal confidence. All enabled sibling sites must be verified by the existing
-policy before admission. A human-only similar-name review is not automatically resolved.
+Local admission selects at most three candidates and runs up to nine model checks across
+their possible corporate domains and sites. The existing evidence rules, human reviews,
+rejections, and disabled-site protections apply.
 
-The local AI supervisor has a ten-minute overall deadline and an admission cap of
-one; individual collection budgets are the same as above. The local AI profile allows
-up to four minutes per model request; the dedicated admission CLI retains its two-minute
-default. This longer deadline is local
-only. Slow model calls may exhaust the window. In the combined run, scoring follows
-matching and stays limited to touched companies. Inspect the admission counts to measure growth.
+The supervisor allows 15 minutes for a run with admission and five minutes for a
+collection-only run. Local AI allows up to four minutes per model request. The dedicated
+admission CLI retains its two-minute default. Slow model calls may exhaust the run window.
 
 Identity evidence/results are stored under the run's `identity/` directory for local
 inspection. They are not part of the GitHub summary artifact pattern. Only safe job

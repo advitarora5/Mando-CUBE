@@ -91,6 +91,7 @@ export function targetNameWritten(packet: IdentityCase, target: string): boolean
 }
 
 export type LocalAdmissionCandidate = { name: string; corporate_urls?: string[] };
+export class IdentityModelUnavailable extends Error {}
 export type LocalIdentityAdmission = {
   names: Set<string>;
   resolve(ctx: PipelineContext, name: string, sites: WorkdaySite[], http: WebsiteHttp, refs: EmployerWebsiteLink[]): Promise<WebsiteResolution>;
@@ -163,10 +164,14 @@ async function identityAdmission(ctx: PipelineContext, candidates: LocalAdmissio
   if (!Number.isInteger(opts.maxChecks) || opts.maxChecks < 1 || opts.maxChecks > 100) throw Error("maxChecks must be 1–100");
   const timeoutMs = opts.timeoutMs ?? 120000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 240000) throw Error("Identity request timeout must be 1–240 seconds");
-  const response = await ctx.fetch(`${opts.host.replace(/\/$/, "")}/api/tags`, { signal: AbortSignal.timeout(5000) });
-  if (!response.ok) throw Error(`Ollama tags HTTP ${response.status}`);
-  const tag = (await response.json()).models?.find((m: { name: string; digest: string }) => m.name === opts.model);
-  if (!tag?.digest) throw Error("Install qwen2.5:7b in local Ollama before running admission");
+  const response = await ctx.fetch(`${opts.host.replace(/\/$/, "")}/api/tags`, { signal: AbortSignal.timeout(5000) })
+    .catch(cause => { throw new IdentityModelUnavailable("Could not reach local Ollama", { cause }); });
+  if (!response.ok) throw new IdentityModelUnavailable(`Ollama tags HTTP ${response.status}`);
+  const models = (await response.json().catch(cause => {
+    throw new IdentityModelUnavailable("Could not read local Ollama models", { cause });
+  }))?.models;
+  const tag = Array.isArray(models) ? models.find(m => m?.name === opts.model) : null;
+  if (!tag?.digest) throw new IdentityModelUnavailable("Install qwen2.5:7b in local Ollama before running admission");
   if (approvedDigest && tag.digest !== approvedDigest) throw Error("Local model revision does not match the approved revision");
   const llm = new OllamaProvider({ host: opts.host, model: opts.model, fetchImpl: ctx.fetch, timeoutMs, ...IDENTITY_MODEL_OPTIONS });
   const packets: IdentityCase[] = [], results: IdentityResult[] = [];
