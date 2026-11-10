@@ -71,23 +71,36 @@ const withinMonths = (date: string | null | undefined, months: number, now: Date
 };
 
 // A contact counts as "confirmed current" when a person entered or confirmed them; people-search results do not.
-export function confirmedCurrent(contact: ScoringContact): boolean {
+function roleReview(contact: ScoringContact) {
+  return (contact.contact_sources as { role_review?: { status?: string; reviewed_on?: string; workday_source?: string } } | null)?.role_review;
+}
+
+export function differentEmployer(contact: ScoringContact): boolean {
+  return roleReview(contact)?.status === "different_employer";
+}
+
+export function confirmedCurrent(contact: ScoringContact, now: Date = new Date()): boolean {
+  const review = roleReview(contact);
+  if (review) {
+    const age = daysSince(review.reviewed_on, now);
+    return review.status === "confirmed" && age !== null && age >= 0 && age <= 90;
+  }
   if (contact.linkedin_status === "confirmed" || contact.linkedin_status === "provided") return true;
   const found = contact.contact_sources && typeof contact.contact_sources === "object" && "name_title_linkedin" in (contact.contact_sources as object);
   return !found && !!http(contact.source);
 }
 
 // ---------- Authority /25: one role base per contact + bonuses for confirmed current contacts; best contact wins ----------
-export function authorityFromContacts(contacts: ScoringContact[], company: ScoringCompany = { employee_count: null }): CategoryResult {
+export function authorityFromContacts(contacts: ScoringContact[], company: ScoringCompany = { employee_count: null }, now: Date = new Date()): CategoryResult {
   if (!contacts.length) return needs("no named relevant contact yet; contact lookup is pending.");
   const rated = contacts.map(contact => {
     const band = authorityBand(contact.title);
-    const confirmed = confirmedCurrent(contact);
+    const confirmed = confirmedCurrent(contact, now);
     // A relevant person whose current role is unconfirmed gets the 5-point band and no bonuses.
     const base = confirmed ? band.base : Math.min(band.base, 5);
     const eligible = confirmed && base > 0;
     const size = eligible && (company.employee_count ?? 0) >= 3000 && http(company.employee_source) ? 3 : 0;
-    const workday = eligible && classifyTitle(contact.title).ownsWorkday === 4 ? 2 : 0;
+    const workday = eligible && (classifyTitle(contact.title).ownsWorkday === 4 || http(roleReview(contact)?.workday_source)) ? 2 : 0;
     return { contact, band, confirmed, base, size, workday, score: Math.min(rubric.authority.weight, base + size + workday), source: http(contact.source) ?? http(contact.linkedin_url) };
   }).filter(r => r.source).sort((a, b) => b.score - a.score);
   if (!rated.length) return needs("contacts have no source link for their role.");
@@ -102,18 +115,19 @@ export function authorityFromContacts(contacts: ScoringContact[], company: Scori
 }
 
 // ---------- Reachability /25: one route base per person + bonuses for confirmed current relevant contacts ----------
-export function reachabilityFromContacts(contacts: ScoringContact[]): CategoryResult {
+export function reachabilityFromContacts(contacts: ScoringContact[], now: Date = new Date()): CategoryResult {
   if (!contacts.length) return needs("no named contact yet; contact lookup is pending.");
   const rated = contacts.map(contact => {
     // Published (sourced) or provider-verified work email; published direct phone. A live line alone is not ownership.
     const emailSource = contact.email ? (http(contact.email_source) ?? (contact.email_status === "valid" ? http(contact.source) ?? http(contact.linkedin_url) : null)) : null;
     const phoneSource = contact.phone ? http(contact.phone_source) : null;
-    const linkedin = http(contact.linkedin_url) && (contact.linkedin_status === "confirmed" || contact.linkedin_status === "provided") ? http(contact.linkedin_url) : null;
+    const linkedin = contact.linkedin_status === "confirmed" || contact.linkedin_status === "provided"
+      ? (confirmedCurrent(contact, now) ? http(contact.linkedin_url) : null) : null;
     const base = emailSource && phoneSource ? 20 : emailSource || phoneSource ? 15 : linkedin ? 10 : 0;
     const route = emailSource && phoneSource ? "named work email and direct phone" : emailSource ? "named work email" : phoneSource ? "direct phone" : linkedin ? "confirmed LinkedIn only" : "no sourced route";
-    const eligible = confirmedCurrent(contact) && classifyTitle(contact.title).functional > 0 && base > 0;
+    const eligible = confirmedCurrent(contact, now) && classifyTitle(contact.title).functional > 0 && base > 0;
     const linkedinBonus = eligible && base >= 15 && linkedin ? 3 : 0;
-    const initiative = eligible && contact.conviction && http(contact.conviction.source) && withinMonths(contact.conviction.date, 24, new Date()) ? 3 : 0;
+    const initiative = eligible && contact.conviction && http(contact.conviction.source) && withinMonths(contact.conviction.date, 24, now) ? 3 : 0;
     const intro = eligible && /willing|introduc/i.test(contact.mutual_connection ?? "") ? 5 : 0;
     return { contact, base, route, linkedinBonus, initiative, intro, score: Math.min(rubric.reachability.weight, base + linkedinBonus + initiative + intro), source: emailSource ?? phoneSource ?? linkedin };
   }).sort((a, b) => b.score - a.score);
@@ -210,9 +224,10 @@ export type PipelineAssessment = {
 // Builds an insert-ready score row through the shared buildAssessment and tier evaluator (Qualified 70 for this version).
 export function scoreCompany(companyId: string, signals: ScoringSignal[], contacts: ScoringContact[], settings: PipelineSettings, now: Date = new Date(), company: ScoringCompany = { employee_count: null }): PipelineAssessment {
   const fresh = signals.filter(s => s.type === "go_live" || isSignalFresh(s, settings, now));
+  const currentContacts = contacts.filter(contact => !differentEmployer(contact));
   const categories: Record<Category, CategoryResult> = {
-    authority: authorityFromContacts(contacts, company),
-    reachability: reachabilityFromContacts(contacts),
+    authority: authorityFromContacts(currentContacts, company, now),
+    reachability: reachabilityFromContacts(currentContacts, now),
     budget: budgetFromSignals(fresh, now, company.financials),
     release: releaseFromSignals(fresh, now),
     timing: timingFromSignals(fresh, now),

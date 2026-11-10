@@ -5,6 +5,7 @@ import type { SignalType, ProjectType, ScoringContact } from "../domain/ingestio
 import type { ScoreRow } from "../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../domain/ingestion/score-change.ts";
 import type { LedgerEntry } from "../domain/ingestion/budget.ts";
+import type { ContactReview } from "./contact-review.ts";
 
 // ---------- Sources and collectors ----------
 
@@ -234,6 +235,7 @@ export interface SpendGuard {
 
 export type PipelineContext = {
   store: PipelineStore;
+  contactReviews?: ContactReview[];
   now: () => Date;
   log: Logger;
   fetch: typeof fetch;

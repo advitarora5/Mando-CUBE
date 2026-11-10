@@ -53,6 +53,9 @@ function coverageLines({ candidates, held, contacts, scoring }) {
   const scored = contacts.scored_with_contacts + contacts.scored_without_contacts;
   const named = (labels, values) => Object.entries(labels).map(([key, label]) => `${label} ${count(values[key])}`).join(', ');
   const lines = [`Candidates checked: **${candidates.checked}**; unique: **${candidates.unique ?? 'not measured'}**. Held: **${held.new_reviews}** new, **${held.still_held}** still held.`, ''];
+  if (contacts.companies_researched || contacts.waiting_for_provider || contacts.research_evidence_missing) {
+    lines.push(`Free enrichment: **${contacts.companies_researched}** researched, **${contacts.companies_verified}** with a verified contact, **${contacts.assessments_written}** updated assessments, **${contacts.waiting_for_provider}** waiting for a provider.`, '');
+  }
   if (!scored) return lines;
   lines.push(`Contact coverage: **${contacts.scored_with_contacts}** of **${scored}** scored companies have contacts.`, '',
     `Categories scoring zero: ${named(categoryLabels, scoring.zero_points)}.`, '',

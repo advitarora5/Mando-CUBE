@@ -42,7 +42,8 @@ test('rollup reports scoring coverage and contacts, ignoring malformed input', (
   assert.equal(rollup.scoring.assessments_written, 2);
   assert.deepEqual(rollup.scoring.zero_points, { budget: 2 });
   assert.deepEqual(rollup.scoring.financials, { found: 1, no_contact: 2, deferred: 0 });
-  assert.deepEqual(rollup.contacts, { scored_with_contacts: 1, scored_without_contacts: 2, added: 3, research_evidence_missing: 1, waiting_for_provider: 2 });
+  assert.deepEqual(rollup.contacts, { scored_with_contacts: 1, scored_without_contacts: 2, added: 3, research_evidence_missing: 1, waiting_for_provider: 2,
+    companies_researched: 0, companies_verified: 0, assessments_written: 0 });
   assert.equal(discoveryRollup(undefined).candidates.checked, 0);
 });
 

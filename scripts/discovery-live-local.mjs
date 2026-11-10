@@ -89,7 +89,7 @@ export async function liveProbe(env) {
         blocked: Boolean(j.blocked), error_count: j.errors.length })));
       save();
       return report;
-    }, discoveryPlan(2));
+    }, discoveryPlan(2, { freeEnrichment: false }));
     summary.status = result.status;
   } catch {
     summary.status = abort.signal.aborted ? 'time_limit' : 'failed';

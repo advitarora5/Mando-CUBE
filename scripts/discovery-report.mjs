@@ -37,6 +37,8 @@ export function discoveryRollup(jobs) {
     contacts: {
       scored_with_contacts: sum('score', 'with_contacts'), scored_without_contacts: sum('score', 'without_contacts'),
       added: sum('enrich', 'contacts_added'), research_evidence_missing: sum('enrich', 'research_evidence_missing'), waiting_for_provider: sum('enrich', 'no_treg'),
+      companies_researched: sum('enrich', 'companies_researched'), companies_verified: sum('enrich', 'companies_verified'),
+      assessments_written: sum('enrich', 'rescore_scored') + sum('enrich', 'rescore_rescored'),
     },
   };
 }

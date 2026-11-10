@@ -41,8 +41,11 @@ changing admission or human-review rules. Wayback captures retain Wayback proven
 This prevents a stalled index source from consuming the entire worker window. Processing
 stages still share the remaining overall deadline.
 No Treg or model client is created. SEC names can come from committed sec.json.
-No migration is executed. Discovery scoring is limited to companies touched by this run;
-the existing daily/rescore plans remain responsible for periodic full rescoring.
+Discovery scores the companies touched by matching, then runs free contact enrichment only
+for new admissions that have an initial score. The enrichment step uses `TREG_TOKEN` when
+configured and explicitly skips paid lookup. Its summary reports companies researched,
+companies with a verified contact, and assessments written after enrichment. The daily and
+rescore plans handle periodic scoring. Daily enrichment also checks saved provider contacts.
 
 ## Overlap and interruption
 

@@ -4,14 +4,19 @@ export const DISCOVERY_SOURCES = Object.freeze([
   'workday-tenant-crawl', 'workday-tenant-wayback', 'workday-career-sites',
 ]);
 
-export function discoveryPlan(limit = 10) {
+export function discoveryPlan(limit = 10, { freeEnrichment = true } = {}) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw Error('limit must be an integer from 1 to 100');
   return {
     version: 1, limit, paid_services: false,
     steps: [...DISCOVERY_SOURCES.slice(0, -1).map(source => ({ plan: 'collect', source })),
       { plan: 'extract' }, { plan: 'collect', source: 'workday-career-sites' },
-      ...['extract', 'match', 'score'].map(plan => ({ plan }))],
+      ...['extract', 'match', 'score'].map(plan => ({ plan })),
+      ...(freeEnrichment ? [freeContactStep()] : [])],
   };
+}
+
+export function freeContactStep() {
+  return { plan: 'enrich', freeEnrichOnly: true };
 }
 
 export function assertLocalTarget(value) {
@@ -40,7 +45,8 @@ export async function executeDiscovery(ctx, run, plan) {
   // Preflight all dependencies before starting any collection or writing run logs.
   // The bounded admission-only plan consumes saved evidence, not collectors.
   // Keep the complete source gate for every other plan, including full discovery.
-  const admissionOnly = plan.steps.length === 2
+  const admissionOnly = (plan.steps.length === 2 || (plan.steps.length === 3
+    && plan.steps[2].plan === 'enrich' && plan.steps[2].freeEnrichOnly === true))
     && plan.steps[0].plan === 'match' && plan.steps[1].plan === 'score'
     && plan.steps.every(step => !step.source);
   if (!admissionOnly) assertSources(await ctx.store.sources());

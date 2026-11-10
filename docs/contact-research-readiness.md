@@ -22,17 +22,33 @@ rate-limit failures stop further people searches for that stage. An unexpected c
 reported as a failure, and the response is not used to create contacts. Successful empty searches retain
 the existing `no_contacts_found` status. Existing terminal decisions remain respected.
 
-Discovered contacts retain `linkedin_status=unconfirmed` and provider provenance. They are not verified
-current decision-makers. The existing scorer can award the unconfirmed Authority band; LinkedIn alone
-does not become a verified reachable route. Touched companies are rescored, and score errors propagate.
+People search starts with Workday and HR systems titles and uses broader titles if it finds no usable
+candidates. Enrichment keeps up to 50 results in the candidate pool and runs up to ten free public
+evidence searches per company, starting with roles with the highest potential Authority. It checks
+the indexed profile against a recent, independently published attribution of the person's role and
+employer. It saves the source and quoted evidence with the contact. Profiles without sufficient
+evidence stay provisional, and a documented employer mismatch is excluded. The pipeline ranks the
+pool by per-contact Authority, then Reachability, and saves the top three.
+
+Daily or standalone enrichment also revisits saved provider profiles in place. Provisional
+profiles can be checked again after seven days. Automatically confirmed roles become eligible
+for another check at 76 days, two weeks before the existing 90-day expiration. An inconclusive
+check records the attempt and keeps the previous evidence. A changed role decision triggers a
+targeted rescore. Manual reviews and existing contact IDs are preserved.
+
+To use manually checked public evidence, point
+`PIPELINE_CONTACT_REVIEWS_FILE` at a JSON array. Each entry includes `company_domain`, `linkedin_url`
+(the provider's profile URL), `reviewed_on` (YYYY-MM-DD), and `source` (the public evidence URL).
+Use `status: "confirmed"` with the current `title` and an optional `workday_source` for documented
+Workday responsibility, or `status: "different_employer"` to exclude a documented mismatch.
+
+Confirmed reviews take priority before the shortlist is trimmed. Enrichment applies reviews to
+matching saved contacts as well and rescores those companies. Confirmed-role credit expires after
+90 days. A documented employer mismatch stays excluded until a new review replaces it. An
+unconfirmed profile can earn the provisional Authority band. Email verification remains separate.
 Already researched companies below paid readiness do not consume new-research slots or repeat searches.
 The normal per-run company/contact caps still apply.
 
-No live provider or database was used to verify this change locally. Unit/fixture tests cover low-score
-research, paid gating and budget, duplicate prevention, scope, zero-item caps, evidence quality, retries,
-provider blocking, score provenance and unconfirmed roles. The in-memory store now selects the later
-insert when two fixture assessments share a timestamp. Real database integration remains a required
-review check; its expected score count includes the additional contact-enriched assessments.
-
-This change does not fix the separate release-scoring baseline or enable scheduling. It is intended as a
-small PR into `refined-pipeline`; Aadi's broader additions and the earlier combined draft remain separate.
+Unit fixtures cover the final cutoff, stale employers, insufficient verification evidence, free
+provider failures, and paid gating. The three-company pilot used live people search and public
+evidence with an isolated in-memory store.
