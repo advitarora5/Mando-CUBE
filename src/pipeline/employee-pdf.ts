@@ -12,7 +12,12 @@ export function employeePdfText(bytes: Uint8Array): Promise<string> {
       if (typeof result.text === "string") resolve(result.text);
       else reject(new Error(result.error ?? "PDF extraction failed."));
     });
-    worker.once("error", error => { clearTimeout(timeout); reject(error); });
+    worker.once("error", error => {
+      clearTimeout(timeout);
+      reject(/Cannot find (?:package|module).*?(?:pdf-parse|pdfjs-dist|@napi-rs)/i.test(error.message)
+        ? new Error("Employee PDF extraction dependencies are missing. Run npm ci from this checkout with Node 24; keep pdf-parse and its lockfile dependencies installed. See research/authority-headcount/README.md.")
+        : error);
+    });
     worker.once("exit", () => { clearTimeout(timeout); reject(new Error("PDF extraction worker stopped.")); });
   });
 }

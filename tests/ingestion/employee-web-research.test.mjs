@@ -324,3 +324,47 @@ test('headcount robots handling can reach a bounded terminal 404 without bypassi
     assert.ok(result.requests<=18);
   }
 });
+
+test('missing cache table or RPC gives an actionable secret-free setup diagnostic once per context', async () => {
+  for (const operation of ['employeeResearch','claimEmployeeResearch','finishEmployeeResearch']) {
+    const ctx = context();const warnings=[];
+    ctx.log = {info(){},error(){},warn(message){warnings.push(message);}};
+    ctx.store[operation] = async () => {throw Error('private connection details must not be printed');};
+    const result = await lookupEmployeeWebsite(ctx,company);
+    assert.equal(result.evidence,null);
+    assert.match(result.reason,/company_employee_research/);
+    assert.match(result.reason,/claim_employee_research.*finish_employee_research/);
+    assert.match(result.reason,/202611080001_employee_research.sql/);
+    assert.match(result.reason,/service_role/);
+    assert.doesNotMatch(result.reason,/private connection details/);
+    const requests=ctx.fetch.calls.length;
+    const second=await lookupEmployeeWebsite(ctx,company);
+    assert.equal(second.reason,result.reason);
+    assert.equal(ctx.fetch.calls.length,requests);
+    assert.equal(warnings.length,1);
+    if (operation!=='finishEmployeeResearch') assert.equal(requests,0);
+  }
+});
+
+test('missing PDF dependencies explain the supported installation without exposing loader internals', async () => {
+  const {mkdtemp,copyFile,rm}=await import('node:fs/promises');
+  const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {pathToFileURL}=await import('node:url');
+  const directory=await mkdtemp(join(tmpdir(),'mando-missing-pdf-'));
+  try {
+    await copyFile(new URL('../../src/pipeline/employee-pdf.ts',import.meta.url),join(directory,'employee-pdf.ts'));
+    await copyFile(new URL('../../src/pipeline/employee-pdf-worker.mjs',import.meta.url),join(directory,'employee-pdf-worker.mjs'));
+    const {employeePdfText}=await import(pathToFileURL(join(directory,'employee-pdf.ts')).href);
+    await assert.rejects(employeePdfText(new Uint8Array([1])),/dependencies are missing.*npm ci.*Node 24/);
+  } finally {await rm(directory,{recursive:true,force:true});}
+});
+
+test('environment setup defaults keep both optional headcount collectors disabled', async () => {
+  const {contextFromEnv}=await import('../../src/pipeline/context.ts');
+  for (const [flag,enabled] of [[undefined,false],['0',false],['true',false],['1',true]]) {
+    const ctx=await contextFromEnv({TREG_BUDGET_USD:'0',...(flag===undefined?{}:{PIPELINE_EMPLOYEE_WEB_RESEARCH:flag})},{dryRun:true,noLlm:true,noTreg:true});
+    assert.equal(ctx.employeeWebResearch,enabled);
+    assert.equal(ctx.employeeWebMaxCompanies,5);
+    assert.deepEqual(ctx.employeeEvidence,[]);
+    assert.equal(ctx.treg,null);
+  }
+});

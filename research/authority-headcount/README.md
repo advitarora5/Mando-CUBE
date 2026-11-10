@@ -1,5 +1,8 @@
 # Employee headcount collection
 
+[Exact teammate setup](TEAMMATE_SETUP.md): dependencies, migration/roles, source
+defaults, local configuration, explicit activation and missing-setup diagnostics.
+
 [Current-company audit](CURRENT_COMPANIES_AUDIT.md): **8/207 companies** have accepted
 automatic headcount evidence. No additional points are supported against saved
 Authority scores. The audit separates automatic coverage from manual/investigator
@@ -71,8 +74,10 @@ npm run lint
 npm run build
 ```
 
-Latest implementation validation: **652 tests, TypeScript, lint and build passed**.
-Supabase/PostgREST integration and live search-provider validation remain pending.
+The prior headcount commit passed **660 offline tests**, TypeScript, lint, build
+and CI disposable-Supabase/PostgREST integration. Setup follow-up verification is
+recorded in [the setup verification note](SETUP_VERIFICATION_20261110.md).
+Shared-environment and live search-provider validation remain unperformed.
 Integration tests write data: run them only against an isolated local Supabase or
 dedicated disposable PostgreSQL container, never the shared project. The SQL test
 entry point is `tests/integration/employee-research-postgres.test.mjs`; the REST test

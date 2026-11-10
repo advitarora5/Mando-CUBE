@@ -8,6 +8,10 @@ import type { EmployeeResearchRecord, EmployeeResearchStatus } from "./employee-
 import type { CompanyRow, PipelineContext } from "./types.ts";
 
 const SEARCH = "tinyfish.web.search";
+const STORAGE_SETUP_HINT = "Employee web research cache is unavailable; website fallback is disabled for this context. "
+  + "Check database access and service_role permissions for company_employee_research, claim_employee_research and finish_employee_research. "
+  + "Required migration: supabase/migrations/202611080001_employee_research.sql (apply only through the approved database release process). "
+  + "See research/authority-headcount/README.md for setup. Reviewed, SEC and saved Workday sources remain separate.";
 const searchDisabled = new WeakSet<PipelineContext>();
 const limits = new WeakMap<PipelineContext, { used: number; disabled: boolean }>();
 type Company = Pick<CompanyRow, "id" | "name" | "domain">;
@@ -149,7 +153,7 @@ export async function lookupEmployeeWebsite(ctx: PipelineContext, company: Compa
   if (!ctx.employeeWebResearch) return empty;
   let state = limits.get(ctx);
   if (!state) { state = { used: 0, disabled: false }; limits.set(ctx, state); }
-  if (state.disabled) return empty;
+  if (state.disabled) return { ...empty, reason: STORAGE_SETUP_HINT };
   try {
     const previous = await ctx.store.employeeResearch(company.id);
     const cached = cachedEvidence(previous, company, ctx.now());
@@ -167,7 +171,7 @@ export async function lookupEmployeeWebsite(ctx: PipelineContext, company: Compa
     return { ...result, evidence: result.evidence ?? (result.status === "unavailable" ? cached : null) };
   } catch {
     state.disabled = true;
-    ctx.log.warn("Employee research storage is unavailable; check its migration and permissions.");
-    return { ...empty, reason: "Employee research storage is unavailable." };
+    ctx.log.warn(STORAGE_SETUP_HINT);
+    return { ...empty, reason: STORAGE_SETUP_HINT };
   }
 }

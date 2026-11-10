@@ -13,7 +13,7 @@ test('PostgreSQL migration enforces concurrent claims, retry schedules, tokens, 
   assert.match(container, /^mando-headcount-test(?:-[a-z0-9]+)?$/);
   const database = `employee_test_${randomUUID().replaceAll('-', '')}`;
   const command = (args, input) => {
-    const result = spawnSync('docker', ['--host=unix:///var/run/docker.sock', 'exec', '-i', container, ...args], { input, encoding: 'utf8' });
+    const result = spawnSync('docker', ['exec', '-i', container, ...args], { input, encoding: 'utf8' });
     if (result.status !== 0) throw Error(result.stderr || result.stdout);
     return result.stdout.trim();
   };
@@ -26,12 +26,17 @@ test('PostgreSQL migration enforces concurrent claims, retry schedules, tokens, 
       if not exists(select from pg_roles where rolname='service_role') then create role service_role bypassrls; end if;
     end $$;
     create table public.companies(id uuid primary key);`);
+    // Prove the documented prerequisite, without touching an existing database.
+    assert.equal(sql("select to_regclass('public.company_employee_research') is null;"), 't');
+    assert.throws(() => sql('select * from company_employee_research;'), /does not exist/);
+    assert.throws(() => sql("select * from claim_employee_research(gen_random_uuid(), 'pilot.example', 'pilot');"), /does not exist/);
+    assert.throws(() => sql("select finish_employee_research(gen_random_uuid(), gen_random_uuid(), 'needs_review', null, 'fixture');"), /does not exist/);
     sql(readFileSync(new URL('../../supabase/migrations/202611080001_employee_research.sql', import.meta.url), 'utf8'));
     const id = randomUUID();
     sql(`insert into companies values ('${id}');`);
     const claim = `select lease_token from claim_employee_research('${id}', 'pilot.example', 'pilot');`;
     const concurrent = () => new Promise((resolve, reject) => {
-      const child = spawn('docker', ['--host=unix:///var/run/docker.sock', 'exec', '-i', container, 'psql', '-U', 'postgres', '-d', database, '-At', '-v', 'ON_ERROR_STOP=1']);
+      const child = spawn('docker', ['exec', '-i', container, 'psql', '-U', 'postgres', '-d', database, '-At', '-v', 'ON_ERROR_STOP=1']);
       let output = '', error = '';
       child.stdout.on('data', data => { output += data; });
       child.stderr.on('data', data => { error += data; });
