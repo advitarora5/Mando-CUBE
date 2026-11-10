@@ -261,6 +261,9 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         bump("people_found", picked.length);
         if (!picked.length) { await ctx.store.setEnrichment(company.id, "no_contacts_found", "Free people search found no HR/IT systems contacts."); continue; }
         if (opts.dryRun) continue;
+        if (opts.freeOnly && !status) {
+          await ctx.store.setEnrichment(company.id, "pending", "Contact research started; paid email lookup still requires readiness and budget.");
+        }
         for (const { contact, review } of picked) {
           await ctx.store.insertContact({ company_id: company.id, ...contact });
           touched.add(company.id);

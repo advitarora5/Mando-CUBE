@@ -57,6 +57,21 @@ test('paid lookup still requires readiness and budget; raising readiness eligibi
   assert.equal(ctx.treg.calls.filter(c => c.endpoint === EMAIL_FIND).length, 1);
 });
 
+test('free discovery hands off contacts to a later eligible enrichment run', async () => {
+  const { ctx, id } = await world();
+  const free = await enrichStage(ctx, { maxCompanies: 1, freeOnly: true });
+  assert.equal(free.counts.contacts_added, 1);
+  assert.equal(await ctx.store.enrichmentStatus(id), 'pending');
+  await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(ctx.treg.calls.filter(call => call.endpoint === EMAIL_FIND).length, 0);
+
+  ctx.store.settingsRows = [{ key: 'ready_for_contacts_threshold', value: 0 }];
+  const later = await enrichStage(ctx, { maxCompanies: 1 });
+  assert.equal(later.counts.email_valid, 1);
+  assert.equal(await ctx.store.enrichmentStatus(id), 'done');
+  assert.equal(ctx.treg.calls.filter(call => call.endpoint === PEOPLE_SEARCH).length, 1);
+});
+
 test('eligible research with no provider stays pending; scope, terminal status and zero-item cap are respected', async () => {
   const { ctx, id } = await world({ treg: null });
   await enrichStage(ctx, { maxCompanies: 1 });
