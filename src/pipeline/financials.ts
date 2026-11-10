@@ -5,6 +5,11 @@
 // A filer with no usable operating figure (banks and insurers often have none) falls back to pre-tax income, labeled as such.
 import { normalizeName } from "../domain/ingestion/normalize.ts";
 import type { Financials } from "../domain/ingestion/pipeline-score.ts";
+import { BANK_ALLOWLIST, SEC_ALIASES } from "./financial-aliases.ts";
+import { lookupBankFinancials } from "./financials-bank.ts";
+import { lookupForeignFinancials } from "./financials-foreign.ts";
+import { lookupNonprofitFinancials } from "./financials-nonprofit.ts";
+import { lookupUniversityFinancials } from "./financials-university.ts";
 import type { PipelineContext } from "./types.ts";
 
 type Concept = [taxonomy: string, tag: string];
@@ -15,9 +20,15 @@ const PRE_TAX: Concept[] = [
   ["us-gaap", "IncomeLossIncludingPortionAttributableToNoncontrollingInterestBeforeIncomeTaxes"],
   ["ifrs-full", "ProfitLossBeforeTax"],
 ];
+// Last resort when a filer has neither operating nor pre-tax income.
+const NET_INCOME: Concept[] = [["us-gaap", "NetIncomeLoss"], ["us-gaap", "ProfitLoss"], ["ifrs-full", "ProfitLoss"]];
+// Shown as evidence only: it confirms the profit is cash, and never changes the points.
+const CASH_FLOW: Concept[] = [["us-gaap", "NetCashProvidedByUsedInOperatingActivities"], ["ifrs-full", "CashFlowsFromUsedInOperatingActivities"]];
 const REVENUE: Concept[] = [
   ["us-gaap", "Revenues"], ["us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"], ["us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax"], ["us-gaap", "SalesRevenueNet"],
   ["ifrs-full", "Revenue"], ["ifrs-full", "RevenueFromContractsWithCustomers"],
+  // Banks: total revenue net of interest expense (Wells Fargo) and revenue and operating income (UBS). Last, so a plain revenue tag still wins a tie.
+  ["us-gaap", "RevenuesNetOfInterestExpense"], ["ifrs-full", "RevenueAndOperatingIncome"],
 ];
 const CURRENCY = /^[A-Z]{3}$/; // ISO codes only: units also include "shares", "pure" and "USD/shares"
 const MAX_AGE_DAYS = 548; // newest fiscal year must have ended within ~18 months
@@ -62,9 +73,11 @@ export function parseFinancials(rawFacts: unknown, cik: number, now: Date): Fina
   const revenueLatest = (series: Series) => newest(facts, REVENUE, series.currency)?.years[0];
   const isTotalIncome = (series: Series) => { const r = revenueLatest(series); return r?.end === series.years[0].end && r.val === series.years[0].val; };
   const usable = isCurrent(operating, now) && !isTotalIncome(operating) ? operating : null;
-  const income = usable ?? newest(facts, PRE_TAX);
-  if (!isCurrent(income, now)) return null;
+  const preTax = newest(facts, PRE_TAX), net = newest(facts, NET_INCOME);
+  const income = usable ?? (isCurrent(preTax, now) ? preTax : isCurrent(net, now) ? net : null);
+  if (!income) return null;
   const years = income.years;
+  const cash = newest(facts, CASH_FLOW, income.currency)?.years[0];
   const rev = newest(facts, REVENUE, income.currency)?.years ?? [];
   // Revenue must be for the same fiscal year as the income figure, or its growth says nothing about it.
   const sameYear = rev.length && rev[0].end === years[0].end;
@@ -72,8 +85,19 @@ export function parseFinancials(rawFacts: unknown, cik: number, now: Date): Fina
     fiscal_year_end: years[0].end, currency: income.currency, operating_income: years[0].val, prior_operating_income: priorOf(years),
     revenue: sameYear ? rev[0].val : null, prior_revenue: sameYear ? priorOf(rev) : null,
     source_url: `https://www.sec.gov/Archives/edgar/data/${cik}/${years[0].accn.replace(/-/g, "")}/`,
-    ...(usable ? {} : { pre_tax: true }),
+    ...(usable ? {} : income === net && income !== preTax ? { net_income: true } : { pre_tax: true }),
+    ...(cash?.end === years[0].end ? { operating_cash_flow: cash.val } : {}),
   };
+}
+
+// A hand-checked alias wins; otherwise an exact normalized-name match. Never a prefix or fuzzy match: those attached the wrong company in testing.
+export function secCikFor(index: Map<string, number>, companyName: string): number | undefined {
+  // A name can carry a note in parentheses ("Concentrix (formerly Convergys)", "Black Rifle Coffee Company (BRC Inc.)"): try the whole name,
+  // then the name without the note, then the note itself. Each is still an exact match.
+  const notes = [...companyName.matchAll(/\(([^)]*)\)/g)].map(m => m[1]);
+  const tries = [companyName, companyName.replace(/\([^)]*\)/g, " "), ...notes].map(normalizeName).filter(Boolean);
+  for (const key of tries) { const cik = SEC_ALIASES[key] ?? index.get(key); if (cik) return cik; }
+  return undefined;
 }
 
 type SecEntry = { title?: string; cik_str?: number };
@@ -106,7 +130,7 @@ export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<F
   const facts = rawFacts as Facts;
   // Banks and insurers often report no operating income. It is not estimated.
   if (!facts?.["us-gaap"] && !facts?.["ifrs-full"]) return { financials: null, status: "no_filing_facts" };
-  const figure = newest(facts, OPERATING) ?? newest(facts, PRE_TAX);
+  const figure = newest(facts, OPERATING) ?? newest(facts, PRE_TAX) ?? newest(facts, NET_INCOME);
   return { financials: null, status: figure && !isCurrent(figure, now) ? "stale_filing" : "no_operating_income" };
 }
 
@@ -115,7 +139,7 @@ const cache = new WeakMap<PipelineContext, LookupState>();
 
 // Financials for one company, with the reason when there are none. Needs the SEC list capture and PIPELINE_CONTACT
 // (the SEC answers 403 without one). The first failed SEC call stops further calls for this context.
-export async function lookupFinancials(ctx: PipelineContext, companyName: string): Promise<FinancialsLookup> {
+async function lookupSecFinancials(ctx: PipelineContext, companyName: string): Promise<FinancialsLookup> {
   if (!ctx.contact) return { financials: null, status: "no_contact", requests: 0 };
   let state = cache.get(ctx);
   if (!state) { state = { index: null, byCik: new Map(), stopped: false }; cache.set(ctx, state); }
@@ -124,7 +148,7 @@ export async function lookupFinancials(ctx: PipelineContext, companyName: string
     state.index = capture ? cikIndex(capture.body) : new Map();
   }
   if (!state.index.size) return { financials: null, status: "no_sec_list", requests: 0 };
-  const cik = state.index.get(normalizeName(companyName));
+  const cik = secCikFor(state.index, companyName);
   if (!cik) return { financials: null, status: "no_sec_match", requests: 0 };
   const known = state.byCik.get(cik);
   if (known) return { ...known, requests: 0 };
@@ -142,4 +166,24 @@ export async function lookupFinancials(ctx: PipelineContext, companyName: string
   await ctx.sleep(150); // SEC fair access: at most 10 requests a second
   state.byCik.set(cik, found);
   return { ...found, requests: 1 };
+}
+
+// SEC first. A name the SEC list does not have is then tried against nonprofit annual returns (IRS 990), US university finance data (IPEDS),
+// EU/UK annual filings and, for
+// hand-checked names only, FDIC bank reports;
+// each accepts only an exact, confirmed match. Their misses keep the SEC answer; an outage is reported as one so a saved score is kept.
+// ponytail: these lookups run on every score pass (about 6 paced requests per unmatched company); cache them in a table if that gets slow.
+export async function lookupFinancials(ctx: PipelineContext, companyName: string, domain: string | null = null): Promise<FinancialsLookup> {
+  const sec = await lookupSecFinancials(ctx, companyName);
+  if (sec.status !== "no_sec_match") return sec;
+  let requests = sec.requests, status: FinancialsStatus = sec.status;
+  const sources = [() => lookupNonprofitFinancials(ctx.fetch, companyName, ctx.now()), () => lookupUniversityFinancials(ctx.fetch, companyName, ctx.now()), () => lookupForeignFinancials(ctx.fetch, companyName, domain, ctx.now())];
+  if (BANK_ALLOWLIST.has(normalizeName(companyName))) sources.push(() => lookupBankFinancials(ctx.fetch, companyName, ctx.now()));
+  for (const source of sources) {
+    const found = await source();
+    requests += found.requests;
+    if (found.status === "found") return { financials: found.financials, status: "found", requests };
+    if (found.status === "fetch_failed" || found.status === "stale_filing") status = found.status;
+  }
+  return { financials: null, status, requests };
 }

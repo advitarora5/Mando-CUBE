@@ -279,7 +279,7 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       if (!signals.length && !contacts.length) bump(r, "no_evidence");
       // The employee count has no source link on the company row, so the +3 size bonus is not awarded automatically.
       // ponytail: SEC facts are refetched on every score pass (once per company per run); cache them in a table if that gets slow.
-      const lookup = await lookupFinancials(ctx, company.name);
+      const lookup = await lookupFinancials(ctx, company.name, company.domain ?? null);
       r.requests += lookup.requests;
       const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials: lookup.financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }

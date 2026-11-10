@@ -72,7 +72,7 @@ test('an unprofitable filer earns nothing and has a sourced answer, not an outag
 
 test('filings answer with a reason: no annual facts, no operating income tag, stale tag, under either standard', () => {
   assert.equal(classifyFacts({ dei: {} }, 1, NOW).status, 'no_filing_facts');
-  assert.equal(classifyFacts({ 'ifrs-full': { ProfitLoss: usd([year('2025-12-31', 9)]) } }, 1, NOW).status, 'no_operating_income');
+  assert.equal(classifyFacts({ 'ifrs-full': { ProfitLoss: usd([year('2025-12-31', 9)]) } }, 1, NOW).status, 'found', 'net income is the last-resort figure');
   assert.equal(classifyFacts({ 'ifrs-full': { ProfitLossFromOperatingActivities: usd([year('2021-12-31', 9)]) } }, 1, NOW).status, 'stale_filing', 'an old operating figure with nothing newer');
   assert.equal(classifyFacts({ 'ifrs-full': { ProfitLossFromOperatingActivities: { units: { EUR: [year('2025-12-31', 9)] } } } }, 1, NOW).status, 'found');
   assert.equal(classifyFacts({ 'us-gaap': { Revenues: usd([year('2025-12-31', 9)]) } }, 1, NOW).status, 'no_operating_income');
@@ -153,4 +153,24 @@ test('match reports one short hash per candidate and never the name', async () =
   assert.equal(r.candidate_keys.length, 1);
   assert.match(r.candidate_keys[0], /^[0-9a-f]{16}$/);
   assert.ok(!JSON.stringify(r.candidate_keys).toLowerCase().includes('hash fixture'));
+});
+
+test('a name the SEC list lacks falls through to nonprofit returns; a miss keeps the SEC answer; an SEC match never reaches them', async () => {
+  const { nonprofitPacing } = await import('../../src/pipeline/financials-nonprofit.ts');
+  const { pacing } = await import('../../src/pipeline/financials-foreign.ts');
+  nonprofitPacing.ms = 0; pacing.gapMs = 0;
+  const ret = (tax_prd, rev, exp) => ({ tax_prd, totrevenue: rev, totfuncexpns: exp, pdf_url: `https://example.org/${tax_prd}.pdf` });
+  const answer = (orgs) => async (url) => String(url).includes('propublica')
+    ? (String(url).includes('search.json') ? response(200, { organizations: orgs }) : response(200, { filings_with_data: [ret(202212, 8e9, 8.1e9), ret(202312, 9e9, 8.5e9)] }))
+    : String(url).includes('filings.xbrl.org') ? response(200, { data: [] }) : response(404, {});
+  const hit = await world({ fetch: answer([{ ein: 1, name: 'BANNER HEALTH' }]) });
+  const found = await lookupFinancials(hit.ctx, 'Banner Health');
+  assert.deepEqual([found.status, found.financials.surplus, found.financials.matched_name, found.financials.operating_income], ['found', true, 'BANNER HEALTH', 5e8]);
+  assert.equal(found.requests, 2, 'the SEC list had no match, so only the nonprofit lookup made requests');
+  const miss = await world({ fetch: answer([]) });
+  assert.equal((await lookupFinancials(miss.ctx, 'Unlisted Fictional Co')).status, 'no_sec_match');
+  const sec = await world({ fetch: filed });
+  const viaSec = await lookupFinancials(sec.ctx, NAME);
+  assert.equal(viaSec.status, 'found');
+  assert.deepEqual(sec.calls, ['https://data.sec.gov/api/xbrl/companyfacts/CIK0000004242.json']);
 });
