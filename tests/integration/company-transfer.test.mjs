@@ -67,3 +67,31 @@ test('local ownership conflicts and stale plans abort atomically', { skip: !cont
   assert.notEqual(stale.status, 0); assert.match(stale.stderr, /Target companies changed/);
   assert.equal(psql(countsSql).stdout, before);
 });
+
+test('explicit pending review resolves once; changed scope and past rejection remain protected', { skip: !container }, () => {
+  const snapshot = JSON.parse(psql(snapshotSql).stdout), before = psql(countsSql).stdout;
+  const data = transferFixture(), e = data.companies[0], r = data.captures[0], signal = e.signals[0], site = e.sites[0], review = randomUUID();
+  const plan = planTransfer(data, snapshot, { pendingReviews: [{ id: review, local_company_id: e.company.id,
+    note: 'Explicit fictional review', signal_ids: [signal.id], site_ids: [site.id] }] });
+  const seed = `BEGIN;
+    INSERT INTO public.review_queue(id,candidate_name,normalized_name,reason) VALUES('${review}','${e.company.name}','${e.company.name.toLowerCase()}','no_website');
+    INSERT INTO public.raw_captures(id,source_id,url,fetched_at,http_status,content_hash,body) VALUES('${r.id}','${r.source_id}','${r.url}','${r.fetched_at}',200,'${r.content_hash}','${r.body}');
+    INSERT INTO public.signals(id,review_item_id,capture_id,type,source_url,quote,confidence,first_seen_at,last_seen_at)
+      VALUES('${signal.id}','${review}','${r.id}','${signal.type}','${signal.source_url}','${signal.quote}',0.9,'${signal.first_seen_at}','${signal.last_seen_at}');
+    INSERT INTO public.workday_sites(id,review_item_id,capture_id,tenant,pod,site,company_name,normalized_name,match_kind)
+      VALUES('${site.id}','${review}','${r.id}','${site.tenant}','${site.pod}','${site.site}','${e.company.name}','${site.normalized_name}','manual');`;
+  const body = inside(transferSql(plan, { apply: true }));
+  psql(`${seed}${body}${body}
+    DO $$ BEGIN
+      IF NOT EXISTS(select 1 from public.review_queue where id='${review}' AND status='approved' AND resolved_company_id='${e.company.id}') THEN RAISE EXCEPTION 'Review unresolved'; END IF;
+      IF NOT EXISTS(select 1 from public.signals where id='${signal.id}' AND company_id='${e.company.id}') THEN RAISE EXCEPTION 'Pending signal unassigned'; END IF;
+      IF NOT EXISTS(select 1 from public.workday_sites where id='${site.id}' AND company_id='${e.company.id}') THEN RAISE EXCEPTION 'Pending site unassigned'; END IF;
+    END $$; ROLLBACK;`);
+  const changed = psql(`${seed}
+    INSERT INTO public.signals(review_item_id,capture_id,type,source_url,quote,confidence) VALUES('${review}','${r.id}','hiring','${r.url}','Unexpected queued claim',0.5);
+    ${body}ROLLBACK;`, false);
+  assert.notEqual(changed.status, 0); assert.match(changed.stderr, /Explicit pending review evidence changed/);
+  const rejected = psql(`${seed}UPDATE public.review_queue SET status='rejected',decided_at=now() WHERE id='${review}';${body}ROLLBACK;`, false);
+  assert.notEqual(rejected.status, 0); assert.match(rejected.stderr, /Explicit pending review changed or was rejected/);
+  assert.equal(psql(countsSql).stdout, before);
+});

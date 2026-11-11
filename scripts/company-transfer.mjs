@@ -1,6 +1,7 @@
 // Reviewed discovery transfers. This module only builds artifacts; it never writes a database.
+import { createHash } from 'node:crypto';
 import { decideMatch } from '../src/domain/ingestion/matching.ts';
-import { normalizeDomain } from '../src/domain/ingestion/normalize.ts';
+import { normalizeDomain, normalizeName } from '../src/domain/ingestion/normalize.ts';
 import { companyAliases } from '../src/data/company-aliases.ts';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -49,7 +50,7 @@ export function validatePackage(data) {
   }
   unique(allSignals, 'signals'); unique(allSites, 'sites');
   for (const e of data.extractions) requireThat(usedCaptures.has(e.capture_id), 'Unselected extraction in package');
-  for (const c of data.captures) requireThat(usedCaptures.has(c.id) && sources.has(c.source_id) && Number.isFinite(Date.parse(c.fetched_at)), 'Unselected capture or invalid capture provenance');
+  for (const c of data.captures) requireThat(usedCaptures.has(c.id) && sources.has(c.source_id) && Number.isFinite(Date.parse(c.fetched_at)) && typeof c.body === 'string', 'Unselected capture or invalid capture provenance');
   return data;
 }
 
@@ -59,11 +60,16 @@ export function sanitizePackage(data) {
   return { version: 1, exported_at: data.exported_at, source_database: data.source_database,
     companies: data.companies.map(e => ({ company: { ...pick(e.company, companyFields), domain: normalizeDomain(e.company.domain) },
       review: pick(e.review, 'approved,note,reviewed_at,evidence_urls'), signals: e.signals.map(s => pick(s, signalFields)), sites: e.sites.map(s => pick(s, siteFields)) })),
-    captures: data.captures.map(c => pick(c, captureFields)), extractions: data.extractions.map(e => pick(e, extractionFields)),
+    captures: data.captures.map(c => {
+      // Collector fingerprints can omit volatile response fields. Transfers preserve exact raw bytes.
+      const content_hash = createHash('sha256').update(c.body).digest('hex');
+      const meta = c.content_hash === content_hash ? c.meta : { ...c.meta, import_original_content_hash: c.meta?.import_original_content_hash ?? c.content_hash };
+      return { ...pick(c, captureFields), content_hash, meta };
+    }), extractions: data.extractions.map(e => pick(e, extractionFields)),
     sources: data.sources.map(s => pick(s, 'id,type,name')) };
 }
 
-export function planTransfer(input, targetCompanies) {
+export function planTransfer(input, targetCompanies, { pendingReviews = [] } = {}) {
   const data = sanitizePackage(input), known = targetCompanies.map(identity), mapping = [];
   unique(known, 'target companies');
   for (const { company } of data.companies) {
@@ -79,7 +85,16 @@ export function planTransfer(input, targetCompanies) {
       target_id: decision.action === 'create' ? company.id : decision.action === 'attach' ? decision.company_id : null, why: decision.why });
     if (decision.action === 'create') known.push(identity(company));
   }
-  return { data, expected: targetCompanies.map(identity), mapping };
+  unique(pendingReviews, 'pending reviews');
+  const pending_reviews = pendingReviews.map(r => {
+    const entry = data.companies.find(e => e.company.id === r.local_company_id);
+    requireThat(entry && typeof r.note === 'string' && r.note.trim(), 'Pending review must reference a selected company and include a note');
+    for (const key of ['signal_ids', 'site_ids']) requireThat(Array.isArray(r[key]) && r[key].every(id => uuid.test(id))
+      && new Set(r[key]).size === r[key].length, 'Pending review needs explicit unique signal_ids and site_ids');
+    requireThat(r.signal_ids.length + r.site_ids.length > 0, 'Pending review has no reviewed evidence');
+    return { ...pick(r, 'id,local_company_id,note,signal_ids,site_ids'), normalized_name: normalizeName(entry.company.name) };
+  });
+  return { data, expected: targetCompanies.map(identity), mapping, pending_reviews };
 }
 
 export function transferSql(plan, { apply = false } = {}) {
@@ -91,7 +106,7 @@ export function transferSql(plan, { apply = false } = {}) {
 BEGIN;
 SET LOCAL lock_timeout = '10s';
 LOCK TABLE public.companies, public.sources, public.raw_captures, public.extractions,
- public.signals, public.workday_sites, public.company_origins IN SHARE ROW EXCLUSIVE MODE;
+ public.signals, public.workday_sites, public.company_origins, public.review_queue IN SHARE ROW EXCLUSIVE MODE;
 CREATE TEMP TABLE transfer_payload ON COMMIT DROP AS SELECT $company_transfer$${payload}$company_transfer$::jsonb AS body;
 CREATE TEMP TABLE transfer_map(kind text, local_id uuid, target_id uuid, PRIMARY KEY(kind,local_id)) ON COMMIT DROP;
 DO $transfer$
@@ -112,7 +127,7 @@ BEGIN
  ) THEN RAISE EXCEPTION 'Target companies changed; prepare a fresh preview'; END IF;
  INSERT INTO public.pipeline_runs(job,trigger,status,finished_at,counts)
  VALUES('reviewed_company_import','manual','succeeded',now(),jsonb_build_object(
-  'source_database',p->'data'->'source_database','exported_at',p->'data'->'exported_at','mapping',p->'mapping',
+  'source_database',p->'data'->'source_database','exported_at',p->'data'->'exported_at','mapping',p->'mapping','pending_reviews',p->'pending_reviews',
   'reviews',(SELECT jsonb_agg(jsonb_build_object('local_id',x->'company'->'id','review',x->'review')) FROM jsonb_array_elements(p->'data'->'companies') x))) RETURNING id INTO import_run;
  FOR r IN SELECT value FROM jsonb_array_elements(p->'data'->'sources') LOOP
   IF EXISTS(SELECT 1 FROM public.sources WHERE id=r->>'id' AND type<>r->>'type') THEN RAISE EXCEPTION 'Source type conflict'; END IF;
@@ -129,6 +144,24 @@ BEGIN
    INSERT INTO public.company_origins(company_id,origin,run_id) VALUES(cid,'pipeline',import_run);
   END IF;
   INSERT INTO transfer_map VALUES('company',(r->>'id')::uuid,cid);
+ END LOOP;
+ -- Only explicitly reviewed, fully enumerated pending items may be resolved.
+ -- A previous rejection, a different owner, or additional queued evidence aborts the import.
+ FOR r IN SELECT value FROM jsonb_array_elements(coalesce(p->'pending_reviews','[]')) LOOP
+  SELECT target_id INTO cid FROM transfer_map WHERE kind='company' AND local_id=(r->>'local_company_id')::uuid;
+  IF NOT EXISTS(SELECT 1 FROM public.review_queue q WHERE q.id=(r->>'id')::uuid AND q.normalized_name=r->>'normalized_name'
+    AND (q.status='pending' OR (q.status IN ('approved','merged') AND q.resolved_company_id=cid)))
+   THEN RAISE EXCEPTION 'Explicit pending review changed or was rejected'; END IF;
+  IF (SELECT count(*) FROM public.signals WHERE review_item_id=(r->>'id')::uuid)<>jsonb_array_length(r->'signal_ids')
+   OR EXISTS(SELECT 1 FROM public.signals s WHERE s.review_item_id=(r->>'id')::uuid
+    AND (NOT (r->'signal_ids' ? s.id::text) OR (s.company_id IS NOT NULL AND s.company_id<>cid)))
+   OR (SELECT count(*) FROM public.workday_sites WHERE review_item_id=(r->>'id')::uuid)<>jsonb_array_length(r->'site_ids')
+   OR EXISTS(SELECT 1 FROM public.workday_sites s WHERE s.review_item_id=(r->>'id')::uuid
+    AND (NOT (r->'site_ids' ? s.id::text) OR (s.company_id IS NOT NULL AND s.company_id<>cid)))
+   THEN RAISE EXCEPTION 'Explicit pending review evidence changed'; END IF;
+  IF EXISTS(SELECT 1 FROM public.review_queue WHERE id=(r->>'id')::uuid AND status='pending') THEN
+   PERFORM public.review_resolve((r->>'id')::uuid,cid,'approved',r->>'note');
+  END IF;
  END LOOP;
  FOR r IN SELECT value FROM jsonb_array_elements(p->'data'->'captures') LOOP
   SELECT id INTO mapped FROM public.raw_captures WHERE url=r->>'url' AND content_hash=r->>'content_hash';

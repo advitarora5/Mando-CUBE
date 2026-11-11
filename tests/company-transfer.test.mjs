@@ -44,3 +44,22 @@ test('SQL previews roll back; apply retains dates and includes transactional own
   assert.match(sql, /least\(first_seen_at/); assert.match(sql, /greatest\(last_seen_at/);
   assert.doesNotMatch(sql, /INSERT INTO public\.(scores|company_insights|weekly_snapshots|contacts)\b/i);
 });
+
+test('pending resolutions require a selected company and explicit evidence IDs', () => {
+  const data = transferFixture(), id = randomUUID();
+  assert.throws(() => planTransfer(data, [], { pendingReviews: [{ id, local_company_id: randomUUID(), note: 'Checked', signal_ids: [], site_ids: [] }] }), /selected company/);
+  assert.throws(() => planTransfer(data, [], { pendingReviews: [{ id, local_company_id: data.companies[0].company.id, note: 'Checked', signal_ids: [], site_ids: [] }] }), /no reviewed evidence/);
+  const plan = planTransfer(data, [], { pendingReviews: [{ id, local_company_id: data.companies[0].company.id, note: 'Checked', signal_ids: [randomUUID()], site_ids: [] }] });
+  assert.equal(plan.pending_reviews[0].normalized_name, data.companies[0].company.name.toLowerCase());
+  assert.match(transferSql(plan), /Explicit pending review changed or was rejected/);
+});
+
+test('capture transfer preserves raw bytes and collector fingerprint separately', () => {
+  const data = transferFixture(), exactHash = data.captures[0].content_hash;
+  data.captures[0].content_hash = 'a'.repeat(64);
+  const safe = sanitizePackage(data);
+  assert.equal(safe.captures[0].content_hash, exactHash);
+  assert.equal(safe.captures[0].meta.import_original_content_hash, 'a'.repeat(64));
+  assert.equal(safe.captures[0].body, data.captures[0].body);
+  assert.deepEqual(sanitizePackage(safe), safe);
+});
