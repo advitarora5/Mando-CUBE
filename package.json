@@ -26,7 +26,8 @@
     "pipeline:full": "node --env-file-if-exists=.env.pipeline.local scripts/pipeline-full.mjs",
     "pipeline:eval": "node --env-file-if-exists=.env.pipeline.local scripts/eval-extraction.mjs",
     "extract": "node scripts/ingestion/extract.mjs",
-    "eval:extraction": "node scripts/ingestion/eval-extraction.mjs"
+    "eval:extraction": "node scripts/ingestion/eval-extraction.mjs",
+    "companies:transfer": "node --env-file-if-exists=.env.pipeline.local scripts/company-transfer-cli.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
