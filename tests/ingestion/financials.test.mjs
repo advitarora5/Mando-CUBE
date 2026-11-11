@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetFromSignals, capacityPoints } from '../../src/domain/ingestion/pipeline-score.ts';
-import { classifyFacts, parseFinancials, cikIndex } from '../../src/pipeline/financials.ts';
+import { classifyFacts, parseFinancials, cikIndex, secCikFor } from '../../src/pipeline/financials.ts';
 
 const NOW = new Date('2026-10-26T12:00:00Z');
 const fy = (end, val, accn = '0000000001-26-000001', form = '10-K') => ({ start: `${Number(end.slice(0, 4)) - 1}${end.slice(4)}`, end, val, form, filed: `${end.slice(0, 4)}-12-31`, accn });
@@ -173,4 +173,63 @@ test('annual forms: a 40-F counts as an annual filing; a current report does not
   const f = parseFinancials({ 'ifrs-full': { ProfitLossBeforeTax: units({ CAD: [fy('2025-12-31', 7e9, 'a', '40-F'), fy('2024-12-31', 6e9, 'b', '40-F')] }) } }, 1, NOW);
   assert.deepEqual([f.currency, f.operating_income, f.prior_operating_income], ['CAD', 7e9, 6e9]);
   assert.equal(parseFinancials(facts({ [PRE_TAX_TAG]: [fy('2025-12-31', 1e9, 'a', '8-K')] }), 1, NOW), null);
+});
+
+test('parse: net income is the last resort, labeled, and a stale pre-tax tag does not block it', () => {
+  const f = parseFinancials(facts({ NetIncomeLoss: [fy('2025-12-31', 3e9), fy('2024-12-31', 2e9)], Revenues: [fy('2025-12-31', 20e9), fy('2024-12-31', 18e9)] }), 1, NOW);
+  assert.deepEqual([f.net_income, f.pre_tax, f.operating_income, f.prior_operating_income], [true, undefined, 3e9, 2e9]);
+  assert.equal(capacityPoints(f), 12);
+  assert.match(budgetFromSignals([], NOW, f).reason, /positive net income \$3\.0B \(FY ending 2025-12-31, no current operating income figure\)/);
+  const stale = parseFinancials(facts({ [PRE_TAX_TAG]: [fy('2014-12-31', 9e9)], NetIncomeLoss: [fy('2025-12-31', 1e9)] }), 1, NOW);
+  assert.deepEqual([stale.net_income, stale.operating_income], [true, 1e9]);
+  assert.equal(parseFinancials(facts({ NetIncomeLoss: [fy('2014-12-31', 1e9)] }), 1, NOW), null);
+});
+
+test('parse: operating cash flow is evidence for the same fiscal year only and never changes the points', () => {
+  const base = { OperatingIncomeLoss: [fy('2025-12-31', 5e9)] };
+  const f = parseFinancials(facts({ ...base, NetCashProvidedByUsedInOperatingActivities: [fy('2025-12-31', 7e9)] }), 1, NOW);
+  assert.equal(f.operating_cash_flow, 7e9);
+  assert.match(budgetFromSignals([], NOW, f).reason, /operating cash flow \$7\.0B/);
+  assert.equal(capacityPoints(f), capacityPoints(parseFinancials(facts(base), 1, NOW)));
+  const other = parseFinancials(facts({ ...base, NetCashProvidedByUsedInOperatingActivities: [fy('2024-12-31', 7e9)] }), 1, NOW);
+  assert.equal('operating_cash_flow' in other, false);
+});
+
+test('parse: bank revenue tags (net of interest expense; revenue and operating income) give revenue growth', () => {
+  const us = parseFinancials(facts({ [PRE_TAX_TAG]: [fy('2025-12-31', 25e9), fy('2024-12-31', 23e9)], RevenuesNetOfInterestExpense: [fy('2025-12-31', 83e9), fy('2024-12-31', 80e9)] }), 1, NOW);
+  assert.deepEqual([us.pre_tax, us.revenue, us.prior_revenue], [true, 83e9, 80e9]);
+  assert.equal(capacityPoints(us), 12);
+  const ifrs = parseFinancials({ 'ifrs-full': {
+    ProfitLossBeforeTax: units({ USD: [fy('2025-12-31', 9e9), fy('2024-12-31', 7e9)] }),
+    RevenueAndOperatingIncome: units({ USD: [fy('2025-12-31', 50e9), fy('2024-12-31', 47e9)] }),
+  } }, 1, NOW);
+  assert.deepEqual([ifrs.revenue, ifrs.prior_revenue], [50e9, 47e9]);
+  const plain = parseFinancials(facts({ OperatingIncomeLoss: [fy('2025-12-31', 5e9)], Revenues: [fy('2025-12-31', 20e9)], RevenuesNetOfInterestExpense: [fy('2025-12-31', 99e9)] }), 1, NOW);
+  assert.equal(plain.revenue, 20e9, 'a plain revenue tag wins a tie');
+});
+
+test('match: a hand-checked alias wins over the index; other names need an exact match; prefixes never match', () => {
+  const index = cikIndex(JSON.stringify({ 0: { cik_str: 1, title: 'Acme Corp' }, 1: { cik_str: 2, title: 'Target Hospitality Corp.' }, 2: { cik_str: 3, title: 'Otis Worldwide Corp' } }));
+  assert.equal(secCikFor(index, 'Target'), 27419, 'alias, although the exact index has no "target"');
+  assert.equal(secCikFor(index, 'Otis'), 1781335, 'alias beats a prefix that would also fit');
+  assert.equal(secCikFor(index, 'Acme, Inc.'), 1, 'exact normalized match');
+  assert.equal(secCikFor(index, 'Acm'), undefined);
+  assert.equal(secCikFor(index, 'Otis Worldwide'), 3, 'exact name still matches without an alias');
+});
+
+test('score: nonprofit surplus and the matched entity are labeled in the Budget evidence', () => {
+  const f = { fiscal_year_end: '2024-06-30', currency: 'USD', operating_income: 12e6, prior_operating_income: 9e6, revenue: 400e6, prior_revenue: 380e6, source_url: 'https://example.org/990', surplus: true, matched_name: 'Example Health System' };
+  const reason = budgetFromSignals([], NOW, f).reason;
+  assert.match(reason, /positive net surplus \$12M \(FY ending 2024-06-30, revenue less expenses, not operating income, matched to Example Health System\)/);
+  assert.equal(capacityPoints(f), 12);
+});
+
+test('match: a note in parentheses is tried without the note and as the name; every try is still an exact match', () => {
+  const index = cikIndex(JSON.stringify({ 0: { cik_str: 10, title: 'Concentrix Corp' }, 1: { cik_str: 11, title: 'BRC Inc.' }, 2: { cik_str: 12, title: 'Information Services Group Inc.' }, 3: { cik_str: 13, title: 'Target Hospitality Corp.' } }));
+  assert.equal(secCikFor(index, 'Concentrix (formerly Convergys)'), 10);
+  assert.equal(secCikFor(index, 'Black Rifle Coffee Company (BRC Inc.)'), 11);
+  assert.equal(secCikFor(index, 'Information Services Group (ISG)'), 12);
+  assert.equal(secCikFor(index, 'Target (US retailer)'), 27419, 'the alias is found on the name without the note');
+  assert.equal(secCikFor(index, 'Acme (Widgets)'), undefined, 'no exact match for any try');
+  assert.equal(secCikFor(index, 'Target Hospitality'), 13);
 });
