@@ -2,6 +2,7 @@
 import { LedgerSpendGuard } from "./ledger.ts";
 import { readFileSync } from "node:fs";
 import { employeeEvidenceSchema } from "./employee-evidence.ts";
+import { employeeResearchEnabled, ensureEmployeeResearchReady } from "./employee-research-setup.ts";
 import { contactReviewsSchema } from "./contact-review.ts";
 import { llmFromEnv } from "./llm.ts";
 import { MemoryStore } from "./store/memory.ts";
@@ -46,11 +47,13 @@ export async function contextFromEnv(env: NodeJS.ProcessEnv, opts: { dryRun: boo
     caps: { treg: tregCap(env, opts.maxSpend), llm: llm && llm.worstCaseUsd > 0 ? Math.min(Number(env.PIPELINE_LLM_BUDGET_USD ?? 0), settings.max_llm_spend_usd_per_run) : 0 },
     log: consoleLogger, now,
   });
-  return {
+  const ctx: PipelineContext = {
     store, now, log: consoleLogger, fetch: globalThis.fetch.bind(globalThis), contactReviews, employeeEvidence,
-    employeeWebResearch: env.PIPELINE_EMPLOYEE_WEB_RESEARCH === "1",
+    employeeWebResearch: employeeResearchEnabled(env.PIPELINE_EMPLOYEE_WEB_RESEARCH),
     employeeWebMaxCompanies: Math.max(1, Math.min(20, Math.trunc(Number(env.PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES) || 5))),
     treg: opts.noTreg ? null : await tregFromEnv(env), llm, spend,
     contact: env.PIPELINE_CONTACT ?? "", sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)), runId: null,
   };
+  await ensureEmployeeResearchReady(ctx);
+  return ctx;
 }

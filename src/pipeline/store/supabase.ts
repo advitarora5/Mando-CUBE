@@ -34,6 +34,15 @@ export class SupabaseStore implements PipelineStore {
     this.db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   }
 
+  async checkEmployeeResearchStorage(signal?: AbortSignal) {
+    // STABLE, SECURITY INVOKER RPC: checks actual privileges/RLS without a lease
+    // claim, sentinel write, or dependence on OpenAPI's advertised methods.
+    const query = this.db.rpc("employee_research_ready", {}, { get: true });
+    if (this.check(await (signal ? query.abortSignal(signal) : query), "employee research readiness") !== true) {
+      throw new Error("Employee cache schema or permissions are not ready.");
+    }
+  }
+
   // The API returns at most max_rows (1,000 by default) per request, silently. Every list read pages through all rows
   // in a stable order, so matching and scoring never miss companies past the first page.
   private async all<T>(make: () => { range(from: number, to: number): PromiseLike<{ data: unknown; error: { message: string } | null }> }, what: string): Promise<T[]> {

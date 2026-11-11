@@ -32,3 +32,11 @@ test('employee research RPCs claim once, reject stale completions and invalidate
     assert.ifError(cleanup);
   }
 });
+
+
+test('employee startup readiness inspects storage and required permissions without claiming a lease', {
+  skip: reachable ? false : 'isolated local Supabase is unavailable',
+}, async () => {
+  const store = new SupabaseStore(url,key);
+  await store.checkEmployeeResearchStorage(AbortSignal.timeout(5000));
+});

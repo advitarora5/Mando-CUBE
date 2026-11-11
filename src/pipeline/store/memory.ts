@@ -29,6 +29,7 @@ type Run = { id: string; job: string; source_id: string | null; trigger: string;
 export class MemoryStore implements PipelineStore {
   readonly kind = "memory" as const;
   employeeResearchRows = new Map<string, EmployeeResearchRecord>();
+  async checkEmployeeResearchStorage() { /* In-memory table and RPC equivalents are always available. */ }
   async employeeResearch(id: string) { return structuredClone(this.employeeResearchRows.get(id) ?? null); }
   async claimEmployeeResearch(id: string, domain: string, name: string) {
     const previous = this.employeeResearchRows.get(id);

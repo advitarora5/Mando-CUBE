@@ -7,15 +7,14 @@ import { employeeEvidenceFromDocument, employeeEvidenceFromHtml, webEmployeeEvid
 import type { EmployeeResearchRecord, EmployeeResearchStatus } from "./employee-research-record.ts";
 import type { CompanyRow, PipelineContext } from "./types.ts";
 
+import { employeeResearchEnabled, ensureEmployeeResearchReady, employeeDeadline, EMPLOYEE_SETUP_WARNING } from "./employee-research-setup.ts";
+
 const SEARCH = "tinyfish.web.search";
-const STORAGE_SETUP_HINT = "Employee web research cache is unavailable; website fallback is disabled for this context. "
-  + "Check database access and service_role permissions for company_employee_research, claim_employee_research and finish_employee_research. "
-  + "Required migration: supabase/migrations/202611080001_employee_research.sql (apply only through the approved database release process). "
-  + "See research/authority-headcount/README.md for setup. Reviewed, SEC and saved Workday sources remain separate.";
 const searchDisabled = new WeakSet<PipelineContext>();
 const limits = new WeakMap<PipelineContext, { used: number; disabled: boolean }>();
 type Company = Pick<CompanyRow, "id" | "name" | "domain">;
-type ResearchResult = { evidence: WebEmployeeEvidence | null; status: EmployeeResearchStatus; reason: string; requests: number; spend: number; documents?: { url: string; outcome: string }[] };
+type ResearchActivity = "disabled" | "skipped_setup" | "skipped_limit" | "skipped_lease" | "skipped_domain" | "cached" | "ran" | "failed";
+type ResearchResult = { activity: ResearchActivity; attempted: boolean; evidence: WebEmployeeEvidence | null; status: EmployeeResearchStatus; reason: string; requests: number; spend: number; documents?: { url: string; outcome: string }[] };
 const owned = (url: string, domain: string) => {
   try {
     const parsed = new URL(url);
@@ -56,8 +55,9 @@ function documentLinks(html: string, base: string, domain: string) {
 export async function researchEmployeeWebsite(ctx: PipelineContext, company: Company): Promise<ResearchResult> {
   const domain = normalizeDomain(company.domain);
   const documents: { url: string; outcome: string }[] = [];
-  const empty = (status: EmployeeResearchStatus, reason: string, requests: number, spend = 0): ResearchResult => ({ evidence: null, status, reason, requests, spend, documents });
-  if (!domain) return empty("needs_review", "Company has no verified domain.", 0);
+  const empty = (status: EmployeeResearchStatus, reason: string, requests: number, spend = 0): ResearchResult => ({ evidence: null, status, reason, requests, spend, documents, activity: status === "unavailable" ? "failed" : "ran", attempted: true });
+  if (!employeeResearchEnabled(ctx.employeeWebResearch)) return { ...empty("unavailable", "Employee research is disabled explicitly.", 0), activity: "disabled", attempted: false };
+  if (!domain) return { ...empty("needs_review", "Company has no verified domain.", 0), activity: "skipped_domain", attempted: false };
   const deadline = AbortSignal.timeout(45000);
   const scoped = { ...ctx, fetch: ((url, init) => ctx.fetch(url, { ...init,
     signal: AbortSignal.any([deadline, ...(init?.signal ? [init.signal] : []), ...(ctx.signal ? [ctx.signal] : [])]) })) as typeof fetch };
@@ -68,6 +68,7 @@ export async function researchEmployeeWebsite(ctx: PipelineContext, company: Com
   const seen = new Set<string>();
   const found: WebEmployeeEvidence[] = [];
   let readable = 0, searches = 0, spend = 0;
+  let sourceFailed = false;
   let homeIdentity = false;
   let conflict = false;
   while (queue.length && seen.size < 6 && !deadline.aborted && !ctx.signal?.aborted) {
@@ -102,7 +103,7 @@ export async function researchEmployeeWebsite(ctx: PipelineContext, company: Com
           if (/Conflicting/.test(result.reason)) conflict = true;
         } else documents.push({ url: document.url, outcome: "Employer identity was not established in the PDF." });
       }
-    } catch (error) { documents.push({ url: candidate.url, outcome: error instanceof Error ? error.message : "Source could not be read." }); }
+    } catch (error) { sourceFailed = true; documents.push({ url: candidate.url, outcome: error instanceof Error ? error.message : "Source could not be read." }); }
     // Search discovers URLs only. Claims in snippets never earn score credit.
     if (seen.size === 1 && ctx.treg && !searchDisabled.has(ctx) && !deadline.aborted) {
       searches++;
@@ -136,8 +137,8 @@ export async function researchEmployeeWebsite(ctx: PipelineContext, company: Com
     return empty("needs_review", "Conflicting dated workforce evidence requires review.", requests, spend);
   }
   if (best?.basis === "approximate" && best.employee_count >= 3000) return empty("needs_review", "Approximate workforce count cannot establish a guaranteed 3,000-employee minimum.", requests, spend);
-  if (best) return { evidence: best, status: "found", reason: "Official workforce evidence found with its date basis recorded.", requests, spend, documents };
-  return empty(readable ? "needs_review" : "unavailable", readable ? "No current dated employer-wide headcount was established." : "Official sources could not be read.", requests, spend);
+  if (best) return { evidence: best, status: "found", reason: "Official workforce evidence found with its date basis recorded.", requests, spend, documents, activity: "ran", attempted: true };
+  return empty(readable && !sourceFailed && !deadline.aborted && !ctx.signal?.aborted ? "needs_review" : "unavailable", readable ? "No current dated employer-wide headcount was established." : "Official sources could not be read.", requests, spend);
 }
 
 function cachedEvidence(record: EmployeeResearchRecord | null, company: Company, now: Date) {
@@ -149,29 +150,43 @@ function cachedEvidence(record: EmployeeResearchRecord | null, company: Company,
 }
 
 export async function lookupEmployeeWebsite(ctx: PipelineContext, company: Company): Promise<ResearchResult> {
-  const empty: ResearchResult = { evidence: null, status: "unavailable", reason: "Web employee research is disabled.", requests: 0, spend: 0 };
-  if (!ctx.employeeWebResearch) return empty;
+  const empty: ResearchResult = { evidence: null, status: "unavailable", reason: "Employee research is disabled explicitly.", requests: 0, spend: 0, activity: "disabled", attempted: false };
+  if (!employeeResearchEnabled(ctx.employeeWebResearch)) return empty;
+  const readiness = await ensureEmployeeResearchReady(ctx);
+  if (readiness.status !== "ready") return { ...empty, reason: EMPLOYEE_SETUP_WARNING, activity: "skipped_setup" };
   let state = limits.get(ctx);
   if (!state) { state = { used: 0, disabled: false }; limits.set(ctx, state); }
-  if (state.disabled) return { ...empty, reason: STORAGE_SETUP_HINT };
+  if (state.disabled) return { ...empty, reason: EMPLOYEE_SETUP_WARNING, activity: "skipped_setup" };
+  let cached: WebEmployeeEvidence | null = null;
+  let result: ResearchResult | null = null;
+  const failureEvidence = () => result?.status === "needs_review" ? null
+    : result?.evidence && result.evidence.employee_count < 3000 ? result.evidence : cached;
   try {
-    const previous = await ctx.store.employeeResearch(company.id);
-    const cached = cachedEvidence(previous, company, ctx.now());
+    const previous = await employeeDeadline(() => ctx.store.employeeResearch(company.id), 5000, ctx.signal);
+    cached = cachedEvidence(previous, company, ctx.now());
     const same = previous?.company_domain === normalizeDomain(company.domain) && previous?.company_name === normalizeName(company.name);
-    if (same && Date.parse(previous!.next_check_at) > ctx.now().getTime()) return { ...empty, evidence: cached, status: cached ? "found" : "needs_review", reason: "Saved employee research is not due." };
-    if (state.used >= (ctx.employeeWebMaxCompanies ?? 5)) return { ...empty, evidence: cached, reason: "Employee research batch limit reached." };
+    if (same && Date.parse(previous!.next_check_at) > ctx.now().getTime()) return { ...empty, evidence: cached, status: cached ? "found" : "needs_review", reason: "Saved employee research is not due.", activity: "cached" };
+    if (state.used >= (ctx.employeeWebMaxCompanies ?? 5)) return { ...empty, evidence: cached, reason: "Employee research batch limit reached.", activity: "skipped_limit" };
     const domain = normalizeDomain(company.domain);
-    if (!domain) return { ...empty, status: "needs_review", reason: "Company domain is missing." };
-    const claim = await ctx.store.claimEmployeeResearch(company.id, domain, normalizeName(company.name));
-    if (!claim?.lease_token) return { ...empty, evidence: cached, reason: "Another run owns this company's research." };
+    if (!domain) return { ...empty, status: "needs_review", reason: "Company domain is missing.", activity: "skipped_domain" };
+    const claim = await employeeDeadline(() => ctx.store.claimEmployeeResearch(company.id, domain, normalizeName(company.name)), 5000, ctx.signal);
+    if (!claim?.lease_token) return { ...empty, evidence: cached, reason: "Another run owns this company's research.", activity: "skipped_lease" };
     state.used++;
-    const result = await researchEmployeeWebsite(ctx, company);
-    const saved = await ctx.store.finishEmployeeResearch(company.id, claim.lease_token, result.status, result.evidence, result.reason);
-    if (!saved) return { ...result, evidence: null, status: "unavailable", reason: "Research lease changed; result was not saved." };
+    try {
+      result = await employeeDeadline(signal => researchEmployeeWebsite({ ...ctx, signal }, company), 45000, ctx.signal);
+    } catch {
+      result = { ...empty, reason: "Employee source lookup failed, timed out or was cancelled.", activity: "failed", attempted: true };
+    }
+    if (result.status === "unavailable") ctx.log.warn(`Employee website research failed or timed out for ${company.name}; retaining only still-valid saved evidence and continuing scoring.`);
+    const saved = await employeeDeadline(() => ctx.store.finishEmployeeResearch(company.id, claim.lease_token!, result!.status, result!.evidence, result!.reason), 5000, ctx.signal);
+    if (!saved) {
+      ctx.log.warn(`Employee website research lease changed for ${company.name}; ignoring uncommitted size increases and continuing scoring.`);
+      return { ...result, evidence: failureEvidence(), status: result.status === "needs_review" ? "needs_review" : "unavailable", activity: "failed", reason: "Research lease changed; result was not saved." };
+    }
     return { ...result, evidence: result.evidence ?? (result.status === "unavailable" ? cached : null) };
   } catch {
     state.disabled = true;
-    ctx.log.warn(STORAGE_SETUP_HINT);
-    return { ...empty, reason: STORAGE_SETUP_HINT };
+    ctx.log.warn(EMPLOYEE_SETUP_WARNING);
+    return { ...empty, ...result, evidence: failureEvidence(), status: result?.status === "needs_review" ? "needs_review" : "unavailable", activity: result?.attempted ? "failed" : "skipped_setup", reason: EMPLOYEE_SETUP_WARNING };
   }
 }

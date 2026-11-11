@@ -81,7 +81,7 @@ export function spendGuard(caps = { treg: 0.5, llm: 0 }, now = clock()) {
 }
 
 export function makeCtx({ store, fetch, llm = null, treg = null, now = clock(), caps } = {}) {
-  return { lookupHost: async () => [{ address: "93.184.216.34", family: 4 }], store: store ?? new MemoryStore({ now }), now, log: silent, fetch: fetch ?? fakeFetch([]), treg, llm, spend: spendGuard(caps, now), contact: 'test@example.com', sleep: async () => {}, runId: null };
+  return { employeeWebResearch: false, lookupHost: async () => [{ address: "93.184.216.34", family: 4 }], store: store ?? new MemoryStore({ now }), now, log: silent, fetch: fetch ?? fakeFetch([]), treg, llm, spend: spendGuard(caps, now), contact: 'test@example.com', sleep: async () => {}, runId: null };
 }
 
 // ---------- Fixture world ----------
