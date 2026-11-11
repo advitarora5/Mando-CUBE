@@ -16,7 +16,7 @@ type Body = { data?: { data?: Row }[] };
 const API = "https://api.fdic.gov/banks";
 const MAX_AGE_DAYS = 548; // 18 months
 const RETRIES = 3;
-const HEADERS = { "User-Agent": "Mando-CUBE-experiment", Accept: "application/json" };
+const HEADERS = { "User-Agent": "mando-cube-ingestion/1.0", Accept: "application/json" };
 // At most one request per second; tests set ms to 0.
 export const bankPacing = { ms: 1000 };
 let last = 0;

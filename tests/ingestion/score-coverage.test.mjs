@@ -174,3 +174,37 @@ test('a name the SEC list lacks falls through to nonprofit returns; a miss keeps
   assert.equal(viaSec.status, 'found');
   assert.deepEqual(sec.calls, ['https://data.sec.gov/api/xbrl/companyfacts/CIK0000004242.json']);
 });
+
+test('non-SEC sources are asked for a new company, then not again until its saved score is due; a saved capacity is never dropped for it', async () => {
+  const { nonprofitPacing } = await import('../../src/pipeline/financials-nonprofit.ts');
+  const { universityPacing } = await import('../../src/pipeline/financials-university.ts');
+  const { pacing } = await import('../../src/pipeline/financials-foreign.ts');
+  nonprofitPacing.ms = 0; universityPacing.ms = 0; pacing.gapMs = 0;
+  const external = url => /propublica|urban|xbrl\.org|wikidata/.test(String(url));
+  let externalCalls = 0;
+  const answer = async url => {
+    if (!external(url)) return response(404, {});
+    externalCalls++;
+    return String(url).includes('propublica') ? response(200, { organizations: [] }) : String(url).includes('urban') ? response(200, { results: [] }) : response(200, { data: [] });
+  };
+  const w = await world({ fetch: answer, secList: JSON.stringify({ 0: { title: 'SOMEONE ELSE INC', cik_str: 1 } }) });
+  const first = await scoreStage(w.ctx);
+  assert.equal(first.counts.scored, 1);
+  assert.ok(externalCalls > 0, 'a company with no saved score asks the non-SEC sources');
+  const before = externalCalls;
+  const second = await scoreStage(w.ctx);
+  assert.equal(externalCalls, before, 'inside the 14-day window the non-SEC sources are not asked again');
+  assert.equal(second.counts.financials_external_skipped, 1);
+  assert.equal(second.counts.unchanged, 1, 'nothing changed, so no new score row');
+});
+
+test('lookupFinancials: skipExternal returns "external_skipped" (unavailable) only when the SEC list has no match', async () => {
+  const { financialsUnavailable } = await import('../../src/pipeline/financials.ts');
+  const a = await world({ fetch: async () => response(404, {}), secList: JSON.stringify({ 0: { title: 'OTHER INC', cik_str: 1 } }) });
+  const skipped = await lookupFinancials(a.ctx, 'Unlisted Fictional Co', null, { skipExternal: true });
+  assert.deepEqual([skipped.status, skipped.requests, skipped.financials], ['external_skipped', 0, null]);
+  assert.equal(financialsUnavailable('external_skipped'), true);
+  const b = await world({ fetch: filed });
+  const viaSec = await lookupFinancials(b.ctx, NAME, null, { skipExternal: true });
+  assert.equal(viaSec.status, 'found', 'an SEC match is looked up regardless');
+});

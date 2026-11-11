@@ -85,7 +85,7 @@ export async function lookupForeignFinancials(fetchFn: Fetch, companyName: strin
       const wait = last + pacing.gapMs - Date.now();
       if (wait > 0) await sleep(wait);
       last = Date.now(); requests++;
-      const res = await fetchFn(url, { headers: { "user-agent": "Mando-CUBE-experiment", accept }, signal: AbortSignal.timeout(60000) });
+      const res = await fetchFn(url, { headers: { "user-agent": "mando-cube-ingestion/1.0", accept }, signal: AbortSignal.timeout(60000) });
       if (res.status === 429) { await sleep(pacing.gapMs * 2 ** (attempt + 1)); continue; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();

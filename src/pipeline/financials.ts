@@ -118,11 +118,11 @@ export function cikIndex(secListJson: string): Map<string, number> {
 }
 
 // Why a company has filing figures or not. The run reports these counts, so missing capacity is never silent.
-export type FinancialsStatus = "found" | "no_contact" | "no_sec_list" | "fetch_failed" | "no_sec_match" | "no_filing_facts" | "no_operating_income" | "stale_filing";
+export type FinancialsStatus = "found" | "no_contact" | "no_sec_list" | "fetch_failed" | "no_sec_match" | "no_filing_facts" | "no_operating_income" | "stale_filing" | "external_skipped";
 export type FinancialsLookup = { financials: Financials | null; status: FinancialsStatus; requests: number };
 
 // The lookup could not run, which says nothing about the company. Every other status is an answer about its filings.
-export const financialsUnavailable = (status: FinancialsStatus) => status === "no_contact" || status === "no_sec_list" || status === "fetch_failed";
+export const financialsUnavailable = (status: FinancialsStatus) => status === "no_contact" || status === "no_sec_list" || status === "fetch_failed" || status === "external_skipped";
 
 export function classifyFacts(rawFacts: unknown, cik: number, now: Date): Pick<FinancialsLookup, "financials" | "status"> {
   const financials = parseFinancials(rawFacts, cik, now);
@@ -168,14 +168,15 @@ async function lookupSecFinancials(ctx: PipelineContext, companyName: string): P
   return { ...found, requests: 1 };
 }
 
-// SEC first. A name the SEC list does not have is then tried against nonprofit annual returns (IRS 990), US university finance data (IPEDS),
-// EU/UK annual filings and, for
-// hand-checked names only, FDIC bank reports;
-// each accepts only an exact, confirmed match. Their misses keep the SEC answer; an outage is reported as one so a saved score is kept.
-// ponytail: these lookups run on every score pass (about 6 paced requests per unmatched company); cache them in a table if that gets slow.
-export async function lookupFinancials(ctx: PipelineContext, companyName: string, domain: string | null = null): Promise<FinancialsLookup> {
+// SEC first (with the hand-checked aliases). A name the SEC list does not have is then tried against nonprofit annual returns (IRS 990),
+// US university finance data (IPEDS), EU/UK annual filings and, for hand-checked names only, FDIC bank reports. Each accepts only an exact,
+// confirmed match; a miss keeps the SEC answer, and an outage is reported as one so a saved score is kept.
+// skipExternal: the caller already has a saved score that is not due for refresh, so the non-SEC sources (about six paced requests each) are not
+// asked again. That is reported as unavailable, so a saved capacity is kept. ponytail: a table of lookup results would remove the repeat asks.
+export async function lookupFinancials(ctx: PipelineContext, companyName: string, domain: string | null = null, opts: { skipExternal?: boolean } = {}): Promise<FinancialsLookup> {
   const sec = await lookupSecFinancials(ctx, companyName);
   if (sec.status !== "no_sec_match") return sec;
+  if (opts.skipExternal) return { financials: null, status: "external_skipped", requests: sec.requests };
   let requests = sec.requests, status: FinancialsStatus = sec.status;
   const sources = [() => lookupNonprofitFinancials(ctx.fetch, companyName, ctx.now()), () => lookupUniversityFinancials(ctx.fetch, companyName, ctx.now()), () => lookupForeignFinancials(ctx.fetch, companyName, domain, ctx.now())];
   if (BANK_ALLOWLIST.has(normalizeName(companyName))) sources.push(() => lookupBankFinancials(ctx.fetch, companyName, ctx.now()));

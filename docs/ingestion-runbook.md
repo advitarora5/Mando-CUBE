@@ -268,6 +268,23 @@ Weights 25/25/20/15/15; **Qualified 70+, Maybe 55+** for rows of this version (`
 
 Reasons are capped at 240 characters; every awarded point carries its link; unknowns say "Needs evidence" without a URL.
 
+### Financial capacity sources (Budget)
+
+Capacity needs one annual income figure. Sources are tried in this order, and only the first that answers is used:
+
+1. **SEC company facts** (above). Names match exactly (after dropping legal forms; a note in parentheses is also tried without it and by itself) or through the hand-checked table in `src/pipeline/financial-aliases.ts`. Name-prefix and fuzzy matching are deliberately not used: on a real 127-company list a whole-word prefix rule attached the wrong SEC company to 3 of 5 matches.
+2. **Nonprofit annual returns** (IRS Form 990 through ProPublica Nonprofit Explorer). Exact name, exactly one organization, return no older than 36 months. The figure is **surplus** (total revenue less total expenses).
+3. **US university finance data** (IPEDS through the Urban Institute Education Data API). Exact institution name, exactly one institution, 36 months. The figure is surplus, assuming a June 30 fiscal year.
+4. **EU/UK annual reports** (filings.xbrl.org ESEF index). Exact entity name plus an independent confirmation (Wikidata website or label), or a hand-checked LEI in the same alias file. Operating profit, else pre-tax, else net profit, in the filing currency.
+5. **FDIC bank reports**, only for names on the hand-checked `BANK_ALLOWLIST`. The figure is net income.
+
+Surplus is not operating income. It is scored on the same bands, and the Budget reason says "net surplus ... revenue less expenses, not operating income" and names the matched entity (`matched_name`), so a wrong match is visible. Confirm the rubric reading with the team before relying on it; SEC, EU/UK and bank figures need no such reading.
+
+Not covered: private companies and government bodies (no public income figure), and companies listed in Japan, Australia, Korea, Taiwan, Hong Kong or India (no free keyless source). They stay "Needs evidence". Nothing is estimated.
+
+Runtime. Sources 2 to 5 make about six paced (1 per second) requests per unmatched company, so they are asked only when a company has no saved score or its score is due for the 14-day refresh; otherwise the status is `external_skipped` and a saved capacity is kept. Cost of this: for a company whose capacity came from sources 2 to 5, a change in another category waits for its next refresh. A lookup that cannot run (`fetch_failed`, `external_skipped`, no contact or no SEC list) never lowers a saved Budget. The stage summary counts every outcome as `financials_<status>`. They use the public-site User-Agent `mando-cube-ingestion/1.0` and need no keys.
+
+
 ## 4. Read the run log and health
 
 ```sql

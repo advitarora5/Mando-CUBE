@@ -18,7 +18,7 @@ const API = "https://educationdata.urban.org/api/v1/college-university/ipeds";
 const MAX_AGE_DAYS = 1096; // 36 months
 const RETRIES = 3;
 const YEARS_TRIED = 3; // newest finance year first; IPEDS finance lags about two years
-const HEADERS = { "User-Agent": "Mando-CUBE-experiment", Accept: "application/json" };
+const HEADERS = { "User-Agent": "mando-cube-ingestion/1.0", Accept: "application/json" };
 // At most one request per second; tests set ms to 0.
 export const universityPacing = { ms: 1000 };
 let last = 0;
