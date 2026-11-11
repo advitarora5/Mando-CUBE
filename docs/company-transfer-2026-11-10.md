@@ -1,6 +1,6 @@
-# Reviewed discovery import prepared — 2026-11-10
+# Reviewed discovery import and scoring — 2026-11-10 session
 
-Prepared on `stefan/company-import`. Production was queried with SELECT only. No production import, rollback preview, scoring, queue resolution or settings update was executed.
+Completed on `stefan/company-import` after explicit user approval, at 2026-11-11 05:54 UTC (November 10, America/Chicago). The production rollback preview, atomic import, and scoped scoring run all succeeded.
 
 The reviewed package covers 22 companies. Against the production snapshot of 257 companies, the plan creates 13 and attaches evidence to 9 existing records, for an expected total of 270 companies.
 
@@ -24,4 +24,28 @@ Validation passed: 629 unit tests, 3 local database integration tests, TypeScrip
 
 The ready artifacts are in ignored `var/company-transfer-2026-11-10/`, including a README, reviewed package, audit/exclusions, pending-review resolution, production preflight mapping, preview/apply SQL, checksums, rehearsal report and 22 target IDs for later scoped rescoring. A portable copy is `var/company-transfer-2026-11-10-ready.tar.gz`.
 
-The remaining production steps require the user's go-ahead: refresh the read-only mapping, execute the production rollback preview, review its result, and execute the atomic apply file. The existing target-snapshot and evidence-ownership guards stay enabled. Importing does not start scoring; the 22-ID rescore cohort is prepared for a separate run afterward.
+## Production execution
+
+The refreshed preflight confirmed 13 new companies and 9 existing matches. The SQL Editor rejected the full payload size before execution, so the batch used a temporary, fixed import function with invoker security and execution restricted to the existing service role. Its default preview rolled back the entire import in a subtransaction; the apply call committed atomically. The function was removed successfully afterward. No permanent schema/security change remains.
+
+Verified production deltas: companies 257 → 270, signals 856 → 928 (+72), Workday sites 306 → 318 (+12), raw captures 1036 → 1114 (+78), extractions 1057 → 1135 (+78). Existing matching evidence was reused. All 88 selected signals and 22 sites were verified against the target ID mapping. Humana's pending review resolved; the rejected Cisco records stayed rejected and unassigned. Company facts, contacts, snapshots, insights and pipeline settings were preserved.
+
+The current scoring engine then processed exactly the 22 mapped target IDs: 13 first assessments, 6 reassessments, and 3 unchanged. It found SEC financials for 20 companies, with no exact SEC-name match for 2. There were no scoring errors. Scores increased from 737 to 756 (+19); all historical assessments were preserved and no score was written outside the cohort. The stored `pipeline_only` scope was preserved; the explicitly requested 22-company scope was applied only within this scoring process.
+
+All 22 currently have no contacts and zero Authority/Reachability points, and show Disqualified under the current rubric. The engine marked 14 as ready for contact research; no contact-research or discovery run was started.
+
+Import audit run: `e9c52638-7ee8-4272-ac19-00b01d94d3fd`. Scoring audit run: `852bb794-f133-4573-8009-ddc55a90fc4c`.
+
+Detailed results, per-company scores and machine-readable verification are in `var/company-transfer-2026-11-10/execution/RESULTS.md` and `final-verification.json`. The original ready archive remains a historical pre-import package, not a pending action.
+
+## Contact enrichment follow-up — 2026-11-11
+
+After the user requested enrichment and rescoring, the current eligibility check selected 21 of the 22 imported/matched companies. Unilever was excluded because its stored Workday observation from October 26 was outside the 14-day freshness window and its latest score was below paid readiness. The run used a process-local cohort/scope override; persistent settings were preserved.
+
+Free enrichment researched all 21 eligible companies, added 57 provisional contacts across 20, and found no usable contacts for Itron. It performed 24 people searches (including 3 broader fallbacks) and 156 public evidence searches. None independently confirmed a current role, so all 57 contacts retain unconfirmed/provisional status and no verified-role credit was awarded. Provider provenance and LinkedIn URLs are stored with the contacts.
+
+The configured Treg budget remained $0, actual spend was $0, and no paid email lookup ran. Fifteen companies were marked budget-skipped for paid follow-up; five with contacts remain below paid readiness. No email was guessed.
+
+The current engine rescored all 21 eligible companies: 20 new assessments, with Itron unchanged. The 20 companies with new contacts each gained 5 provisional Authority points; all remain Disqualified, with Reachability still zero. Historical scores, unrelated existing contacts and persistent pipeline settings were preserved. Verified zero contact/score writes outside the cohort. Both stages completed without errors.
+
+Enrichment run: `7e899651-b925-46aa-93e3-b9a4bb448fee`. Rescoring run: `68fcda96-01ad-4d17-8c14-290bacc00fa3`. Detailed results and verification are in `var/company-transfer-2026-11-10/enrichment/RESULTS.md` and `verification.json`.

@@ -54,7 +54,7 @@ The transaction checks the normalized company name, review status, and complete 
 
 ## 3. Apply only when ready
 
-`prepare ... --apply` writes the same transaction ending in `COMMIT`. It still performs no database writes. Execute that file against the approved target only after reviewing the preview. Always use `psql -v ON_ERROR_STOP=1`, or an SQL editor that executes the entire transaction together. Never run individual statements separately.
+`prepare ... --apply` writes the same transaction ending in `COMMIT`. It still performs no database writes. The SQL Editor may reject large raw-evidence packages before execution; use a direct PostgreSQL connection for those files. Keep the full import in one transaction. Execute that file against the approved target only after reviewing the preview. Always use `psql -v ON_ERROR_STOP=1`, or an SQL editor that executes the entire transaction together. Never run individual statements separately.
 
 The package carries company facts, signals, raw captures, extraction output, Workday sites, and human review provenance. Original evidence timestamps stay intact. Raw captures use SHA-256 of the exact transferred body; the original collector fingerprint is retained in metadata when it differs. This preserves response variants whose collector fingerprint ignores changing fields. Target IDs are mapped for related records; new companies retain their local UUID. Sources missing on the target are added disabled with no provider configuration. Existing sources, company facts and site collection settings stay intact. Local run/review foreign keys are replaced with target references; import run metadata records the local ID mapping and review notes.
 
