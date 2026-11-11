@@ -339,7 +339,7 @@ test('missing cache table or RPC gives an actionable secret-free setup diagnosti
     assert.doesNotMatch(result.reason,/private connection details/);
     const requests=ctx.fetch.calls.length;
     const second=await lookupEmployeeWebsite(ctx,company);
-    assert.equal(second.reason,result.reason);
+    assert.match(second.reason,/company_employee_research/);
     assert.equal(ctx.fetch.calls.length,requests);
     assert.equal(warnings.length,1);
     if (operation!=='finishEmployeeResearch') assert.equal(requests,0);
@@ -358,9 +358,9 @@ test('missing PDF dependencies explain the supported installation without exposi
   } finally {await rm(directory,{recursive:true,force:true});}
 });
 
-test('environment setup defaults keep both optional headcount collectors disabled', async () => {
+test('environment setup defaults enable headcount collection with explicit opt-out', async () => {
   const {contextFromEnv}=await import('../../src/pipeline/context.ts');
-  for (const [flag,enabled] of [[undefined,false],['0',false],['true',false],['1',true]]) {
+  for (const [flag,enabled] of [[undefined,true],['',true],['  ',true],['0',false],['false',false],['off',false],['no',false],['true',true],['1',true]]) {
     const ctx=await contextFromEnv({TREG_BUDGET_USD:'0',...(flag===undefined?{}:{PIPELINE_EMPLOYEE_WEB_RESEARCH:flag})},{dryRun:true,noLlm:true,noTreg:true});
     assert.equal(ctx.employeeWebResearch,enabled);
     assert.equal(ctx.employeeWebMaxCompanies,5);

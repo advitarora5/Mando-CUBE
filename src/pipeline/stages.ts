@@ -8,7 +8,8 @@ import { isSimilarName, normalizeName } from "../domain/ingestion/normalize.ts";
 import { scoreCompany, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
 import { lookupEmployeeWebsite } from "./employee-web-research.ts";
 import { savedSecEmployeeEvidence } from "./sec-employee-evidence.ts";
-import { employeeEvidenceForCompany } from "./employee-evidence.ts";
+import { employeeEvidenceForCompany, savedEmployeeEvidence } from "./employee-evidence.ts";
+import { employeeResearchEnabled, ensureEmployeeResearchReady, employeeDeadline } from "./employee-research-setup.ts";
 import { financialsUnavailable, lookupFinancials } from "./financials.ts";
 import { isSignalFresh, mayScore } from "../domain/ingestion/settings.ts";
 import { categories } from "../domain/contracts/company.ts";
@@ -272,6 +273,7 @@ import { buildScoreChange, type ScoreTrigger } from "../domain/ingestion/score-c
 // Out-of-scope companies (existing companies while scope is pipeline_only) are never touched.
 export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[]; trigger?: ScoreTrigger } = {}): Promise<StageResult> {
   const r = result();
+  const researchReady = await ensureEmployeeResearchReady(ctx);
   const settings = await ctx.store.settings();
   const now = ctx.now();
   const companies = (await ctx.store.companies()).filter(c => !opts.companyIds || opts.companyIds.includes(c.id));
@@ -289,13 +291,17 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       const latest = await ctx.store.latestScore(company.id);
       const savedEmployees = financialsUnavailable(lookup.status)
         ? savedSecEmployeeEvidence(latest?.authority_evidence, now) : null;
+      let workdayFailed = false;
+      const workdayAttempted = !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees && employeeResearchEnabled(ctx.employeeWebResearch);
       const workdayEmployees = !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees
-        ? await lookupEmployeeWorkday(ctx, company).catch(() => { ctx.log.warn("Saved Workday employee evidence could not be read."); return null; }) : null;
-      const web = !workdayEmployees && !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees && ctx.employeeWebResearch
+        ? await employeeDeadline(signal => lookupEmployeeWorkday({ ...ctx, signal }, company), 5000, ctx.signal)
+          .catch(() => { workdayFailed = true; ctx.log.warn("Saved Workday headcount lookup failed or timed out; continuing normal scoring."); return null; }) : null;
+      const web = !workdayEmployees && !reviewedEmployees && !lookup.employeeEvidence && !savedEmployees && employeeResearchEnabled(ctx.employeeWebResearch)
         ? await lookupEmployeeWebsite(ctx, company) : null;
       r.requests += web?.requests ?? 0;
       r.treg_spend_usd += web?.spend ?? 0;
-      const employees = reviewedEmployees ?? lookup.employeeEvidence ?? savedEmployees ?? workdayEmployees ?? web?.evidence;
+      const retained = (!web || web.status === "unavailable") ? savedEmployeeEvidence(latest?.authority_evidence, now) : null;
+      const employees = reviewedEmployees ?? lookup.employeeEvidence ?? savedEmployees ?? workdayEmployees ?? web?.evidence ?? retained;
       const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: employees?.employee_count ?? null, employee_source: employees?.source ?? null, employee_as_of: employees?.as_of ?? null, employee_basis: employees?.basis ?? "exact", employee_date_basis: employees?.date_basis ?? "effective", financials: lookup.financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
       const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
@@ -313,8 +319,15 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
         await ctx.store.setEnrichment(company.id, "pending", "Budget + Release + Timing reached the ready-for-contacts threshold.");
         bump(r, "ready_for_contacts");
       }
+      bump(r, `employee_research_${researchReady.status}`);
+      if (workdayAttempted) bump(r, "employee_workday_ran");
+      if (workdayFailed) bump(r, "employee_workday_failed");
       // Coverage comes after the writes, so a failing store still leaves this stage with no work and a failed status.
-      bump(r, reviewedEmployees ? "employee_evidence_reviewed" : lookup.employeeEvidence ? "employee_evidence_sec" : savedEmployees ? "employee_evidence_retained" : workdayEmployees ? "employee_evidence_workday" : web?.evidence ? "employee_evidence_web" : "employee_evidence_missing");
+      bump(r, reviewedEmployees ? "employee_evidence_reviewed" : lookup.employeeEvidence ? "employee_evidence_sec" : savedEmployees ? "employee_evidence_retained" : workdayEmployees ? "employee_evidence_workday" : web?.evidence ? "employee_evidence_web" : retained ? "employee_evidence_retained" : "employee_evidence_missing");
+      if (web) {
+        bump(r, `employee_web_activity_${web.activity}`);
+        if (web.attempted) bump(r, "employee_web_ran");
+      } else bump(r, employeeResearchEnabled(ctx.employeeWebResearch) ? "employee_web_skipped_evidence" : "employee_web_disabled");
       if (web && !web.evidence) bump(r, `employee_web_${web.status}`);
       bump(r, `financials_${lookup.status}`);
       bump(r, contacts.length ? "with_contacts" : "without_contacts");

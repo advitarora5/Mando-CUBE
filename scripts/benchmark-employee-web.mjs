@@ -1,3 +1,4 @@
+import { employeeResearchEnabled } from "../src/pipeline/employee-research-setup.ts";
 // Public-source coverage benchmark. No database, LLM or search credentials; optional recorded URL discovery.
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
@@ -23,7 +24,7 @@ async function lookupHost(host) {
 const results = [];
 for (const company of companies) {
   const now = () => new Date(process.env.EMPLOYEE_BENCHMARK_NOW ?? Date.now());
-  const ctx = { now, lookupHost, fetch: globalThis.fetch.bind(globalThis), contact: '', treg: discovery ? { call: async () => ({ ok: true, status: 200, cost_usd: 0, body: { results: (discovery[company.domain] ?? []).map(url => ({ url })) } }) } : null,
+  const ctx = { employeeWebResearch: employeeResearchEnabled(process.env.PIPELINE_EMPLOYEE_WEB_RESEARCH), now, lookupHost, fetch: globalThis.fetch.bind(globalThis), contact: '', treg: discovery ? { call: async () => ({ ok: true, status: 200, cost_usd: 0, body: { results: (discovery[company.domain] ?? []).map(url => ({ url })) } }) } : null,
     log: { info() {}, warn() {}, error() {} }, spend: { spent: () => 0, record: async () => {}, allow: async () => false },
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)), runId: null };
   const result = await researchEmployeeWebsite(ctx, { ...company, id: company.domain });

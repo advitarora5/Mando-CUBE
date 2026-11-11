@@ -42,7 +42,7 @@ jobs:
           PIPELINE_SUPABASE_KEY: ${{ secrets.PIPELINE_SUPABASE_KEY }}
           PIPELINE_ALLOW_REMOTE: ${{ vars.PIPELINE_ALLOW_REMOTE }}
           PIPELINE_CONTACT: ${{ vars.PIPELINE_CONTACT }}
-          PIPELINE_EMPLOYEE_WEB_RESEARCH: ${{ vars.PIPELINE_EMPLOYEE_WEB_RESEARCH }}
+          PIPELINE_EMPLOYEE_WEB_RESEARCH: ${{ vars.PIPELINE_EMPLOYEE_WEB_RESEARCH || '1' }}
           PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES: ${{ vars.PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES }}
           # Ollama is not available on hosted runners: structured signals only until a model host is chosen.
           PIPELINE_LLM: ${{ vars.PIPELINE_LLM || 'none' }}

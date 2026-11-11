@@ -166,6 +166,7 @@ export type ExtractionRecord = {
 
 export interface PipelineStore {
   readonly kind: "supabase" | "memory";
+  checkEmployeeResearchStorage(signal?: AbortSignal): Promise<void>;
   employeeResearch(companyId: string): Promise<EmployeeResearchRecord | null>;
   claimEmployeeResearch(companyId: string, domain: string, name: string): Promise<EmployeeResearchRecord | null>;
   finishEmployeeResearch(companyId: string, token: string, status: EmployeeResearchStatus, evidence: WebEmployeeEvidence | null, reason: string): Promise<boolean>;
@@ -244,6 +245,7 @@ export type PipelineContext = {
   contactReviews?: ContactReview[];
   employeeEvidence?: EmployeeEvidence[];
   employeeWebResearch?: boolean;
+  employeeResearchReadiness?: { status: "ready" | "disabled" | "unavailable" };
   employeeWebMaxCompanies?: number;
   now: () => Date;
   log: Logger;

@@ -1,5 +1,8 @@
 # Employee-count setup verification — November 10, 2026
 
+Historical verification of PR #50's opt-in defaults. The follow-up changes normal
+runs to default-on with an explicit opt-out; current setup is in [TEAMMATE_SETUP.md](TEAMMATE_SETUP.md).
+
 The [teammate setup guide](TEAMMATE_SETUP.md) was checked against context creation,
 score-stage precedence, SEC and saved Workday collectors, PDF worker, cache store,
 migration and Actions environment wiring. `.env.example` now lists the headcount

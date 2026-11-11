@@ -26,12 +26,28 @@ test('PostgreSQL migration enforces concurrent claims, retry schedules, tokens, 
       if not exists(select from pg_roles where rolname='service_role') then create role service_role bypassrls; end if;
     end $$;
     create table public.companies(id uuid primary key);`);
+    sql(readFileSync(new URL('../../supabase/migrations/202611100001_employee_research_readiness.sql', import.meta.url), 'utf8'));
+    assert.equal(sql('set role service_role; select employee_research_ready();').split('\n').at(-1), 'f');
     // Prove the documented prerequisite, without touching an existing database.
     assert.equal(sql("select to_regclass('public.company_employee_research') is null;"), 't');
     assert.throws(() => sql('select * from company_employee_research;'), /does not exist/);
     assert.throws(() => sql("select * from claim_employee_research(gen_random_uuid(), 'pilot.example', 'pilot');"), /does not exist/);
     assert.throws(() => sql("select finish_employee_research(gen_random_uuid(), gen_random_uuid(), 'needs_review', null, 'fixture');"), /does not exist/);
     sql(readFileSync(new URL('../../supabase/migrations/202611080001_employee_research.sql', import.meta.url), 'utf8'));
+    assert.equal(sql('begin read only; set local role service_role; select employee_research_ready(); rollback;').split('\n').includes('t'), true);
+    for (const permission of ['select', 'insert', 'update']) {
+      sql(`revoke ${permission} on company_employee_research from service_role;`);
+      assert.equal(sql('set role service_role; select employee_research_ready();').split('\n').at(-1), 'f');
+      sql(`grant ${permission} on company_employee_research to service_role;`);
+    }
+    for (const signature of ['claim_employee_research(uuid,text,text)', 'finish_employee_research(uuid,uuid,text,jsonb,text)']) {
+      sql(`revoke execute on function ${signature} from service_role;`);
+      assert.equal(sql('set role service_role; select employee_research_ready();').split('\n').at(-1), 'f');
+      sql(`grant execute on function ${signature} to service_role;`);
+    }
+    sql('alter table company_employee_research rename to hidden_employee_cache;');
+    assert.equal(sql('set role service_role; select employee_research_ready();').split('\n').at(-1), 'f');
+    sql('alter table hidden_employee_cache rename to company_employee_research;');
     const id = randomUUID();
     sql(`insert into companies values ('${id}');`);
     const claim = `select lease_token from claim_employee_research('${id}', 'pilot.example', 'pilot');`;
@@ -68,6 +84,7 @@ test('PostgreSQL migration enforces concurrent claims, retry schedules, tokens, 
     sql(`select finish_employee_research('${id}','${changed}','needs_review',null,'unresolved');`);
     assert.equal(sql(`select next_check_at between now()+interval '6 days' and now()+interval '8 days' from company_employee_research;`), 't');
     for (const role of ['anon', 'authenticated']) {
+      assert.throws(() => sql(`set role ${role}; select employee_research_ready();`), /permission denied/);
       assert.throws(() => sql(`set role ${role}; select * from company_employee_research;`), /permission denied/);
       assert.throws(() => sql(`set role ${role}; ${claim}`), /permission denied/);
       assert.throws(() => sql(`set role ${role}; select finish_employee_research('${id}','${changed}','needs_review',null,'bad');`), /permission denied/);

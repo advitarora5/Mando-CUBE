@@ -1,3 +1,4 @@
+import { employeeResearchEnabled } from "../src/pipeline/employee-research-setup.ts";
 // GET-only headcount audit. Never import the pipeline runner or mutation store.
 import { writeFileSync } from 'node:fs';
 import { lookup } from 'node:dns/promises';
@@ -65,7 +66,7 @@ export async function main(args, env = process.env) {
   };
   const save = () => writeFileSync(args[1], JSON.stringify(summary, null, 2), { mode: 0o600 });
   const ctx = {
-    now: () => new Date(), employeeWebResearch: true, fetch: getOnlyFetch,
+    now: () => new Date(), employeeWebResearch: employeeResearchEnabled(env.PIPELINE_EMPLOYEE_WEB_RESEARCH), fetch: getOnlyFetch,
     lookupHost: host => lookup(host, { all: true }), treg: null, contact: '',
     log: { info() {}, warn() {}, error() {} },
     spend: { spent: () => 0, record: async () => { throw new Error('No spend writes'); }, allow: async () => false },

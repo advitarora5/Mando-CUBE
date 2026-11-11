@@ -3,16 +3,19 @@ import { chicagoToday } from "../domain/scoring/go-live.ts";
 import { htmlToText } from "../domain/ingestion/quote.ts";
 import { employeeEvidenceFromDocument, type WebEmployeeEvidence } from "./employee-document-evidence.ts";
 import type { CompanyRow, PipelineContext } from "./types.ts";
+import { employeeResearchEnabled } from "./employee-research-setup.ts";
 
 // Reuse employer-authored descriptions already collected by the Workday pipeline.
 // A Workday hostname alone does not establish which company owns a statement.
 export async function lookupEmployeeWorkday(ctx: PipelineContext, company: Pick<CompanyRow, "id" | "name">): Promise<WebEmployeeEvidence | null> {
-  if (!ctx.employeeWebResearch) return null;
+  if (!employeeResearchEnabled(ctx.employeeWebResearch)) return null;
   const name = normalizeName(company.name);
   const sites = (await ctx.store.workdaySites(true)).filter(site => site.company_id === company.id && site.normalized_name === name);
+  ctx.signal?.throwIfAborted();
   if (!sites.length) return null;
   const found: WebEmployeeEvidence[] = [];
   for (const capture of await ctx.store.websiteEvidenceCaptures(name, 20)) {
+    ctx.signal?.throwIfAborted();
     const observed = new Date(capture.last_seen_at);
     const age = ctx.now().getTime() - observed.getTime();
     if (!Number.isFinite(age) || age < 0 || age > 30 * 86400000 || (capture.meta.company_id != null && capture.meta.company_id !== company.id) || capture.meta.kind !== "workday_job") continue;

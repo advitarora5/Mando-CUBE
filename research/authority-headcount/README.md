@@ -1,7 +1,7 @@
 # Employee headcount collection
 
 [Exact teammate setup](TEAMMATE_SETUP.md): dependencies, migration/roles, source
-defaults, local configuration, explicit activation and missing-setup diagnostics.
+defaults, local configuration, default-on configuration, explicit opt-out and readiness diagnostics.
 
 [Current-company audit](CURRENT_COMPANIES_AUDIT.md): **8/207 companies** have accepted
 automatic headcount evidence. No additional points are supported against saved
@@ -35,7 +35,7 @@ Use existing private environment files; never commit keys or database snapshots.
 | Variable | Purpose |
 | --- | --- |
 | `PIPELINE_EMPLOYEE_EVIDENCE_FILE` | Optional reviewed JSON. [Sample](reviewed-evidence.example.json) is manual evidence, not automatic coverage. Recheck entity, date and source before use. |
-| `PIPELINE_EMPLOYEE_WEB_RESEARCH` | Disabled by default; `1` enables saved Workday reuse and official-site fallback in the pipeline. Leave production disabled for this work. |
+| `PIPELINE_EMPLOYEE_WEB_RESEARCH` | Enabled by default, including unset/empty; `0`, `false`, `off`, `no` or `disable(d)` explicitly disables new Workday/website research. |
 | `PIPELINE_EMPLOYEE_WEB_MAX_COMPANIES` | New website-research cap per context: default 5, bounded to 1–20. |
 
 The fallback uses six documents, eighteen HTTP requests and 45 seconds per company,
@@ -43,9 +43,14 @@ with public-DNS, robots, redirect and response-size safeguards. Optional zero-co
 search discovers URLs only; snippets never establish workforce size. Research-cache
 leases protect ownership; matching evidence refreshes in 30 days, unresolved cases
 retry in 7 days, source failures in 1 day. Entity changes invalidate cached evidence.
-Missing storage disables this fallback without activating or migrating shared data.
+A bounded, read-only startup RPC verifies storage and actual permissions. Missing
+setup skips website collection with a warning; saved Workday reuse and unrelated
+stages continue. Failed lookups retain only still-valid, previously awarded/cache-
+bound evidence and never invent a bonus.
 The prepared migration is `supabase/migrations/202611080001_employee_research.sql`;
-shared migration, merge and production activation require separate authorization.
+the startup probe also needs `202611100001_employee_research_readiness.sql`. Both
+are one-time database release prerequisites; neither is auto-applied. Teammates
+must run the updated code.
 
 ## GET-only current-company audit
 
