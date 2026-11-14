@@ -139,3 +139,22 @@ for (const state of ['missing', 'unverified', 'verified']) {
     assert.deepEqual(calls, ['treg.people.search']);
   });
 }
+
+test('completion recognizes the live Filtrat verified verdict and keeps other ambiguous verdicts risky', async () => {
+  for (const [provider, status, valid, expected] of [
+    ['filtrat.people.email.verify.resolve_catchall', 'verified', undefined, true],
+    ['filtrat.people.email.verify.resolve_catchall', 'verified', false, false],
+    ['filtrat.people.email.verify.resolve_catchall', 'catchall', undefined, false],
+    ['unknown', 'verified', undefined, false],
+  ]) {
+    const { ctx } = await setup([{ email: 'manual@example.com' }]);
+    ctx.treg = worldTreg({ extra: { [VERIFY]: async () => ({
+      ok: true, status: 200, body: { output: { status, valid }, _treg: { served_by: provider } },
+      cost_usd: 0, call_id: 'v',
+    }) } });
+    const result = await enrichStage(ctx, { maxCompanies: 1 });
+    assert.deepEqual(result.errors, []);
+    assert.equal(ctx.store.contacts[0].email_verified, expected);
+    assert.equal(ctx.store.contacts[0].email_status, expected ? 'valid' : 'risky');
+  }
+});

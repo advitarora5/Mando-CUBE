@@ -29,9 +29,13 @@ export async function completeContact({ company, contact, call }) {
   if (email) {
     const verified = await call(company.id, 'treg.people.email.verify', { email });
     const result = verified.response?.output;
-    const verdict = result?.status?.toLowerCase();
-    state = { email_status: verdict === 'valid' && result.valid === true ? 'valid' : verdict === 'invalid' ? 'invalid' : 'risky',
-      email_verified: verdict === 'valid' && result.valid === true };
+    const verdict = typeof result?.status === 'string' ? result.status.toLowerCase() : null;
+    const provider = verified.response?._treg?.served_by ?? verified.provider;
+    // Filtrat reports a successful verification as "verified" without a separate valid flag.
+    const isVerified = (verdict === 'valid' && result.valid === true)
+      || (verdict === 'verified' && result.valid !== false && ['filtrat.people.email.verify', 'filtrat.people.email.verify.resolve_catchall'].includes(provider));
+    state = { email_status: isVerified ? 'valid' : verdict === 'invalid' ? 'invalid' : 'risky',
+      email_verified: isVerified };
     completion[contactCallKey('treg.people.email.verify', { email })] = { verdict: state.email_status, provider: verified.provider, call_id: verified.call_id, endpoint: 'treg.people.email.verify' };
   }
   if (!contact.email && state.email_status === 'invalid') email = null;
