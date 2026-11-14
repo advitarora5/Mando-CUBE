@@ -30,18 +30,18 @@ test('fresh sourced customer/hiring evidence unlocks research at any stored conf
   }
 });
 
-test('below 25 points, free research finds unconfirmed contacts and rescoring retains source links without paid email', async () => {
+test('below 25 points, free research finds unconfirmed contacts and rescoring retains source links with verified email', async () => {
   const { ctx, id } = await world();
   const first = await ctx.store.latestScore(id);
   assert.ok(first.budget_score + first.release_score + first.timing_score < 25);
   const result = await enrichStage(ctx, { maxCompanies: 1 });
   assert.equal(result.counts.contacts_added, 1);
-  assert.equal(ctx.treg.calls.filter(c => c.endpoint === EMAIL_FIND).length, 0, 'even with an available $1 paid cap');
+  assert.equal(ctx.treg.calls.filter(c => c.endpoint === EMAIL_FIND).length, 1, 'below-threshold companies receive completion');
   const contacts = await ctx.store.contactsForCompany(id);
   assert.equal(contacts[0].linkedin_status, 'unconfirmed');
   const latest = await ctx.store.latestScore(id);
   assert.equal(latest.authority_score, 5);
-  assert.equal(latest.reachability_score, 0);
+  assert.equal(latest.reachability_score, 15);
   assert.match(latest.authority_evidence, /https:\/\/www.linkedin.com\/in\/pat-lee-test/);
   assert.equal(ctx.store.scores.length, 2);
   const calls = ctx.treg.calls.length;
@@ -49,23 +49,12 @@ test('below 25 points, free research finds unconfirmed contacts and rescoring re
   assert.equal(ctx.treg.calls.length, calls, 'contact research is reused on repeat runs');
 });
 
-test('paid lookup still requires readiness and budget; raising readiness eligibility later resumes deferred work', async () => {
-  const { ctx } = await world();
-  await enrichStage(ctx, { maxCompanies: 1 });
-  ctx.store.settingsRows = [{ key: 'ready_for_contacts_threshold', value: 0 }];
-  await enrichStage(ctx, { maxCompanies: 1 });
-  assert.equal(ctx.treg.calls.filter(c => c.endpoint === EMAIL_FIND).length, 1);
-});
-
-test('free discovery hands off contacts to a later eligible enrichment run', async () => {
+test('free discovery hands off contacts to paid completion without changing readiness settings', async () => {
   const { ctx, id } = await world();
   const free = await enrichStage(ctx, { maxCompanies: 1, freeOnly: true });
   assert.equal(free.counts.contacts_added, 1);
-  assert.equal(await ctx.store.enrichmentStatus(id), 'pending');
-  await enrichStage(ctx, { maxCompanies: 1 });
   assert.equal(ctx.treg.calls.filter(call => call.endpoint === EMAIL_FIND).length, 0);
-
-  ctx.store.settingsRows = [{ key: 'ready_for_contacts_threshold', value: 0 }];
+  assert.equal(await ctx.store.enrichmentStatus(id), 'pending');
   const later = await enrichStage(ctx, { maxCompanies: 1 });
   assert.equal(later.counts.email_valid, 1);
   assert.equal(await ctx.store.enrichmentStatus(id), 'done');
@@ -143,6 +132,7 @@ test('automatic evidence promotes a leader below the title cutoff and removes a 
       ] : []),
   });
   const { ctx, id } = await world({ treg });
+  ctx.spend = makeCtx({ caps: { treg: 0, llm: 0 } }).spend;
   const result = await enrichStage(ctx, { maxCompanies: 1 });
   assert.equal(result.counts.people_candidates, 23);
   assert.equal(result.counts.contacts_auto_verified, 1);
@@ -184,6 +174,7 @@ test('saved provider contacts are refreshed in place, with a cooldown and a resc
     ]),
   });
   const { ctx, id } = await world({ treg });
+  ctx.spend = makeCtx({ caps: { treg: 0, llm: 0 } }).spend;
   const saved = await ctx.store.insertContact({ company_id: id, name: 'Pat Leader', title: lead.title, source: lead.employee_linkedin,
     linkedin_url: lead.employee_linkedin, linkedin_status: 'unconfirmed', email: null, phone: null,
     contact_sources: { name_title_linkedin: { fetched_at: '2026-10-01T12:00:00Z' }, preserved: 'other provenance' } });
@@ -214,6 +205,7 @@ test('focused search ranks independently reviewed leadership above title matches
   ];
   const treg = fakeTreg({ [PEOPLE_SEARCH]: () => peopleResult(people) });
   const { ctx, id } = await world({ treg });
+  ctx.spend = makeCtx({ caps: { treg: 0, llm: 0 } }).spend;
   ctx.contactReviews = contactReviewsSchema.parse([
     review('former', { status: 'different_employer' }),
     review('reviewed', { status: 'confirmed', title: 'Vice President, HR Service Delivery' }),
@@ -234,6 +226,7 @@ test('an empty focused search falls back to broad titles and later reviews updat
   const treg = fakeTreg({ [PEOPLE_SEARCH]: ({ body }) => peopleResult(body.title.include === FOCUSED_TITLE_PHRASES
     ? [] : [person('reviewed', 'HR Manager'), person('former', 'VP Workday')]) });
   const { ctx, id } = await world({ treg });
+  ctx.spend = makeCtx({ caps: { treg: 0, llm: 0 } }).spend;
   await enrichStage(ctx, { maxCompanies: 1 });
   assert.deepEqual(treg.calls.filter(call => call.endpoint === PEOPLE_SEARCH).map(call => call.opts.body.title.include), [FOCUSED_TITLE_PHRASES, TITLE_PHRASES]);
   ctx.contactReviews = contactReviewsSchema.parse([
@@ -254,7 +247,7 @@ test('an empty focused search falls back to broad titles and later reviews updat
   assert.deepEqual([expired.categories.authority.score, expired.categories.reachability.score], [5, 0]);
 });
 
-test('24 readiness points suppress email, while 25 permit a budgeted verified route and immediate rescore', async () => {
+test('24 and 25 readiness points both permit budgeted completion and immediate rescore', async () => {
   for (const budget of [11, 12]) {
     const { ctx, id } = await world();
     ctx.contact = 'fixture@example.com';
@@ -268,8 +261,8 @@ test('24 readiness points suppress email, while 25 permit a budgeted verified ro
     const previous = await ctx.store.latestScore(id);
     assert.equal(previous.budget_score + previous.release_score + previous.timing_score, budget + 13);
     const result = await enrichStage(ctx, { maxCompanies: 1 });
-    assert.equal(ctx.treg.calls.filter(call => call.endpoint === EMAIL_FIND).length, budget === 12 ? 1 : 0);
-    assert.equal(result.counts.email_valid ?? 0, budget === 12 ? 1 : 0);
-    assert.equal((await ctx.store.latestScore(id)).reachability_score, budget === 12 ? 15 : 0);
+    assert.equal(ctx.treg.calls.filter(call => call.endpoint === EMAIL_FIND).length, 1);
+    assert.equal(result.counts.email_valid ?? 0, 1);
+    assert.equal((await ctx.store.latestScore(id)).reachability_score, 15);
   }
 });
