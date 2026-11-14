@@ -138,7 +138,8 @@ test('failure: treg 402 and treg timeout -> contact lookup is skipped, the run s
   store.settingsRows = [{ key: "ready_for_contacts_threshold", value: 0 }];
   for (const id of store.companyRows.map(c => c.id)) await store.setEnrichment(id, 'pending', 'test');
   const r = await enrichStage(ctx, { maxCompanies: 3 });
-  assert.equal(r.counts.budget_skipped, 3, 'after the first 402 every company waits for budget');
+  assert.equal(r.counts.budget_skipped, 2);
+  assert.equal(r.counts.error_enrich, 1, 'uncertain paid result requires review');
   assert.equal(t402.calls.filter(c => c.endpoint === 'treg.people.email.find').length, 1);
   assert.ok(store.scores.length >= 12);
   const timeout = worldTreg({ emailFind: () => ({ ok: false, status: 0, error: 'treg timeout', cost_usd: 0 }), extra: { 'hunter.x.domain-finder': () => ({ ok: false, status: 0, error: 'treg timeout', cost_usd: 0 }) } });
@@ -221,7 +222,7 @@ test('similar name to an existing company goes to review with a suggestion; appr
   await assert.rejects(store.resolveReview(noSite.id, { action: 'reject' }, 'again', null));
 });
 
-test('spend: the budget cap is enforced and an existing LinkedIn URL never triggers a paid lookup', async () => {
+test('spend: the budget cap is enforced and existing contacts receive completion within budget', async () => {
   const treg = worldTreg();
   const { ctx, store } = world({ treg, caps: { treg: 0.03 } });
   await run(ctx, "weekly");

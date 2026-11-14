@@ -9,7 +9,10 @@ Candidates held only in `review_queue` are not researched.
 
 1. Apply `supabase/migrations/202610310001_contact_research_pipeline.sql` after the existing migrations.
    This creates an admission trigger and queues **all existing companies**, including manually added companies.
-   Applying the migration alone makes no provider requests and spends nothing.
+   Then apply `202611130001_contact_completion.sql` before starting either updated worker. Stop old
+   pipeline and queued workers during rollout; mixed versions cannot share the new lock protocol.
+   Applying these migrations alone makes no provider requests and spends nothing. The completion migration
+   requeues successful jobs with incomplete contacts and preserves blockers for historical uncertain calls.
 2. Configure server-only `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `TREG_TOKEN` privately.
    Local commands read `.env.local`; do not commit tokens or contact results.
 3. Preview the next batch: `npm run contacts:research`. This only reads pending job IDs and prints counts.
@@ -40,9 +43,10 @@ Treg enforces `X-Treg-Route-Max-Cost` as its documented reservation guard; actua
   Only `status=valid` **and** `valid=true` sets `email_verified=true`. Risky, catch-all, invalid,
   unknown and absent addresses remain unverified. Verification means mailbox deliverability, not
   independently confirmed current employment or consent to outreach. No outreach is sent.
-- Existing matching contacts are preserved, not refreshed or overwritten. Matches use normalized name,
+- Existing matching contacts are completed in place: missing emails are found and verified, unverified emails are verified without another lookup, and verified emails skip paid completion. Matches use normalized name,
   profile URL, or email within the company. An atomic database function serializes worker inserts per company.
-  Concurrent manual imports do not share that lock, so retain the existing one-import-at-a-time policy.
+  Compare-and-set completion rejects stale writes after concurrent manual edits. Concurrent manual imports
+  do not share the worker lock, so retain the existing one-import-at-a-time policy.
 - Provider attribution, call IDs, employer domain and verification verdicts are stored in `contact_sources`.
   Existing dashboard verification labels already read `email_verified` and `email_status`; no UI change is needed.
 - Phone discovery is not enabled; this implementation researches named contacts, profile links and work emails.
@@ -57,8 +61,9 @@ search checkpoint and research manually if the provider returned unsupported or 
 contact data or provider bodies are printed to Actions logs. These tables have RLS enabled without public policies.
 Job summaries describe the most recent completed attempt; run counts include contacts saved before a pause or failure.
 
-Every paid request gets a durable `contact_research_calls` checkpoint **before** dispatch. Completed responses
-are reused. A timeout, lost response, HTTP 202, missing charge metadata, provider error, ignored filter,
+Every paid request gets a durable `contact_completion_calls` checkpoint **before** dispatch. Completed responses
+are reused, including legacy `contact_research_calls` responses. Both workers share a non-expiring
+company lock in `contact_completion_locks`. A timeout, lost response, HTTP 202, missing charge metadata, provider error, ignored filter,
 or failed database write stops the worker. It never automatically retries an uncertain paid call.
 One blocked company stops that run; later hourly runs can continue with other pending companies.
 
@@ -68,7 +73,7 @@ stored result rather than purchasing another call. Reconcile charges and respons
 checkpoint succeeded. Only remove a failed/running checkpoint if you have confirmed that it cannot still
 complete or charge. Then set the company's job back to `pending` and clear its `error` to resume.
 The same reconciliation is required for `running` jobs left by a terminated worker; they are intentionally
-not reclaimed automatically. Keep successful checkpoints to avoid repeat charges. Changing a company's
+not reclaimed automatically. Reconcile any in-flight calls before releasing the matching company lock. Keep successful checkpoints to avoid repeat charges. Changing a company's
 domain or correcting provider results also requires an explicit review/requeue, not an automatic refresh.
 
 Provider contracts checked against the public treg documentation and catalog on October 31, 2026:
@@ -85,3 +90,5 @@ Offline checks: `node --test tests/contact-research.test.mjs`, then `npm test`, 
 `npm run typecheck`, and `npm run build`. No live credit-consuming test is part of these commands.
 `tests/contact-research.sql` is an additional rollback-only smoke test for a disposable PostgreSQL database
 with the migrations applied and Supabase roles present; it checks admission, claiming, deduplication and RPC permissions.
+
+See [contact completion rollout and limitations](../docs/contact-research-readiness.md#shared-checkpoints-and-rollout) for shared pipeline behavior and the offline migration check.

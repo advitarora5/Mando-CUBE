@@ -18,7 +18,7 @@ export function assertAllowedTarget(url: string, allowRemote: string | undefined
   throw new Error(`Refusing to write to remote Supabase project "${ref}". The pipeline targets a local or test database; set PIPELINE_ALLOW_REMOTE=${ref} only for an approved test project.`);
 }
 
-const CONTACT_FIELDS = "id, company_id, name, title, source, linkedin_url, linkedin_status, email, email_status, email_source, phone, phone_status, phone_source, mutual_connection, contact_sources";
+const CONTACT_FIELDS = "id, company_id, name, title, source, linkedin_url, linkedin_status, email, email_verified, email_status, email_source, phone, phone_status, phone_source, mutual_connection, contact_sources";
 const PAGE = 1000;
 const SCORE_FIELDS = "id, company_id, assessed_at, rubric_version, tier, authority_score, authority_evidence, reachability_score, reachability_evidence, budget_score, budget_evidence, release_score, release_evidence, timing_score, timing_evidence";
 
@@ -233,9 +233,27 @@ export class SupabaseStore implements PipelineStore {
     this.check(await this.db.from("contacts").update(patch).eq("id", contactId), "update contact");
   }
   async insertContact(contact: Omit<ContactRow, "id"> & { contact_sources?: unknown }) {
-    return (this.check(await this.db.from("contacts").insert(contact).select("id").single(), "insert contact") as { id: string }).id;
+    return this.check(await this.db.rpc("insert_contact_if_absent", { p_company_id: contact.company_id, p_contact: contact }), "insert contact") as string;
   }
 
+  async claimContactResearch(companyId: string, owner: string) {
+    return this.check(await this.db.rpc("lock_contact_completion", { p_company_id: companyId, p_owner: owner }), "lock contact research") as boolean;
+  }
+  async releaseContactResearch(companyId: string, owner: string) {
+    this.check(await this.db.from("contact_completion_locks").delete().eq("company_id", companyId).eq("owner", owner), "release contact research");
+  }
+  async contactCall(companyId: string, key: string) {
+    return this.check(await this.db.from("contact_completion_calls").select("*").eq("company_id", companyId).eq("request_key", key).maybeSingle(), "contact checkpoint") ?? this.check(await this.db.from("contact_research_calls").select("*").eq("company_id", companyId).eq("request_key", key).maybeSingle(), "legacy contact checkpoint");
+  }
+  async startContactCall(companyId: string, key: string, endpoint: string) {
+    this.check(await this.db.from("contact_completion_calls").insert({ company_id: companyId, request_key: key, endpoint, status: "running" }), "claim contact call");
+  }
+  async finishContactCall(companyId: string, key: string, result: import("../types.ts").ContactCall) {
+    this.check(await this.db.from("contact_completion_calls").update(result).eq("company_id", companyId).eq("request_key", key), "finish contact call");
+  }
+  async completeContact(contact: ContactRow, patch: Record<string, unknown>) {
+    return this.check(await this.db.rpc("complete_contact_if_unchanged", { p_id: contact.id, p_expected: contact, p_patch: patch }), "complete contact") as boolean;
+  }
   async paidCall(key: string) {
     return this.check(await this.db.from("paid_calls").select("outcome, response, cost_usd").eq("idempotency_key", key).maybeSingle(), "paid call") as { outcome: string; response: unknown; cost_usd: number } | null;
   }
