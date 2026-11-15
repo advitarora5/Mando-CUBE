@@ -7,6 +7,7 @@ import type { ScoreChange } from "../domain/ingestion/score-change.ts";
 import type { LedgerEntry } from "../domain/ingestion/budget.ts";
 import type { ContactReview } from "./contact-review.ts";
 import type { SectionScope, SectionProgress } from "./section-scope.ts";
+import type { ScoringClaim, ScoringQueueStatus } from "./scoring-queue.ts";
 
 // ---------- Sources and collectors ----------
 
@@ -190,6 +191,13 @@ export interface PipelineStore {
   signalsForCompany(companyId: string): Promise<SignalRow[]>;
 
   companies(): Promise<CompanyRow[]>;
+  companyById(id: string): Promise<CompanyRow | null>;
+  companyCreatedInRun(companyId: string, runId: string | null): Promise<boolean>;
+  enqueueScoring(companyId: string): Promise<void>;
+  claimScoring(companyId?: string): Promise<ScoringClaim | null>;
+  finishScoring(claim: ScoringClaim, score: ScoreRow | null, assessedAt: string, change?: ScoreChange): Promise<void>;
+  failScoring(claim: ScoringClaim, reason: "score_failed" | "financials_deferred"): Promise<void>;
+  scoringQueueStatus(): Promise<ScoringQueueStatus>;
   // Atomic: company + origin row + its waiting signals and Workday sites, or nothing.
   createPipelineCompany(company: { name: string; domain: string | null; employee_count: number | null; source: string }, runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null; scope?: SectionScope }): Promise<string>;
   // An unchanged capture was seen again: its signals stay fresh.
@@ -241,6 +249,7 @@ export interface SpendGuard {
 }
 
 export type PipelineContext = {
+  financialsIndex?: Map<string, number>;
   sectionScope?: SectionScope;
   sectionIssuer?: { cik: number; name: string };
   store: PipelineStore;

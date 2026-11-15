@@ -4,6 +4,7 @@
 //                            [--limit N] [--dry-run] [--max-spend USD] [--no-llm] [--no-treg] [--trigger manual|schedule|import_button]
 //   npm run pipeline -- import <file.csv> [--dry-run]
 //   npm run pipeline -- health
+//   npm run pipeline -- scoring status | enqueue <company-id> | work [--limit 25] [--watch]
 //   npm run pipeline -- sections | section <1-10> [--preview | --limit N --no-llm --no-treg --max-spend USD]
 //   npm run pipeline -- review list | approve <id> [--domain example.com] | merge <id> <company_id> | reject <id> [--note text]
 //
@@ -31,6 +32,11 @@ function flags(argv) {
 }
 
 async function main() {
+  if (process.argv[2] === "scoring") {
+    const { scoringCommand } = await import("./pipeline-scoring.mjs");
+    await scoringCommand(process.argv.slice(3), process.env);
+    return;
+  }
   if (["section", "sections"].includes(process.argv[2])) {
     await sectionCommand(process.argv.slice(2), process.env);
     return;
@@ -75,7 +81,7 @@ async function main() {
     else if (action === "reject") await ctx.store.resolveReview(id, { action: "reject" }, args.note ?? "rejected via CLI", null);
     else throw new Error(`unknown review action ${action}`);
   } else {
-    console.log("usage: pipeline run|import|health|review|sections|section  (see the header of scripts/pipeline.mjs)");
+    console.log("usage: pipeline run|import|health|review|sections|section|scoring  (see the header of scripts/pipeline.mjs)");
     process.exitCode = command ? 1 : 0;
   }
 }

@@ -13,6 +13,7 @@ import { collectors } from "./collectors/sources.ts";
 import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
 import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
 import { sectionNames } from "./section-scope.ts";
+import type { ScoringClaim } from "./scoring-queue.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
 // candidate_keys: short hashes of the names a match pass checked, so a batch can count unique candidates without listing them.
@@ -236,8 +237,9 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         if (decision.action === "create" || decision.action === "attach") {
           if (pageName && decision.action === "create") await ctx.store.updatePendingReview(waiting.id, { candidate_name: pageName, candidate_domain: waiting.candidate_domain, reason: waiting.reason, suggested_company_id: waiting.suggested_company_id });
           const id = await ctx.store.admitReview(waiting.id, lookup.domain!, source!, decision.action === "attach" ? decision.company_id : null, ctx.runId, ctx.sectionScope);
-          if (decision.action === "create") { known.push({ id, name: pageName ?? waiting.candidate_name, domain: lookup.domain, employee_count: waiting.employee_count, pipeline: true }); created++; }
-          bump(r, decision.action === "create" ? "new_companies" : "attached_existing");
+          const inserted = decision.action === "create" && await ctx.store.companyCreatedInRun(id, ctx.runId);
+          if (decision.action === "create") { known.push({ id, name: pageName ?? waiting.candidate_name, domain: lookup.domain, employee_count: waiting.employee_count, pipeline: inserted }); if (inserted) created++; }
+          bump(r, inserted ? "new_companies" : "attached_existing");
           bump(r, "recovered_reviews");
         } else {
           await ctx.store.updatePendingReview(waiting.id, { candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, reason: decision.reason, suggested_company_id: decision.suggested_company_id });
@@ -252,7 +254,9 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         const companyName = pageName ?? displayName(name, null);
         const id = await ctx.store.createPipelineCompany({ name: companyName, domain: lookup.domain, employee_count: null, source: source! }, ctx.runId, { signal_ids: ids, normalized_name: normalized, scope: ctx.sectionScope });
         known.push({ id, name: companyName, domain: lookup.domain, employee_count: null, pipeline: true });
-        created++; bump(r, "new_companies");
+        const inserted = await ctx.store.companyCreatedInRun(id, ctx.runId);
+        if (inserted) created++;
+        bump(r, inserted ? "new_companies" : "attached_existing");
       } else {
         const item = await ctx.store.addReviewItem({ candidate_name: pageName ?? displayName(name, null), normalized_name: normalized, candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, employee_count: null, suggested_company_id: decision.suggested_company_id, reason: decision.reason });
         await ctx.store.assignSignals(ids, { review_item_id: item.id });
@@ -260,7 +264,18 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         bump(r, item.inserted ? `review_${decision.reason}` : "review_existing");
       }
       if (lookup.domain) bump(r, "with_website");
-    } catch (error) { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
+    } catch (error) {
+      if (/Company identity requires review/.test(message(error)) && !opts.dryRun) {
+        const item = reviews.get(normalized);
+        if (item) await ctx.store.updatePendingReview(item.id, { candidate_domain: item.candidate_domain, reason: "similar_name", suggested_company_id: null });
+        else {
+          const review = await ctx.store.addReviewItem({ candidate_name: signals[0].company_name!, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: "similar_name" });
+          await ctx.store.assignSignals(signals.map(s => s.id), { review_item_id: review.id });
+          await ctx.store.linkWorkdaySites(normalized, { review_item_id: review.id }, ctx.sectionScope);
+        }
+        bump(r, "review_identity_conflict");
+      } else { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
+    }
   }
   r.requests = http.requests;
   r.treg_spend_usd = ctx.spend.spent("treg") - initialSpend;
@@ -282,13 +297,15 @@ import { buildScoreChange, type ScoreTrigger } from "../domain/ingestion/score-c
 
 // Scores every in-scope company. A new row is appended only when something changed, or every 14 days.
 // Out-of-scope companies (existing companies while scope is pipeline_only) are never touched.
-export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[]; trigger?: ScoreTrigger } = {}): Promise<StageResult> {
+export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[]; trigger?: ScoreTrigger; queued?: ScoringClaim } = {}): Promise<StageResult> {
+  if (opts.queued && (ctx.sectionScope || opts.companyIds?.length !== 1 || opts.companyIds[0] !== opts.queued.company_id)) throw Error("Queued scoring requires exactly the claimed company.");
   const r = result();
   const settings = await ctx.store.settings();
   const now = ctx.now();
-  const companies = (await ctx.store.companies()).filter(c => !opts.companyIds || opts.companyIds.includes(c.id));
+  const claimedCompany = opts.queued ? await ctx.store.companyById(opts.queued.company_id) : null;
+  const companies = opts.queued ? (claimedCompany ? [claimedCompany] : []) : (await ctx.store.companies()).filter(c => !opts.companyIds || opts.companyIds.includes(c.id));
   for (const company of companies) {
-    if (!mayScore(settings, company.pipeline)) { bump(r, "out_of_scope"); continue; }
+    if (!opts.queued && !mayScore(settings, company.pipeline)) { bump(r, "out_of_scope"); continue; }
     try {
       const signals = await ctx.store.signalsForCompany(company.id);
       const contacts = await ctx.store.contactsForCompany(company.id);
@@ -305,14 +322,19 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       // A lookup that could not run is not evidence that capacity disappeared: keep the saved assessment until it can.
       const deferred = financialsUnavailable(lookup.status) && !!latest && Number(assessment.result.row.budget_score) < Number(latest.budget_score);
       if (deferred) bump(r, "financials_deferred");
-      else if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
+      else if (sameScore(latest, assessment.result.row) && !due) {
+        if (opts.queued) { await ctx.store.finishScoring(opts.queued, null, now.toISOString()); bump(r, "queue_completed"); }
+        bump(r, "unchanged");
+      }
       else {
         // An unchanged score that is only re-saved because it is due is a refresh; anything else was started by the caller.
         const trigger: ScoreTrigger = sameScore(latest, assessment.result.row) ? "periodic_refresh" : opts.trigger ?? "pipeline_run";
-        await ctx.store.insertScore(assessment.result.row, now.toISOString(), buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId }));
+        const change = buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId });
+        if (opts.queued) { await ctx.store.finishScoring(opts.queued, assessment.result.row, now.toISOString(), change); bump(r, "queue_completed"); }
+        else await ctx.store.insertScore(assessment.result.row, now.toISOString(), change);
         bump(r, latest ? "rescored" : "scored");
       }
-      if (!deferred && assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
+      if (!opts.queued && !deferred && assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
         await ctx.store.setEnrichment(company.id, "pending", "Budget + Release + Timing reached the ready-for-contacts threshold.");
         bump(r, "ready_for_contacts");
       }

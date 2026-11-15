@@ -41,7 +41,7 @@ Secrets live only in environment variables, `.env.pipeline.local` and GitHub sec
 
 ## 2. Run it
 
-For fixed **10-section SEC assignments and scoped execution**, see [SEC sections](pipeline-sections.md). Use `npm run pipeline -- sections`, `npm run pipeline -- section 3 --preview`, or `npm run pipeline -- section 3 --limit 25 --no-llm --max-spend 0`. Section runs resume discovery and process owned evidence without scoring or contact enrichment. The existing commands below do not enforce section assignments.
+For fixed **10-section SEC assignments and scoped execution**, see [SEC sections](pipeline-sections.md). Use `npm run pipeline -- sections`, `npm run pipeline -- section 3 --preview`, or `npm run pipeline -- section 3 --limit 25 --no-llm --max-spend 0`. Section runs resume discovery, process owned evidence, and queue scoring; run `npm run pipeline -- scoring work --watch --limit 25` in a separate terminal. Section runs and the scoring worker do not perform contact enrichment. The existing commands below do not enforce section assignments.
 
 ```bash
 npm run pipeline -- run --plan weekly --limit 20            # discovery: SEC -> resolver -> extract -> match -> score

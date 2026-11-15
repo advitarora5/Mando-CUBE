@@ -4,12 +4,14 @@
 // Run: npm run test:integration   (skips when PIPELINE_SUPABASE_URL is not a reachable local database)
 import { test, after } from 'node:test';
 import { randomUUID, createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
 import { matchStage, extractStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
 import { integrationDatabase } from '../helpers/integration-database.mjs';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
 import { runPipeline } from '../../src/pipeline/runner.ts';
+import { workScoringQueue } from '../../src/pipeline/scoring-queue.ts';
 import { discoveryScoreScope } from '../../scripts/discovery-score-scope.mjs';
 import { makeCtx, clock, worldFetch, worldTreg, groundedModel, randomNames, worldTenant } from '../ingestion/helpers.mjs';
 
@@ -24,6 +26,130 @@ const count = async table => (await db.from(table).select('id', { count: 'exact'
 const disabled = [];
 const testTenants = [];
 const cleanupCompanies = [];
+
+test('separate processes admitting the same confirmed host save one company with both sections of evidence', { skip }, async () => {
+  const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, names = randomNames(2, seed + 81281);
+  const domain = `${worldTenant(names[0])}.example`, captures = [], signals = [], runs = [], children = [];
+  const scopes = names.map((name, i) => ({ version, section: i + 5, snapshotSha256: 'e'.repeat(64), ambiguousNames: [], issuers: [{ cik: 9300000 + i, name }] }));
+  let company;
+  try {
+    for (const [i, scope] of scopes.entries()) {
+      await store.ensureSection(scope);
+      const raw = `Fictional parallel admission evidence ${version} ${i}`;
+      const capture = await store.saveCapture({ source: 'workday-site-resolver', url: `https://fixture.example/${version}/${i}`, raw, fingerprint: createHash('sha256').update(raw).digest('hex'), fetched_at: new Date().toISOString(), http_status: 200, content_type: 'text/plain', meta: { normalized_name: normalizeName(names[i]), company_name: names[i] } }, null);
+      captures.push(capture);
+      await store.linkSectionCapture(scope, scope.issuers[0].cik, capture.id);
+      signals.push(await store.upsertSignal({ company_id: null, review_item_id: null, capture_id: capture.id, extraction_id: null, type: 'known_customer', signal_date: null, source_url: `https://fixture.example/${version}/${i}`, quote: raw, confidence: 0.9, company_name: names[i], products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: new Date().toISOString() }));
+      runs.push(await store.startRun({ job: 'fictional_parallel_admission', source_id: null, trigger: 'manual' }));
+    }
+    const childCode = `
+      import { SupabaseStore } from './src/pipeline/store/supabase.ts';
+      const request = JSON.parse(process.argv[1]);
+      const store = new SupabaseStore(process.env.PIPELINE_SUPABASE_URL, process.env.PIPELINE_SUPABASE_KEY);
+      process.stdin.once('data', async () => {
+        try { const id = await store.createPipelineCompany(request.company, request.run, request.attach); console.log(JSON.stringify({ id })); }
+        catch { console.error('Fictional parallel admission failed'); process.exitCode = 1; }
+      });
+      console.log('ready');
+    `;
+    for (const [i, scope] of scopes.entries()) {
+      const request = { company: { name: names[i], domain: i ? `https://www.${domain.toUpperCase()}/careers` : domain, employee_count: null, source: `https://fixture.example/${version}/${i}` }, run: runs[i], attach: { signal_ids: [signals[i].id], normalized_name: normalizeName(names[i]), scope } };
+      const child = spawn(process.execPath, ['--input-type=module', '-e', childCode, JSON.stringify(request)], { cwd: process.cwd(), env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
+      children.push(child);
+      let stdout = '', stderr = '';
+      let ready;
+      const waiting = new Promise(resolve => { ready = resolve; });
+      child.stdout.on('data', chunk => { stdout += chunk; if (stdout.includes('ready\n')) ready(); });
+      child.stderr.on('data', chunk => { stderr += chunk; });
+      child.result = new Promise((resolve, reject) => {
+        child.once('error', reject);
+        child.once('exit', code => { if (code) reject(Error(`Admission child exited ${code}: ${stderr}`)); else resolve(JSON.parse(stdout.trim().split('\n').at(-1))); });
+      });
+      await Promise.race([waiting, child.result.then(() => { throw Error('Admission child exited before barrier'); })]);
+    }
+    for (const child of children) child.stdin.end('go\n');
+    const [a, b] = await Promise.all(children.map(c => c.result));
+    assert.equal(a.id, b.id); company = a.id;
+    const rows = (await db.from('companies').select('id,name,source').eq('domain', domain)).data;
+    assert.equal(rows.length, 1);
+    assert.ok(names.includes(rows[0].name));
+    assert.equal((await db.from('signals').select('id').eq('company_id', company)).data.length, 2);
+    assert.equal((await db.from('company_scoring_jobs').select('company_id').eq('company_id', company)).data.length, 1);
+    const existing = structuredClone(rows[0]);
+    assert.equal(await store.createPipelineCompany({ name: 'Fictional alternative label', domain, employee_count: 999, source: 'https://replacement.example/' }, null, { signal_ids: [], normalized_name: null }), company);
+    assert.deepEqual((await db.from('companies').select('id,name,source').eq('id', company).single()).data, existing);
+    const scored = await workScoringQueue(makeCtx({ store, now: () => new Date() }), { limit: 5, companyId: company });
+    assert.equal(scored.completed, 1);
+    assert.equal((await db.from('scores').select('id').eq('company_id', company)).data.length, 1);
+    await assert.rejects(store.createPipelineCompany({ name: rows[0].name, domain: `different-${domain}`, employee_count: null, source: 'https://fixture.example/' }, null, { signal_ids: [], normalized_name: null }), /identity requires review/);
+    const direct = await db.from('companies').insert({ name: 'Fictional direct duplicate', domain: `https://www.${domain}/` });
+    assert.equal(direct.error?.code, '23505', 'direct/import writes cannot bypass canonical host protection');
+  } finally {
+    for (const child of children) if (child.exitCode === null) child.kill('SIGTERM');
+    for (const c of captures) await store.saveExtraction({ capture_id: c.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+    if (captures.length) await db.from('signals').delete().in('capture_id', captures.map(c => c.id));
+    if (company) await db.from('companies').delete().eq('id', company);
+    await db.from('pipeline_section_issuers').delete().eq('version', version);
+    for (const run of runs) await store.finishRun(run, { status: 'succeeded', counts: {}, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0, error: null });
+  }
+});
+
+test('scoring queue atomically commits, retains newer evidence, recovers claims, and does not lose failed work', { skip }, async () => {
+  const store = new SupabaseStore(url, key), name = randomNames(1, seed + 91691)[0];
+  const company = await store.createPipelineCompany({ name, domain: `${worldTenant(name)}.example`, employee_count: null, source: 'https://fixture.example/' }, null, { signal_ids: [], normalized_name: null });
+  try {
+    const [a, b] = await Promise.all([store.claimScoring(company), store.claimScoring(company)]);
+    const claim = a ?? b;
+    assert.ok(claim); assert.equal([a,b].filter(Boolean).length, 1);
+    const invalid = { company_id: company, rubric_version: 'fictional-invalid', tier: 'Maybe', authority_score: 999, reachability_score: 0, budget_score: 0, release_score: 0, timing_score: 0 };
+    await assert.rejects(store.finishScoring(claim, invalid, new Date().toISOString()));
+    assert.equal((await db.from('scores').select('id').eq('company_id', company)).data.length, 0);
+    assert.equal((await db.from('company_scoring_jobs').select('completed_version').eq('company_id', company).single()).data.completed_version, 0);
+    await store.failScoring(claim, 'score_failed');
+    assert.equal(await store.claimScoring(company), null, 'failure backoff is respected');
+    await db.from('company_scoring_jobs').update({ available_at: new Date(Date.now()-1000).toISOString() }).eq('company_id', company);
+    const ctx = makeCtx({ store, now: () => new Date() });
+    const finish = store.finishScoring.bind(store);
+    store.finishScoring = async (...args) => { await store.enqueueScoring(company); return finish(...args); };
+    assert.equal((await workScoringQueue(ctx, { limit: 1, companyId: company })).completed, 1);
+    let job = (await db.from('company_scoring_jobs').select('*').eq('company_id', company).single()).data;
+    assert.equal(job.status, 'pending'); assert.ok(job.requested_version > job.completed_version);
+    store.finishScoring = finish;
+    assert.equal((await workScoringQueue(ctx, { limit: 1, companyId: company })).completed, 1);
+    assert.equal((await db.from('scores').select('id').eq('company_id', company)).data.length, 1, 'unchanged evidence is acknowledged without a duplicate score');
+    await store.enqueueScoring(company);
+    const abandoned = await store.claimScoring(company);
+    await db.from('company_scoring_jobs').update({ locked_until: new Date(Date.now()-1000).toISOString() }).eq('company_id', company);
+    const replacement = await store.claimScoring(company);
+    assert.notEqual(abandoned.token, replacement.token);
+    await assert.rejects(store.finishScoring(abandoned, null, new Date().toISOString()), /no longer current/);
+    await store.failScoring(abandoned, 'score_failed');
+    job = (await db.from('company_scoring_jobs').select('claim_token').eq('company_id', company).single()).data;
+    assert.equal(job.claim_token, replacement.token);
+    await store.finishScoring(replacement, null, new Date().toISOString());
+  } finally { await db.from('companies').delete().eq('id', company); }
+});
+
+test('direct concurrent inserts cannot bypass canonical website protection', { skip }, async () => {
+  const name = randomNames(1, seed + 107711)[0], domain = `${worldTenant(name)}.example`;
+  try {
+    const results = await Promise.all([
+      db.from('companies').insert({ name, domain }).select('id'),
+      db.from('companies').insert({ name: `${name} alternate`, domain: `https://www.${domain}/careers` }).select('id'),
+    ]);
+    assert.equal(results.filter(r => !r.error).length, 1);
+    assert.equal(results.find(r => r.error).error.code, '23505');
+  } finally { await db.from('companies').delete().in('name', [name, `${name} alternate`]); }
+});
+
+test('concurrent parent and subdomain admissions preserve the ambiguity review rule', { skip }, async () => {
+  const store = new SupabaseStore(url, key), names = randomNames(2, seed + 117721), domain = `${worldTenant(names[0])}.example`;
+  try {
+    const results = await Promise.allSettled(names.map((name, i) => store.createPipelineCompany({ name, domain: i ? `subsidiary.${domain}` : domain, employee_count: null, source: 'https://fixture.example/' }, null, { signal_ids: [], normalized_name: null })));
+    assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+    assert.match(results.find(r => r.status === 'rejected').reason.message, /identity requires review/);
+  } finally { await db.from('companies').delete().in('name', names); }
+});
 
 test('section runs share a real database without consuming other sections and resume across devices', { skip }, async () => {
   const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, names = randomNames(4, seed + 47213);
@@ -100,7 +226,7 @@ test('section extraction queues and review admission enforce capture membership 
     const savedSites = (await db.from('workday_sites').select('id,company_id').in('id', sites.map(s => s.id))).data;
     assert.equal(savedSites.find(s => s.id === sites[0].id).company_id, null);
     assert.equal(savedSites.find(s => s.id === sites[1].id).company_id, company);
-    await assert.rejects(store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, scope), /not eligible/);
+    assert.equal(await store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, scope), company, 'repeat section admission reuses the resolved company');
   } finally {
     for (const c of captures) await store.saveExtraction({ capture_id: c.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
     if (captures.length) await db.from('signals').delete().in('capture_id', captures.map(c => c.id));

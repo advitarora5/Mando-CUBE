@@ -120,8 +120,8 @@ export async function lookupFinancials(ctx: PipelineContext, companyName: string
   let state = cache.get(ctx);
   if (!state) { state = { index: null, byCik: new Map(), stopped: false }; cache.set(ctx, state); }
   if (!state.index) {
-    const capture = await ctx.store.latestCapture("sec-company-list");
-    state.index = capture ? cikIndex(capture.body) : new Map();
+    const capture = ctx.financialsIndex ? null : await ctx.store.latestCapture("sec-company-list");
+    state.index = ctx.financialsIndex ?? (capture ? cikIndex(capture.body) : new Map());
   }
   if (!state.index.size) return { financials: null, status: "no_sec_list", requests: 0 };
   const cik = state.index.get(normalizeName(companyName));

@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseSettings } from "../../domain/ingestion/settings.ts";
 import { normalizeName } from "../../domain/ingestion/normalize.ts";
 import { sectionNames, type SectionScope, type SectionProgress } from "../section-scope.ts";
+import type { ScoringClaim, ScoringQueueStatus } from "../scoring-queue.ts";
 import type { ScoreRow } from "../../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
@@ -166,7 +167,7 @@ export class SupabaseStore implements PipelineStore {
     return this.all<SignalRow>(() => this.db.from("signals").select("*").is("company_id", null).is("review_item_id", null).order("id"), "unassigned signals");
   }
   async assignSignals(ids: string[], target: { company_id: string } | { review_item_id: string }) {
-    if (ids.length) this.check(await this.db.from("signals").update(target).in("id", ids), "assign signals");
+    if (ids.length) this.check(await this.db.rpc("pipeline_assign_signals", { p_ids: ids, p_company: "company_id" in target ? target.company_id : null, p_review: "review_item_id" in target ? target.review_item_id : null }), "assign signals");
   }
   async signalsForCompany(companyId: string) {
     return this.all<SignalRow>(() => this.db.from("signals").select("*").eq("company_id", companyId).order("id"), "company signals");
@@ -175,6 +176,28 @@ export class SupabaseStore implements PipelineStore {
   async companies(): Promise<CompanyRow[]> {
     const rows = await this.all<{ id: string; name: string; domain: string | null; employee_count: number | null; company_origins: unknown }>(() => this.db.from("companies").select("id, name, domain, employee_count, company_origins(origin)").order("id"), "companies");
     return rows.map(r => ({ id: r.id, name: r.name, domain: r.domain, employee_count: r.employee_count, pipeline: Array.isArray(r.company_origins) ? r.company_origins.length > 0 : !!r.company_origins }));
+  }
+  async companyCreatedInRun(companyId: string, runId: string | null) {
+    const row = this.check(await this.db.from("company_origins").select("run_id").eq("company_id", companyId).maybeSingle(), "company admission origin");
+    return !!row && row.run_id === runId;
+  }
+  async companyById(id: string): Promise<CompanyRow | null> {
+    const row = this.check(await this.db.from("companies").select("id,name,domain,employee_count,company_origins(origin)").eq("id", id).maybeSingle(), "scoring company");
+    return row ? { id: row.id, name: row.name, domain: row.domain, employee_count: row.employee_count, pipeline: Array.isArray(row.company_origins) ? row.company_origins.length > 0 : !!row.company_origins } : null;
+  }
+  async enqueueScoring(companyId: string) { this.check(await this.db.rpc("enqueue_company_scoring", { p_company: companyId }), "enqueue scoring"); }
+  async claimScoring(companyId?: string) { return this.check(await this.db.rpc("claim_company_scoring", { p_company: companyId ?? null }), "claim scoring") as ScoringClaim | null; }
+  async finishScoring(claim: ScoringClaim, score: ScoreRow | null, assessedAt: string, change?: ScoreChange) {
+    this.check(await this.db.rpc("finish_company_scoring", { p_company: claim.company_id, p_token: claim.token, p_version: claim.version, p_score: score, p_assessed_at: assessedAt, p_change: change ?? null }), "finish scoring");
+  }
+  async failScoring(claim: ScoringClaim, reason: "score_failed" | "financials_deferred") {
+    this.check(await this.db.rpc("fail_company_scoring", { p_company: claim.company_id, p_token: claim.token, p_version: claim.version, p_reason: reason }), "retry scoring");
+  }
+  async scoringQueueStatus(): Promise<ScoringQueueStatus> {
+    const rows = await this.all<{ status: keyof ScoringQueueStatus }>(() => this.db.from("company_scoring_jobs").select("status").order("company_id"), "scoring queue status");
+    const counts: ScoringQueueStatus = { pending: 0, running: 0, retry: 0, done: 0 };
+    for (const row of rows) counts[row.status]++;
+    return counts;
   }
   async createPipelineCompany(c: { name: string; domain: string | null; employee_count: number | null; source: string }, runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null; scope?: SectionScope }) {
     if (attach.scope) return this.check(await this.db.rpc("pipeline_create_section_company", { p_name: c.name, p_domain: c.domain ?? "", p_employee_count: c.employee_count, p_source: c.source, p_run_id: runId, p_signal_ids: attach.signal_ids, p_normalized_name: attach.normalized_name, p_version: attach.scope.version, p_section: attach.scope.section }), "create section company") as string;
@@ -255,7 +278,7 @@ export class SupabaseStore implements PipelineStore {
       return onlyEnabled ? query.eq("enabled", true) : query;
     }, "workday sites");
   }
-  async upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }, scope?: SectionScope) {
+  async upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }, scope?: SectionScope): Promise<{ id: string; inserted: boolean }> {
     const found = this.check(await this.db.from("workday_sites").select("id, normalized_name, capture_id").eq("tenant", site.tenant).eq("pod", site.pod).eq("site", site.site).maybeSingle(), "find site") as { id: string; normalized_name: string; capture_id: string | null } | null;
     if (found) {
       if (scope) {
@@ -270,7 +293,9 @@ export class SupabaseStore implements PipelineStore {
       }
       return { id: found.id, inserted: false };
     }
-    return { id: (this.check(await this.db.from("workday_sites").insert(site).select("id").single(), "add site") as { id: string }).id, inserted: true };
+    const inserted = await this.db.from("workday_sites").insert(site).select("id").single();
+    if (inserted.error?.code === "23505") return this.upsertWorkdaySite(site, scope);
+    return { id: (this.check(inserted, "add site") as { id: string }).id, inserted: true };
   }
   async markSiteChecked(id: string, status: string, at: string) {
     this.check(await this.db.from("workday_sites").update({ last_checked_at: at, last_status: status }).eq("id", id), "mark site");
