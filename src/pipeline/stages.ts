@@ -279,12 +279,13 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       if (!signals.length && !contacts.length) bump(r, "no_evidence");
       // The employee count has no source link on the company row, so the +3 size bonus is not awarded automatically.
       // ponytail: SEC facts are refetched on every score pass (once per company per run); cache them in a table if that gets slow.
-      const lookup = await lookupFinancials(ctx, company.name);
+      // Non-SEC sources (nonprofit returns, universities, EU/UK filings) are only asked when there is no saved score or it is due for its refresh.
+      const latest = await ctx.store.latestScore(company.id);
+      const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
+      const lookup = await lookupFinancials(ctx, company.name, company.domain ?? null, { skipExternal: !due });
       r.requests += lookup.requests;
       const assessment = scoreCompany(company.id, signals as ScoringSignal[], contacts, settings, now, { employee_count: company.employee_count, employee_source: null, financials: lookup.financials });
       if (!assessment.result.ok) { bump(r, "error_score"); r.errors.push(`${company.name}: ${assessment.result.errors.join(" ")}`); continue; }
-      const latest = await ctx.store.latestScore(company.id);
-      const due = !latest || now.getTime() - Date.parse(latest.assessed_at) >= RESCORE_DAYS * 86400000;
       // A lookup that could not run is not evidence that capacity disappeared: keep the saved assessment until it can.
       const deferred = financialsUnavailable(lookup.status) && !!latest && Number(assessment.result.row.budget_score) < Number(latest.budget_score);
       if (deferred) bump(r, "financials_deferred");
