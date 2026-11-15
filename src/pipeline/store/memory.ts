@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { defaultSettings, parseSettings, type PipelineSettings } from "../../domain/ingestion/settings.ts";
 import { normalizeName } from "../../domain/ingestion/normalize.ts";
+import { sectionNames, type SectionScope, type SectionProgress } from "../section-scope.ts";
 import type { ScoreRow } from "../../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
@@ -37,6 +38,8 @@ export class MemoryStore implements PipelineStore {
   sites: WorkdaySite[] = [];
   websites = new Map<string, WebsiteResolution>();
   attempts = new Map<string, ResolverAttempt>();
+  sectionAssignments = new Map<string, { scope: SectionScope; issuer: { cik: number; name: string }; progress: SectionProgress }>();
+  sectionCaptures: { version: string; section: number; cik: number; captureId: string }[] = [];
   contacts: (ContactRow & { contact_sources?: unknown; enriched_at?: string })[] = [];
   scores: StoredScore[] = [];
   enrichment = new Map<string, { status: string; reason: string }>();
@@ -91,9 +94,44 @@ export class MemoryStore implements PipelineStore {
   async tenantIndexCache(sourceId: string) {
     return [...this.captures].reverse().find(c => c.source_id === sourceId && c.meta.kind === "workday_index_cache") ?? null;
   }
-  async pendingCaptures(limit: number, sourceIds?: string[]) {
-    const finished = new Set(this.extractions.filter(e => e.status === "done" || e.status === "dead_letter").map(e => e.capture_id));
-    return this.captures.filter(c => !finished.has(c.id) && (!sourceIds || sourceIds.includes(c.source_id))).slice(0, limit);
+  async ensureSection(scope: SectionScope) {
+    this.trip("ensureSection");
+    if ([...this.sectionAssignments.values()].some(a => a.scope.version === scope.version && a.scope.snapshotSha256 !== scope.snapshotSha256)) throw Error("Stored section manifest differs from this snapshot.");
+    for (const issuer of scope.issuers) {
+      const key = `${scope.version}:${issuer.cik}`;
+      const existing = this.sectionAssignments.get(key);
+      if (existing && (existing.scope.section !== scope.section || existing.scope.snapshotSha256 !== scope.snapshotSha256 || existing.issuer.name !== issuer.name)) throw Error("Stored section assignment differs from this manifest.");
+      if (!existing) this.sectionAssignments.set(key, { scope, issuer, progress: { cik: issuer.cik, status: "pending", probes: 0, attempted_at: null, next_attempt_at: null } });
+    }
+  }
+  async sectionProgress(scope: SectionScope) {
+    return [...this.sectionAssignments.values()].filter(a => a.scope.version === scope.version && a.scope.section === scope.section).map(a => ({ ...a.progress }));
+  }
+  async saveSectionProgress(scope: SectionScope, cik: number, outcome: { status: "found" | "miss" | "retry"; probes: number }, at: string) {
+    this.trip("saveSectionProgress");
+    const row = this.sectionAssignments.get(`${scope.version}:${cik}`);
+    if (!row || row.scope.section !== scope.section) throw Error("Issuer is outside this section.");
+    row.progress = { cik, ...outcome, attempted_at: at, next_attempt_at: outcome.status === "retry" ? new Date(Date.parse(at) + 15 * 60000).toISOString() : null };
+  }
+  async linkSectionCapture(scope: SectionScope, cik: number, captureId: string) {
+    this.trip("linkSectionCapture");
+    const row = this.sectionAssignments.get(`${scope.version}:${cik}`);
+    if (!row || row.scope.section !== scope.section || !this.captures.some(c => c.id === captureId)) throw Error("Invalid section capture membership.");
+    if (!this.sectionCaptures.some(c => c.version === scope.version && c.cik === cik && c.captureId === captureId)) this.sectionCaptures.push({ version: scope.version, section: scope.section, cik, captureId });
+  }
+  async sectionCaptureIds(scope: SectionScope) {
+    return [...new Set(this.sectionCaptures.filter(c => c.version === scope.version && c.section === scope.section).map(c => c.captureId))];
+  }
+  private async scoped<T extends { capture_id?: string | null; company_name?: string | null; normalized_name?: string }>(rows: T[], scope?: SectionScope): Promise<T[]> {
+    if (!scope) return rows;
+    const ids = new Set(await this.sectionCaptureIds(scope)), names = sectionNames(scope);
+    return rows.filter(row => !!row.capture_id && ids.has(row.capture_id) && names.has(row.normalized_name ?? normalizeName(row.company_name)));
+  }
+  async pendingCaptures(limit: number, sourceIds?: string[], scope?: SectionScope) {
+    const finished = new Set(this.extractions.filter(e => (!scope || e.method === "structured") && (e.status === "done" || e.status === "dead_letter")).map(e => e.capture_id));
+    const ids = scope ? new Set(await this.sectionCaptureIds(scope)) : null;
+    const names = scope ? sectionNames(scope) : null;
+    return this.captures.filter(c => !finished.has(c.id) && (!sourceIds || sourceIds.includes(c.source_id)) && (!ids || ids.has(c.id) && names!.has(String(c.meta.normalized_name ?? "")))).slice(0, limit);
   }
   async saveExtraction(record: ExtractionRecord) {
     this.trip("saveExtraction");
@@ -104,10 +142,15 @@ export class MemoryStore implements PipelineStore {
     return id;
   }
 
-  async upsertSignal(signal: SignalInput) {
+  async upsertSignal(signal: SignalInput, scope?: SectionScope) {
     this.trip("upsertSignal");
     const existing = this.signals.find(s => s.type === signal.type && s.source_url === signal.source_url && s.quote === signal.quote);
     if (existing) {
+      if (scope) {
+        const issuer = scope.issuers.find(i => normalizeName(i.name) === normalizeName(signal.company_name));
+        if (!issuer || normalizeName(existing.company_name) !== normalizeName(signal.company_name)) throw Error("Shared signal has a different company context; manual review required.");
+        await this.linkSectionCapture(scope, issuer.cik, existing.capture_id);
+      }
       if (signal.seen_at > existing.last_seen_at) existing.last_seen_at = signal.seen_at;
       return { id: existing.id, inserted: false };
     }
@@ -121,7 +164,7 @@ export class MemoryStore implements PipelineStore {
     for (const s of this.signals) if (s.capture_id === captureId && seenAt > s.last_seen_at) { s.last_seen_at = seenAt; n++; }
     return n;
   }
-  async unassignedSignals() { return this.signals.filter(s => !s.company_id && !s.review_item_id); }
+  async unassignedSignals(scope?: SectionScope) { return this.scoped(this.signals.filter(s => !s.company_id && !s.review_item_id), scope); }
   async assignSignals(ids: string[], target: { company_id: string } | { review_item_id: string }) {
     this.trip("assignSignals");
     for (const s of this.signals) if (ids.includes(s.id)) Object.assign(s, target);
@@ -134,13 +177,13 @@ export class MemoryStore implements PipelineStore {
     this.companyRows.push({ id, name: company.name, domain: company.domain, employee_count: company.employee_count ?? null, pipeline: false, source: null, created_at: this.now().toISOString() });
     return id;
   }
-  async createPipelineCompany(company: { name: string; domain: string | null; employee_count: number | null; source: string }, _runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null }) {
+  async createPipelineCompany(company: { name: string; domain: string | null; employee_count: number | null; source: string }, _runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null; scope?: SectionScope }) {
     this.trip("createPipelineCompany");
     if (company.domain && this.companyRows.some(c => c.domain === company.domain)) throw new Error(`duplicate key value violates unique constraint "companies_domain_key"`);
     const id = randomUUID();
     this.companyRows.push({ id, ...company, pipeline: true, created_at: this.now().toISOString() });
     for (const s of this.signals) if (attach.signal_ids.includes(s.id) && !s.company_id) s.company_id = id;
-    if (attach.normalized_name) for (const site of this.sites) if (site.normalized_name === attach.normalized_name && !site.company_id) site.company_id = id;
+    if (attach.normalized_name) for (const site of await this.scoped(this.sites, attach.scope)) if (site.normalized_name === attach.normalized_name && !site.company_id) site.company_id = id;
     return id;
   }
   async addReviewItem(item: Omit<ReviewItem, "id" | "status" | "resolved_company_id" | "created_at">) {
@@ -151,9 +194,10 @@ export class MemoryStore implements PipelineStore {
     this.reviews.push({ id, ...item, status: "pending", resolved_company_id: null, created_at: this.now().toISOString() });
     return { id, inserted: true };
   }
-  async signalsForReview(itemId: string) { return this.signals.filter(s => s.review_item_id === itemId && !s.company_id); }
-  async websiteEvidenceCaptures(name: string, limit: number): Promise<WebsiteCapture[]> {
-    return this.captures.filter(c => c.source_id === "workday-career-sites" && c.meta.kind === "workday_job" && c.meta.normalized_name === name && c.http_status === 200)
+  async signalsForReview(itemId: string, scope?: SectionScope) { return this.scoped(this.signals.filter(s => s.review_item_id === itemId && !s.company_id), scope); }
+  async websiteEvidenceCaptures(name: string, limit: number, scope?: SectionScope): Promise<WebsiteCapture[]> {
+    const ids = scope ? new Set(await this.sectionCaptureIds(scope)) : null;
+    return this.captures.filter(c => (!ids || ids.has(c.id)) && c.source_id === "workday-career-sites" && c.meta.kind === "workday_job" && c.meta.normalized_name === name && c.http_status === 200)
       .sort((a, b) => b.fetched_at.localeCompare(a.fetched_at) || a.id.localeCompare(b.id)).slice(0, limit)
       .map(c => ({ ...c, last_seen_at: this.signals.filter(s => s.capture_id === c.id).reduce((latest, s) => s.last_seen_at > latest ? s.last_seen_at : latest, c.fetched_at) }));
   }
@@ -169,17 +213,32 @@ export class MemoryStore implements PipelineStore {
     if (!item) throw Error("review is no longer eligible");
     Object.assign(item, patch);
   }
-  async admitReview(id: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null) {
+  async admitReview(id: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null, scope?: SectionScope) {
     this.trip("admitReview");
     const item = this.reviews.find(r => r.id === id && r.status === "pending" && r.reason !== "similar_name");
     if (!item) throw Error("review is no longer eligible");
+    if (scope) {
+      if (!sectionNames(scope).has(item.normalized_name)) throw Error("Review is outside this section.");
+      const signals = await this.signalsForReview(id, scope);
+      if (!signals.length) throw Error("Review has no section evidence.");
+      const company = existingCompanyId ?? await this.createPipelineCompany({ name: item.candidate_name, domain, employee_count: item.employee_count, source }, runId, { signal_ids: signals.map(s => s.id), normalized_name: item.normalized_name, scope });
+      await this.assignSignals(signals.map(s => s.id), { company_id: company });
+      await this.linkWorkdaySites(item.normalized_name, { company_id: company }, scope);
+      item.status = existingCompanyId ? "merged" : "approved";
+      item.resolved_company_id = company;
+      item.candidate_domain = domain;
+      return company;
+    }
     const company = existingCompanyId ?? await this.createPipelineCompany({ name: item.candidate_name, domain, employee_count: item.employee_count, source }, runId, { signal_ids: [], normalized_name: null });
     await this.resolveReview(id, { action: "merge", company_id: company }, "Automatic website confirmation", runId);
     item.status = existingCompanyId ? "merged" : "approved";
     item.candidate_domain = domain;
     return company;
   }
-  async reviewItems(status?: ReviewItem["status"]) { return this.reviews.filter(r => !status || r.status === status); }
+  async reviewItems(status?: ReviewItem["status"], scope?: SectionScope) {
+    const names = scope ? sectionNames(scope) : null;
+    return this.reviews.filter(r => (!status || r.status === status) && (!names || names.has(r.normalized_name)));
+  }
   async resolveReview(itemId: string, decision: { action: "approve"; domain?: string | null } | { action: "merge"; company_id: string } | { action: "reject" }, _note: string, runId: string | null) {
     const item = this.reviews.find(r => r.id === itemId && r.status === "pending");
     if (!item) throw new Error(`review item ${itemId} is not pending`);
@@ -200,10 +259,18 @@ export class MemoryStore implements PipelineStore {
     return companyId;
   }
 
-  async workdaySites(onlyEnabled: boolean) { return this.sites.filter(s => !onlyEnabled || s.enabled); }
-  async upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }) {
+  async workdaySites(onlyEnabled: boolean, scope?: SectionScope) { return this.scoped(this.sites.filter(s => !onlyEnabled || s.enabled), scope); }
+  async upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }, scope?: SectionScope) {
     const existing = this.sites.find(s => s.tenant === site.tenant && s.pod === site.pod && s.site === site.site);
-    if (existing) return { id: existing.id, inserted: false };
+    if (existing) {
+      if (scope) {
+        const issuer = scope.issuers.find(i => normalizeName(i.name) === site.normalized_name);
+        if (!issuer || existing.normalized_name !== site.normalized_name) throw Error("Shared site has a different company context; manual review required.");
+        if (!existing.capture_id) existing.capture_id = site.capture_id;
+        if (existing.capture_id) await this.linkSectionCapture(scope, issuer.cik, existing.capture_id);
+      }
+      return { id: existing.id, inserted: false };
+    }
     const rest = { ...site } as Partial<typeof site>;
     delete rest.discovered_from;
     const id = randomUUID();
@@ -214,8 +281,8 @@ export class MemoryStore implements PipelineStore {
     const site = this.sites.find(s => s.id === id);
     if (site) Object.assign(site, { last_checked_at: at, last_status: status });
   }
-  async linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }) {
-    for (const s of this.sites) if (s.normalized_name === normalizedName && !s.company_id) Object.assign(s, target);
+  async linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }, scope?: SectionScope) {
+    for (const s of await this.scoped(this.sites, scope)) if (s.normalized_name === normalizedName && !s.company_id) Object.assign(s, target);
   }
   async resolverAttempts(names: string[]) { return new Set(names.filter(n => this.attempts.has(n))); }
   async dueResolverAttempts(cutoffs: ResolverCutoffs, limit: number) {

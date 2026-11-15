@@ -6,6 +6,7 @@ import type { ScoreRow } from "../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../domain/ingestion/score-change.ts";
 import type { LedgerEntry } from "../domain/ingestion/budget.ts";
 import type { ContactReview } from "./contact-review.ts";
+import type { SectionScope, SectionProgress } from "./section-scope.ts";
 
 // ---------- Sources and collectors ----------
 
@@ -36,6 +37,7 @@ export type RawItem = {
 export type CollectLimits = { maxRequests: number; maxItems: number; minDelayMs: number; dryRun: boolean };
 
 export type CollectResult = {
+  resolver_outcome?: { status: "found" | "miss" | "retry"; probes: number };
   cache_hit?: boolean;
   items: RawItem[];
   requests: number;
@@ -73,7 +75,7 @@ export interface TregTransport {
 
 // ---------- Store ----------
 
-export type CaptureRow = { id: string; source_id: string; url: string; fetched_at: string; http_status: number; content_type: string | null; content_hash: string; body: string; run_id: string | null };
+export type CaptureRow = { id: string; source_id: string; url: string; fetched_at: string; http_status: number; content_type: string | null; content_hash: string; body: string; run_id: string | null; meta?: Record<string, unknown> };
 
 export type SignalInput = {
   company_id: string | null;
@@ -174,35 +176,40 @@ export interface PipelineStore {
   latestCapture(sourceId: string): Promise<CaptureRow | null>;
   tenantIndexCache(sourceId: string): Promise<CaptureRow | null>;
   captureById(id: string): Promise<CaptureRow | null>;
-  pendingCaptures(limit: number, sourceIds?: string[]): Promise<CaptureRow[]>;
+  pendingCaptures(limit: number, sourceIds?: string[], scope?: SectionScope): Promise<CaptureRow[]>;
+  ensureSection(scope: SectionScope): Promise<void>;
+  sectionProgress(scope: SectionScope): Promise<SectionProgress[]>;
+  saveSectionProgress(scope: SectionScope, cik: number, outcome: { status: "found" | "miss" | "retry"; probes: number }, at: string): Promise<void>;
+  linkSectionCapture(scope: SectionScope, cik: number, captureId: string): Promise<void>;
+  sectionCaptureIds(scope: SectionScope): Promise<string[]>;
   saveExtraction(record: ExtractionRecord): Promise<string>;
 
-  upsertSignal(signal: SignalInput): Promise<{ id: string; inserted: boolean }>;
-  unassignedSignals(): Promise<SignalRow[]>;
+  upsertSignal(signal: SignalInput, scope?: SectionScope): Promise<{ id: string; inserted: boolean }>;
+  unassignedSignals(scope?: SectionScope): Promise<SignalRow[]>;
   assignSignals(ids: string[], target: { company_id: string } | { review_item_id: string }): Promise<void>;
   signalsForCompany(companyId: string): Promise<SignalRow[]>;
 
   companies(): Promise<CompanyRow[]>;
   // Atomic: company + origin row + its waiting signals and Workday sites, or nothing.
-  createPipelineCompany(company: { name: string; domain: string | null; employee_count: number | null; source: string }, runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null }): Promise<string>;
+  createPipelineCompany(company: { name: string; domain: string | null; employee_count: number | null; source: string }, runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null; scope?: SectionScope }): Promise<string>;
   // An unchanged capture was seen again: its signals stay fresh.
   touchSignals(captureId: string, seenAt: string): Promise<number>;
   addReviewItem(item: Omit<ReviewItem, "id" | "status" | "resolved_company_id" | "created_at">): Promise<{ id: string; inserted: boolean }>;
-  signalsForReview(itemId: string): Promise<SignalRow[]>;
-  websiteEvidenceCaptures(normalizedName: string, limit: number): Promise<WebsiteCapture[]>;
+  signalsForReview(itemId: string, scope?: SectionScope): Promise<SignalRow[]>;
+  websiteEvidenceCaptures(normalizedName: string, limit: number, scope?: SectionScope): Promise<WebsiteCapture[]>;
   fillReviewWebsite(itemId: string, domain: string): Promise<boolean>;
   websiteResolution(normalizedName: string): Promise<WebsiteResolution | null>;
   saveWebsiteResolution(resolution: WebsiteResolution): Promise<void>;
   updatePendingReview(itemId: string, patch: { candidate_domain: string | null; reason: ReviewItem["reason"]; suggested_company_id: string | null; candidate_name?: string }): Promise<void>;
   // Locks and rechecks eligibility; creation and review resolution are a single transaction.
-  admitReview(itemId: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null): Promise<string>;
-  reviewItems(status?: ReviewItem["status"]): Promise<ReviewItem[]>;
+  admitReview(itemId: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null, scope?: SectionScope): Promise<string>;
+  reviewItems(status?: ReviewItem["status"], scope?: SectionScope): Promise<ReviewItem[]>;
   resolveReview(itemId: string, decision: { action: "approve"; domain?: string | null } | { action: "merge"; company_id: string } | { action: "reject" }, note: string, runId: string | null): Promise<string | null>;
 
-  workdaySites(onlyEnabled: boolean): Promise<WorkdaySite[]>;
-  upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }): Promise<{ id: string; inserted: boolean }>;
+  workdaySites(onlyEnabled: boolean, scope?: SectionScope): Promise<WorkdaySite[]>;
+  upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }, scope?: SectionScope): Promise<{ id: string; inserted: boolean }>;
   markSiteChecked(id: string, status: string, at: string): Promise<void>;
-  linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }): Promise<void>;
+  linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }, scope?: SectionScope): Promise<void>;
   resolverAttempts(names: string[]): Promise<Set<string>>;
   dueResolverAttempts(cutoffs: ResolverCutoffs, limit: number): Promise<ResolverAttempt[]>;
   saveResolverAttempt(attempt: Omit<ResolverAttempt, "tried_at"> & { tried_at?: string }): Promise<void>;
@@ -234,6 +241,8 @@ export interface SpendGuard {
 }
 
 export type PipelineContext = {
+  sectionScope?: SectionScope;
+  sectionIssuer?: { cik: number; name: string };
   store: PipelineStore;
   contactReviews?: ContactReview[];
   now: () => Date;

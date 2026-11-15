@@ -64,22 +64,42 @@ export function loadSections(manifestUrl = new URL("../data/sec-sections-v1.json
   return { manifest, sections: splitSections(issuers) };
 }
 
-export function parseSectionCommand(argv: string[]): { section: number | null } {
-  if (argv[0] === "sections" && argv.length === 1) return { section: null };
+export type SectionCommand = { section: number | null; preview: boolean; limit: number; noLlm: boolean; noTreg: boolean; maxSpend?: number };
+export function parseSectionCommand(argv: string[]): SectionCommand {
+  const defaults = { preview: true, limit: 25, noLlm: false, noTreg: false };
+  if (argv[0] === "sections" && argv.length === 1) return { section: null, ...defaults };
   if (argv[0] !== "section") throw Error("Usage: pipeline sections | section <1-10> --preview");
   if (!/^(?:[1-9]|10)$/.test(argv[1] ?? "")) throw Error("Choose an explicit section number from 1 to 10.");
-  if (argv.length !== 3 || argv[2] !== "--preview") {
-    throw Error("Section execution is not enabled yet. Use: pipeline section <1-10> --preview");
+  const command: SectionCommand = { section: Number(argv[1]), ...defaults, preview: false };
+  const seen = new Set<string>();
+  for (let i = 2; i < argv.length; i++) {
+    const flag = argv[i];
+    if (seen.has(flag)) throw Error("Repeated section option.");
+    seen.add(flag);
+    if (flag === "--preview") command.preview = true;
+    else if (flag === "--no-llm") command.noLlm = true;
+    else if (flag === "--no-treg") command.noTreg = true;
+    else if (flag === "--limit") {
+      const value = argv[++i] ?? "";
+      if (!/^[1-9]\d*$/.test(value) || Number(value) > 100) throw Error("Section limit must be an integer from 1 to 100.");
+      command.limit = Number(value);
+    } else if (flag === "--max-spend") {
+      const value = argv[++i] ?? "";
+      if (!/^(?:\d+\.?\d*|\.\d+)$/.test(value) || !Number.isFinite(Number(value))) throw Error("Section spend limit must be a nonnegative number.");
+      command.maxSpend = Number(value);
+    } else throw Error("Unrecognized section option. Use --preview, --limit, --no-llm, --no-treg, or --max-spend.");
   }
-  return { section: Number(argv[1]) };
+  if (command.preview && seen.size !== 1) throw Error("Preview cannot be combined with execution options.");
+  return command;
 }
 
 // Report only a hostname, never URL credentials, paths, query strings, or key values.
-export function sectionDatabaseTarget(env: NodeJS.ProcessEnv): string {
-  if (!env.PIPELINE_SUPABASE_URL) return "not configured (preview does not connect)";
+export function sectionDatabaseTarget(env: NodeJS.ProcessEnv, preview = true): string {
+  const suffix = preview ? " (preview does not connect)" : "";
+  if (!env.PIPELINE_SUPABASE_URL) return `not configured${suffix}`;
   let url: URL;
   try { url = new URL(env.PIPELINE_SUPABASE_URL); } catch { throw Error("Invalid pipeline database target URL."); }
   if (!["http:", "https:"].includes(url.protocol)) throw Error("Invalid pipeline database target URL.");
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  return `${local ? "local" : "remote"}: ${url.hostname} (preview does not connect)`;
+  return `${local ? "local" : "remote"}: ${url.hostname}${suffix}`;
 }

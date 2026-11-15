@@ -201,7 +201,7 @@ function sharedPlatform(domain: string): boolean {
 export async function loadEmployerLinks(ctx: PipelineContext, name: string, sites: WorkdaySite[]): Promise<EmployerWebsiteLink[]> {
   if (!sites.length) return [];
   const refs: EmployerWebsiteLink[] = [];
-  for (const capture of await ctx.store.websiteEvidenceCaptures(normalizeName(name), 20)) {
+  for (const capture of await ctx.store.websiteEvidenceCaptures(normalizeName(name), 20, ctx.sectionScope)) {
     if (ctx.now().getTime() - Date.parse(capture.last_seen_at) > 14 * DAY || !Number.isFinite(Date.parse(capture.last_seen_at))) continue;
     let source: URL;
     try { source = new URL(capture.url); } catch { continue; }

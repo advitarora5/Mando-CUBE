@@ -54,13 +54,19 @@ test('changed snapshot is refused rather than silently reassigning sections', ()
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('only explicit valid section previews are accepted', () => {
-  assert.deepEqual(parseSectionCommand(['sections']), { section: null });
-  for (const n of ['1', '3', '10']) assert.deepEqual(parseSectionCommand(['section', n, '--preview']), { section: Number(n) });
+test('explicit section selection accepts previews and bounded execution options', () => {
+  assert.equal(parseSectionCommand(['sections']).section, null);
+  for (const n of ['1', '3', '10']) {
+    assert.equal(parseSectionCommand(['section', n, '--preview']).section, Number(n));
+    assert.equal(parseSectionCommand(['section', n, '--preview']).preview, true);
+  }
+  assert.deepEqual(parseSectionCommand(['section', '3', '--limit', '5', '--no-llm', '--max-spend', '0']), { section: 3, preview: false, limit: 5, noLlm: true, noTreg: false, maxSpend: 0 });
   for (const args of [
     ['section'], ['section', '0', '--preview'], ['section', '11', '--preview'],
-    ['section', '1.5', '--preview'], ['section', '03', '--preview'], ['section', '3'],
-    ['section', '3', '--limit', '25'], ['section', '3', '--preview', '--limit', '25'],
+    ['section', '1.5', '--preview'], ['section', '03', '--preview'],
+    ['section', '3', '--limit', '0'], ['section', '3', '--limit', '101'], ['section', '3', '--limit'],
+    ['section', '3', '--max-spend', '-1'], ['section', '3', '--max-spend', 'NaN'],
+    ['section', '3', '--limit', '2', '--limit', '3'], ['section', '3', '--preview', '--limit', '25'],
     ['section', '3', '--preveiw'], ['sections', '--count', '9'],
   ]) assert.throws(() => parseSectionCommand(args));
 });
@@ -87,10 +93,10 @@ test('CLI previews are deterministic from another directory with no database or 
   assert.equal(first.stdout.split('\n').filter(line => /^\d+\t\d+\t/.test(line)).length, sections[2].issuers.length);
 });
 
-test('CLI refuses execution and misplaced section flags before opening a database', () => {
+test('CLI refuses invalid execution and misplaced section flags before opening a database', () => {
   for (const args of [
-    ['section', '3'], ['section', '11', '--preview'], ['section', '3', '--preveiw'],
-    ['section', '3', '--limit', '25'], ['sections', '--count', '9'],
+    ['section', '11', '--preview'], ['section', '3', '--preveiw'],
+    ['section', '3', '--limit', '0'], ['sections', '--count', '9'],
     ['run', '--section', '3'], ['run', '--sectoin', '3'], ['run', '--preview'],
   ]) {
     const child = run(...args);

@@ -5,7 +5,7 @@
 import { test, after } from 'node:test';
 import { randomUUID, createHash } from 'node:crypto';
 import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
-import { matchStage } from '../../src/pipeline/stages.ts';
+import { matchStage, extractStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
 import { integrationDatabase } from '../helpers/integration-database.mjs';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
@@ -24,6 +24,92 @@ const count = async table => (await db.from(table).select('id', { count: 'exact'
 const disabled = [];
 const testTenants = [];
 const cleanupCompanies = [];
+
+test('section runs share a real database without consuming other sections and resume across devices', { skip }, async () => {
+  const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, names = randomNames(4, seed + 47213);
+  const scope = (section, offset) => ({ version, section, snapshotSha256: 'b'.repeat(64), ambiguousNames: [], issuers: names.slice(offset, offset + 2).map((name, i) => ({ cik: 9100000 + offset + i, name })) });
+  const a = scope(1, 0), b = scope(2, 2);
+  const ctxFor = scope => ({ ...makeCtx({ store, now: () => new Date(), fetch: worldFetch({ names, existingTenants: 4 }), treg: worldTreg() }), sectionScope: scope });
+  const run = ctx => runPipeline(ctx, { plan: 'section', limit: 1, dryRun: false, trigger: 'manual' });
+  const captureIds = new Set();
+  try {
+    const [ra, rb] = await Promise.all([run(ctxFor(a)), run(ctxFor(b))]);
+    for (const r of [ra, rb]) { assert.deepEqual(r.jobs.flatMap(j => j.errors), []); assert.equal(r.section.found, 1); }
+    const next = await run(ctxFor(a));
+    assert.equal(next.section.found, 2);
+    assert.equal(next.section.pending, 0);
+    assert.ok(next.jobs.some(j => j.job.endsWith('discover:9100001')));
+    assert.ok(!next.jobs.some(j => j.job.endsWith('discover:9100000')));
+    const aCaptures = await store.sectionCaptureIds(a), bCaptures = await store.sectionCaptureIds(b);
+    assert.ok(aCaptures.length > 0 && bCaptures.length > 0);
+    assert.ok(aCaptures.every(id => !bCaptures.includes(id)));
+    const rows = (await store.companies()).filter(c => names.includes(c.name));
+    assert.equal(rows.length, 3);
+    const ids = rows.map(c => c.id);
+    assert.equal((await db.from('scores').select('id').in('company_id', ids)).data.length, 0);
+    await assert.rejects(store.ensureSection({ ...b, snapshotSha256: 'c'.repeat(64) }), /manifest differs/);
+    const reassigned = await db.from('pipeline_section_issuers').update({ section: 9 }).eq('version', version).eq('cik', a.issuers[0].cik);
+    assert.ok(reassigned.error, 'database prevents changing active assignments');
+  } finally {
+    for (const s of [a, b]) for (const id of await store.sectionCaptureIds(s)) captureIds.add(id);
+    for (const id of captureIds) await store.saveExtraction({ capture_id: id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+    if (captureIds.size) await db.from('signals').delete().in('capture_id', [...captureIds]);
+    await db.from('workday_sites').delete().in('normalized_name', names.map(normalizeName));
+    await db.from('review_queue').delete().in('normalized_name', names.map(normalizeName));
+    await db.from('companies').delete().in('name', names);
+    await db.from('website_resolutions').delete().in('normalized_name', names.map(normalizeName));
+    await db.from('pipeline_section_issuers').delete().eq('version', version);
+    // Manifest rows are immutable to service_role; the uniquely named fixture manifest can remain.
+  }
+});
+
+test('section extraction queues and review admission enforce capture membership in the real database', { skip }, async () => {
+  const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, name = randomNames(1, seed + 63179)[0], normalized = normalizeName(name);
+  const scope = { version, section: 3, snapshotSha256: 'd'.repeat(64), ambiguousNames: [], issuers: [{ cik: 9200000, name }] };
+  const captures = [], signals = [], sites = [];
+  let review, company;
+  try {
+    await store.ensureSection(scope);
+    for (const suffix of ['foreign', 'owned']) {
+      const tenant = `${worldTenant(name)}${suffix}`;
+      const raw = `User-agent: *\nAllow: /\nSitemap: https://${tenant}.wd5.myworkdayjobs.com/Careers/siteMap.xml`;
+      const capture = await store.saveCapture({ source: 'workday-site-resolver', url: `https://${tenant}.wd5.myworkdayjobs.com/robots.txt`, fetched_at: new Date().toISOString(), http_status: 200, content_type: 'text/plain', raw,
+        fingerprint: createHash('sha256').update(raw).digest('hex'), meta: { kind: 'workday_robots', tenant, pod: 'wd5', company_name: name, normalized_name: normalized, match_kind: 'full_name' } }, null);
+      captures.push(capture);
+      if (suffix === 'owned') await store.linkSectionCapture(scope, scope.issuers[0].cik, capture.id);
+    }
+    assert.deepEqual((await store.pendingCaptures(1, undefined, scope)).map(c => c.id), [captures[1].id]);
+    await store.saveExtraction({ capture_id: captures[1].id, run_id: null, method: 'llm', model: 'fictional-model', prompt_version: '', status: 'done', output: {}, error: null, attempts: 1, cost_usd: 0 });
+    assert.deepEqual((await store.pendingCaptures(1, undefined, scope)).map(c => c.id), [captures[1].id], 'model success alone does not hide incomplete evidence');
+    const ctx = { ...makeCtx({ store }), sectionScope: scope };
+    await extractStage(ctx, { limit: 1 });
+    assert.equal((await store.pendingCaptures(1, undefined, scope)).length, 0);
+    review = await store.addReviewItem({ candidate_name: name, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: 'no_website' });
+    for (const [i, capture] of captures.entries()) {
+      const signal = await store.upsertSignal({ company_id: null, review_item_id: review.id, capture_id: capture.id, extraction_id: null, type: 'hiring', signal_date: null,
+        source_url: `https://fixture.example/${version}/${i}`, quote: `Fictional Workday hiring evidence ${i}`, confidence: 0.9, company_name: name, products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: new Date().toISOString() });
+      signals.push(signal);
+      sites.push(await store.upsertWorkdaySite({ tenant: `${worldTenant(name)}${i}`, pod: 'wd5', site: 'Careers', company_name: name, normalized_name: normalized, match_kind: 'full_name', discovered_from: 'workday-site-resolver', capture_id: capture.id }));
+    }
+    const wrongScope = { ...scope, section: 4, issuers: [] };
+    await assert.rejects(store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, wrongScope), /eligible section evidence/);
+    company = await store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, scope);
+    const savedSignals = (await db.from('signals').select('id,company_id').in('id', signals.map(s => s.id))).data;
+    assert.equal(savedSignals.find(s => s.id === signals[0].id).company_id, null);
+    assert.equal(savedSignals.find(s => s.id === signals[1].id).company_id, company);
+    const savedSites = (await db.from('workday_sites').select('id,company_id').in('id', sites.map(s => s.id))).data;
+    assert.equal(savedSites.find(s => s.id === sites[0].id).company_id, null);
+    assert.equal(savedSites.find(s => s.id === sites[1].id).company_id, company);
+    await assert.rejects(store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, scope), /not eligible/);
+  } finally {
+    for (const c of captures) await store.saveExtraction({ capture_id: c.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+    if (captures.length) await db.from('signals').delete().in('capture_id', captures.map(c => c.id));
+    await db.from('workday_sites').delete().eq('normalized_name', normalized);
+    if (review) await db.from('review_queue').delete().eq('id', review.id);
+    if (company) await db.from('companies').delete().eq('id', company);
+    await db.from('pipeline_section_issuers').delete().eq('version', version);
+  }
+});
 
 test('local AI runner admits and scores a confirmed candidate, holds a mismatch and remains duplicate-safe', { skip }, async () => {
   const store = new SupabaseStore(url, key);

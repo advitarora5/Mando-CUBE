@@ -4,7 +4,7 @@
 //                            [--limit N] [--dry-run] [--max-spend USD] [--no-llm] [--no-treg] [--trigger manual|schedule|import_button]
 //   npm run pipeline -- import <file.csv> [--dry-run]
 //   npm run pipeline -- health
-//   npm run pipeline -- sections | section <1-10> --preview (read-only; execution is not enabled)
+//   npm run pipeline -- sections | section <1-10> [--preview | --limit N --no-llm --no-treg --max-spend USD]
 //   npm run pipeline -- review list | approve <id> [--domain example.com] | merge <id> <company_id> | reject <id> [--note text]
 //
 // Database: PIPELINE_SUPABASE_URL / PIPELINE_SUPABASE_KEY (local or test only; see docs/ingestion-runbook.md).
@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { contextFromEnv } from "../src/pipeline/context.ts";
 import { importCsv } from "../src/pipeline/import-csv.ts";
 import { runPipeline } from "../src/pipeline/runner.ts";
-import { previewSections } from "./pipeline-sections.mjs";
+import { sectionCommand } from "./pipeline-sections.mjs";
 
 function flags(argv) {
   const out = { _: [] };
@@ -32,7 +32,7 @@ function flags(argv) {
 
 async function main() {
   if (["section", "sections"].includes(process.argv[2])) {
-    previewSections(process.argv.slice(2), process.env);
+    await sectionCommand(process.argv.slice(2), process.env);
     return;
   }
   const args = flags(process.argv.slice(2));
