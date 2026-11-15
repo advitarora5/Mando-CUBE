@@ -41,6 +41,8 @@ Secrets live only in environment variables, `.env.pipeline.local` and GitHub sec
 
 ## 2. Run it
 
+For the new fixed **10-section SEC assignment previews**, see [SEC sections](pipeline-sections.md). Use `npm run pipeline -- sections` or `npm run pipeline -- section 3 --preview`. Section execution is not enabled yet; the existing commands below do not enforce section assignments.
+
 ```bash
 npm run pipeline -- run --plan weekly --limit 20            # discovery: SEC -> resolver -> extract -> match -> score
 npm run pipeline -- run --plan daily --limit 20             # jobs -> extract (model) -> match -> score -> enrich

@@ -1,0 +1,9 @@
+{
+  "version": "sec-sections-v1",
+  "frozen_on": "2026-11-15",
+  "source": "https://www.sec.gov/files/company_tickers.json",
+  "snapshot": "../../sec.json",
+  "snapshot_sha256": "afa5c21dae1ee27eeb829c973b334c06e3e0a341681526114e5225ed06ddd0be",
+  "section_count": 10,
+  "issuer_count": 8028
+}
