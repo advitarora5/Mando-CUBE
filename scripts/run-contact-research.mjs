@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { createTregClient, researchCompany, ResearchBudgetReached } from './contact-research.mjs';
@@ -37,9 +38,9 @@ export async function runContactResearch({ db, env, config, log = console.log, f
   const client = createTregClient({
     token: env.TREG_TOKEN, maxRunUsd: config.maxRunUsd, maxCallUsd: config.maxCallUsd, fetchImpl,
     checkpoint: {
-      get: async (companyId, requestKey) => checked(db.from('contact_research_calls').select('*').eq('company_id', companyId).eq('request_key', requestKey).maybeSingle()),
-      start: async (companyId, requestKey, endpoint) => checked(db.from('contact_research_calls').insert({ company_id: companyId, request_key: requestKey, endpoint, status: 'running' })),
-      finish: async (companyId, requestKey, result) => checked(db.from('contact_research_calls').update(result).eq('company_id', companyId).eq('request_key', requestKey)),
+      get: async (companyId, requestKey) => await checked(db.from('contact_completion_calls').select('*').eq('company_id', companyId).eq('request_key', requestKey).maybeSingle()) ?? await checked(db.from('contact_research_calls').select('*').eq('company_id', companyId).eq('request_key', requestKey).maybeSingle()),
+      start: async (companyId, requestKey, endpoint) => checked(db.from('contact_completion_calls').insert({ company_id: companyId, request_key: requestKey, endpoint, status: 'running' })),
+      finish: async (companyId, requestKey, result) => checked(db.from('contact_completion_calls').update(result).eq('company_id', companyId).eq('request_key', requestKey)),
     },
   });
   const counts = { succeeded: 0, blocked: 0, deferred: 0, added: 0, verified: 0, unverified: 0 };
@@ -49,11 +50,23 @@ export async function runContactResearch({ db, env, config, log = console.log, f
       const jobs = await checked(db.rpc('claim_contact_research', { p_run_id: run.id }));
       if (!jobs.length) break;
       const job = jobs[0];
+      const owner = randomUUID();
+      const locked = await checked(db.rpc('lock_contact_completion', { p_company_id: job.company_id, p_owner: owner }));
+      if (!locked) {
+        await checked(db.from('contact_research_jobs').update({ status: 'pending' }).eq('company_id', job.company_id));
+        counts.deferred += 1;
+        break;
+      }
       try {
         const company = await checked(db.from('companies').select('id,name,domain').eq('id', job.company_id).single());
-        const existing = await checked(db.from('contacts').select('name,email,linkedin_url').eq('company_id', job.company_id));
+        const existing = await checked(db.from('contacts').select('*').eq('company_id', job.company_id));
         const summary = await researchCompany({
           company, existing, maxContacts: config.maxContacts, client,
+          update: async (contact, patch) => {
+            const updated = await checked(db.rpc('complete_contact_if_unchanged', { p_id: contact.id, p_expected: contact, p_patch: patch }));
+            if (updated) counts[patch.email_verified ? 'verified' : 'unverified'] += 1;
+            return updated;
+          },
           save: async (companyId, contact) => {
             const added = await checked(db.rpc('save_researched_contact', { p_company_id: companyId, p_contact: contact }));
             if (added) {
@@ -72,6 +85,8 @@ export async function runContactResearch({ db, env, config, log = console.log, f
           status: deferred ? 'pending' : 'blocked', finished_at: new Date().toISOString(), error: error.message,
         }).eq('company_id', job.company_id));
         break;
+      } finally {
+        await checked(db.from('contact_completion_locks').delete().eq('company_id', job.company_id).eq('owner', owner));
       }
     }
   } catch {

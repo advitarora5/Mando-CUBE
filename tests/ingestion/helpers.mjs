@@ -160,7 +160,8 @@ export function worldTreg(opts = {}) {
       { first_name: 'Pat', last_name: 'Lee', title: 'Director, HRIS', employee_linkedin: 'https://www.linkedin.com/in/pat-lee-test' },
       { first_name: 'Sam', last_name: 'Ray', title: 'Plant Manager', employee_linkedin: 'https://www.linkedin.com/in/sam-ray-test' },
     ] }, cost_usd: 0, call_id: 'p' }),
-    'treg.people.email.find': opts.emailFind ?? (() => ({ ok: true, status: 200, body: { output: { email: 'pat.lee@alderrobotics.example' }, _treg: { served_by: 'fake', verification: { verdict: 'valid', checked: true } } }, cost_usd: 0.006, call_id: 'e' })),
+    'treg.people.email.find': opts.emailFind ?? (({ body }) => ({ ok: true, status: 200, body: { output: { email: `pat.lee@${body.domain}` }, _treg: { served_by: 'fake', verification: { verdict: 'valid', checked: true } } }, cost_usd: 0.006, call_id: 'e' })),
+    'treg.people.email.verify': () => ({ ok: true, status: 200, body: { output: { status: 'valid', valid: true } }, cost_usd: 0.001, call_id: 'v' }),
     ...(opts.extra ?? {}),
   });
 }

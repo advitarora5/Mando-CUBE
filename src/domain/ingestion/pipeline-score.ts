@@ -51,8 +51,11 @@ export type ScoringContact = {
 };
 
 // Latest annual filing figures for Budget capacity, in the filer's reporting currency. prior_* are the previous fiscal year, null when not reported.
-// pre_tax: the filer has no usable operating figure, so operating_income and its prior year hold pre-tax income instead.
-export type Financials = { fiscal_year_end: string; currency: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string; pre_tax?: boolean };
+// pre_tax / net_income: the filer has no usable operating figure, so operating_income and its prior year hold that income instead.
+// operating_cash_flow (same fiscal year) is evidence only and never changes the points.
+export type Financials = { fiscal_year_end: string; currency: string; operating_income: number; prior_operating_income: number | null; revenue: number | null; prior_revenue: number | null; source_url: string; pre_tax?: boolean; net_income?: boolean; operating_cash_flow?: number;
+  // Non-SEC sources: surplus = revenue less expenses of a nonprofit's annual return (not an operating income); matched_name = the entity the company was matched to, so a wrong match is visible.
+  surplus?: boolean; matched_name?: string };
 
 // Company facts the rubric uses. Employee count earns the +3 Authority bonus only with a source link.
 export type ScoringCompany = { employee_count: number | null; employee_source?: string | null; financials?: Financials | null };
@@ -164,8 +167,9 @@ export function budgetFromSignals(signals: ScoringSignal[], now: Date, financial
   const capacity = capacityPoints(financials);
   const investment = best?.points ?? 0;
   const score = Math.min(rubric.budget.weight, capacity + investment);
-  const figure = financials?.pre_tax ? "pre-tax income" : "operating income";
-  const filing = financials ? `${capacity ? "positive " : "non-positive "}${figure} ${money(financials.operating_income, financials.currency)} (FY ending ${financials.fiscal_year_end}${financials.pre_tax ? ", no current operating income figure" : ""})` : "operating income not collected";
+  const figure = financials?.surplus ? "net surplus" : financials?.pre_tax ? "pre-tax income" : financials?.net_income ? "net income" : "operating income";
+  const cash = financials?.operating_cash_flow !== undefined ? `, operating cash flow ${money(financials.operating_cash_flow, financials.currency)}` : "";
+  const filing = financials ? `${capacity ? "positive " : "non-positive "}${figure} ${money(financials.operating_income, financials.currency)} (FY ending ${financials.fiscal_year_end}${financials.surplus ? ", revenue less expenses, not operating income" : financials.pre_tax || financials.net_income ? ", no current operating income figure" : ""}${financials.matched_name ? `, matched to ${financials.matched_name}` : ""}${cash})` : "operating income not collected";
   // The filing is the larger, verifiable part; the investment signal's link is used only when there is no capacity.
   const source = capacity > 0 && financials ? financials.source_url : best?.signal.source_url ?? financials!.source_url;
   return { score, source, status: !financials ? "partial" : score ? "met" : "not_met", detail: { capacity, investment },

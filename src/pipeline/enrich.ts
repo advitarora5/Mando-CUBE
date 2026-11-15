@@ -1,10 +1,9 @@
-// Free contact research for eligible companies; paid email lookup keeps the readiness threshold and budget gate:
-// free people search first, then (budget allowing) one verified work-email lookup per contact through treg.
-// Rules: a LinkedIn URL that already exists is never paid for; only a "valid" verdict is verified; risky
-// addresses are stored unverified; invalid ones are not stored; no address is ever guessed; a paid call
-// for the same contact and step is never repeated (idempotency key in paid_calls and on the treg call).
+// Contact discovery and completion are evidence-gated, independent of qualification scores.
+import { randomUUID } from "node:crypto";
+import { completeContact, contactNeedsCompletion } from "../../scripts/contact-completion.mjs";
+import { completionClient, ContactBudgetReached } from "./contact-completion.ts";
 import { paidCallKey } from "../domain/ingestion/fingerprint.ts";
-import { mayScore, readyForContacts } from "../domain/ingestion/settings.ts";
+import { mayScore } from "../domain/ingestion/settings.ts";
 import { parseEvidence } from "../domain/scoring/evidence.ts";
 import { authorityFromContacts, confirmedCurrent, differentEmployer, reachabilityFromContacts, type ScoringSignal } from "../domain/ingestion/pipeline-score.ts";
 import type { PipelineSettings } from "../domain/ingestion/settings.ts";
@@ -112,6 +111,9 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
   const bump = (key: string, n = 1) => { r.counts[key] = (r.counts[key] ?? 0) + n; };
   const settings = await ctx.store.settings();
   const worst = opts.emailWorstCaseUsd ?? 0.02;
+  if (!Number.isFinite(worst) || worst <= 0) throw new Error("Invalid email call ceiling");
+  if (opts.dryRun) return r; // Preview never dispatches or mutates contact state.
+  const call = completionClient(ctx, worst, r);
   const processed = new Set<string>(), touched = new Set<string>();
   let evidenceSearchAvailable = true;
   async function verify(candidate: EvidenceCandidate, company: { name: string; domain: string }, now: Date) {
@@ -143,6 +145,8 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
   const companies = (await ctx.store.companies()).filter(c => mayScore(settings, c.pipeline));
   for (const company of companies) {
     if (processed.size >= opts.maxCompanies) break;
+    const owner = randomUUID();
+    if (!(await ctx.store.claimContactResearch(company.id, owner))) { bump("contact_research_busy"); continue; }
     try {
       const status = await ctx.store.enrichmentStatus(company.id);
       const reviews = company.domain ? currentContactReviews(ctx.contactReviews ?? [], company.domain, ctx.now()) : new Map<string, ContactReview>();
@@ -195,17 +199,12 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         }
       }
       if (r.blocked) break;
-      if (!canResearch) continue;
+
       if (touched.has(company.id)) storedContacts = await ctx.store.contactsForCompany(company.id);
       let contacts = storedContacts.filter(contact => !differentEmployer(contact));
       if (opts.freeOnly && contacts.length) { bump("contacts_already_present"); continue; }
-      if (!status && contacts.length) continue; // Do not opt existing contacts into paid lookup implicitly.
-      const latest = await ctx.store.latestScore(company.id);
-      if (opts.freeOnly && !latest) { bump("initial_score_missing"); continue; }
-      const paidReady = !!latest && readyForContacts(latest, settings);
-      // Existing researched companies below the paid threshold do not consume the batch's research slots.
-      if (contacts.length && !paidReady) { bump("paid_readiness_deferred"); continue; }
-      if (!contacts.length && !paidReady && !eligibleForFreeResearch(await ctx.store.signalsForCompany(company.id), settings, ctx.now())) {
+      if (!contacts.length && !canResearch) continue;
+      if (!eligibleForFreeResearch(await ctx.store.signalsForCompany(company.id), settings, ctx.now())) {
         bump("research_evidence_missing"); continue;
       }
       if (!ctx.treg) { await ctx.store.setEnrichment(company.id, "pending", "treg is not configured; eligible contact research pending."); bump("no_treg"); continue; }
@@ -262,7 +261,7 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         if (!picked.length) { await ctx.store.setEnrichment(company.id, "no_contacts_found", "Free people search found no HR/IT systems contacts."); continue; }
         if (opts.dryRun) continue;
         if (opts.freeOnly && !status) {
-          await ctx.store.setEnrichment(company.id, "pending", "Contact research started; paid email lookup still requires readiness and budget.");
+          await ctx.store.setEnrichment(company.id, "pending", "Contact research started; paid email completion requires budget.");
         }
         for (const { contact, review } of picked) {
           await ctx.store.insertContact({ company_id: company.id, ...contact });
@@ -274,12 +273,6 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         contacts = (await ctx.store.contactsForCompany(company.id)).filter(contact => !differentEmployer(contact));
       }
       if (opts.freeOnly) continue;
-      // Free research does not authorize a paid email lookup or inflate a qualification score.
-      if (!paidReady) {
-        await ctx.store.setEnrichment(company.id, "pending", "Free contact research complete; paid email lookup waits for the readiness threshold.");
-        bump("paid_readiness_deferred");
-        continue;
-      }
       // 2. Paid work email with verification, best contacts first, within budget.
       let budgetSkipped = false;
       const now = ctx.now();
@@ -288,37 +281,32 @@ export async function enrichStage(ctx: PipelineContext, opts: { maxCompanies: nu
         return Number(confirmedCurrent(b, now)) - Number(confirmedCurrent(a, now)) ||
           (y.functional + y.seniority) - (x.functional + x.seniority);
       });
-      for (const contact of ranked.filter(c => !c.email).slice(0, MAX_EMAIL_LOOKUPS_PER_COMPANY)) {
-        const key = paidCallKey("treg", "email", `${contact.id}`);
-        if (await ctx.store.paidCall(key)) { bump("email_already_looked_up"); continue; }
-        if (!(await ctx.spend.allow("treg", worst, `email ${contact.name}`))) { budgetSkipped = true; break; }
-        processed.add(company.id);
-        if (opts.dryRun) { await ctx.spend.record({ provider: "treg", endpoint: EMAIL_FIND, step: "email(dry-run)", subject: contact.id, idempotency_key: key, worst_case_usd: worst, cost_usd: 0, outcome: "dry-run" }); continue; }
-        const res = await ctx.treg.call(EMAIL_FIND, {
-          body: { full_name: contact.name, domain: company.domain, ...(contact.linkedin_url ? { linkedin_url: contact.linkedin_url } : {}) },
-          headers: { "X-Treg-Route-Verify": "true", "X-Treg-Route-Max-Cost": worst.toFixed(4) }, idempotencyKey: key,
-        });
-        r.requests++; r.treg_spend_usd += res.cost_usd;
-        await ctx.spend.record({ provider: "treg", endpoint: EMAIL_FIND, step: "email", subject: contact.id, idempotency_key: key, worst_case_usd: worst, cost_usd: res.cost_usd, outcome: res.ok ? "ok" : res.error });
-        if (!res.ok) {
-          if (res.status === 402) { (ctx.spend as { stop?: (p: string, r: string) => void }).stop?.("treg", "treg returned 402"); budgetSkipped = true; break; }
-          bump("email_errors"); r.errors.push(`email ${contact.name}: ${res.error}`);
-          continue; // a failed call was not billed and may be retried next run
+      for (const original of ranked.filter(contactNeedsCompletion)) {
+        const contact = structuredClone(original);
+        // Historical pipeline lookups cannot be purchased again, even if their result was not applied.
+        if (!contact.email && await ctx.store.paidCall(paidCallKey("treg", "email", contact.id))) {
+          bump("email_already_looked_up"); continue;
         }
-        const outcome = readEmailAnswer(res.body);
-        await ctx.store.recordPaidCall({ idempotency_key: key, provider: "treg", endpoint: EMAIL_FIND, subject: contact.id, step: "email", run_id: ctx.runId, cost_usd: res.cost_usd, outcome: outcome.status, response: { served_by: outcome.served_by, status: outcome.status } });
-        await ctx.store.updateContact(contact.id, {
-          email: outcome.email, email_status: outcome.status, email_verified: outcome.status === "valid", enriched_at: ctx.now().toISOString(),
-          contact_sources: { ...((contact as { contact_sources?: Record<string, unknown> }).contact_sources ?? {}), email: { provider: outcome.served_by ?? "treg", endpoint: EMAIL_FIND, verdict: outcome.status, call_id: res.call_id, fetched_at: ctx.now().toISOString(), cost_usd: res.cost_usd } },
-        } as Partial<ContactRow>);
-        touched.add(company.id);
-        bump(`email_${outcome.status}`);
+        const requestsBefore = r.requests;
+        try {
+          const patch = await completeContact({ company, contact, call });
+          if (patch || r.requests > requestsBefore) processed.add(company.id);
+          if (patch && await ctx.store.completeContact(contact, patch)) {
+            touched.add(company.id);
+            bump(`email_${patch.email_status}`);
+          }
+        } catch (error) {
+          if (error instanceof ContactBudgetReached) { budgetSkipped = true; break; }
+          throw error;
+        }
       }
       await ctx.store.setEnrichment(company.id, budgetSkipped ? "skipped_budget" : "done", budgetSkipped ? "Contacts found; email lookup waits for budget." : "Contacts found and looked up within budget.");
       if (budgetSkipped) bump("budget_skipped");
     } catch (error) {
       bump("error_enrich");
       r.errors.push(`enrich ${company.name}: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      await ctx.store.releaseContactResearch(company.id, owner);
     }
   }
   // New contacts change Authority and Reachability: rescore what was touched.

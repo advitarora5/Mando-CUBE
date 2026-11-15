@@ -79,7 +79,7 @@ test('run cap defers before dispatch and cached calls do not reserve more credit
   const client = createTregClient({ token: 'test', maxRunUsd: 0.1, maxCallUsd: 0.1, checkpoint: memoryCheckpoint(), fetchImpl: async () => apiResponse({ people: [] }) });
   await client.call(company.id, 'treg.people.search', {});
   await client.call(company.id, 'treg.people.search', {});
-  await assert.rejects(client.call(company.id, 'treg.people.email.find', {}), ResearchBudgetReached);
+  await assert.rejects(client.call(company.id, 'treg.people.email.find', { full_name: 'Alex', domain: 'example.com' }), ResearchBudgetReached);
   assert.equal(client.stats.requests, 1);
 });
 
@@ -144,7 +144,7 @@ test('research finds a missing email and independently verifies it before saving
   assert.equal(calls.length, 3);
   assert.deepEqual(calls[1].body, { domain: 'example.com', full_name: 'Alex Research' });
   assert.equal(saved[0].contact.email_verified, true);
-  assert.equal(saved[0].contact.contact_sources.email_verification.call_id, 'test-call');
+  assert.equal(saved[0].contact.contact_sources.contact_completion['verify:alex@example.com'].call_id, 'test-call');
   assert.equal(summary.verified, 1);
 });
 
@@ -158,9 +158,9 @@ test('directory emails are verified; catch-all addresses stay unverified', async
   assert.equal(saved[0].email_verified, false);
 });
 
-test('existing manual contacts are preserved without paid email research', async () => {
+test('existing verified manual contacts skip paid email research', async () => {
   let calls = 0;
-  const summary = await researchCompany({ company, existing: [{ name: ' ALEX  RESEARCH ', email: 'manual@example.com' }], maxContacts: 3,
+  const summary = await researchCompany({ company, existing: [{ name: ' ALEX  RESEARCH ', email: 'manual@example.com', email_verified: true }], maxContacts: 3,
     client: { call: async () => { calls += 1; return reply({ people: [person] }); } },
     save: async () => { assert.fail('Must not replace manual contacts'); },
   });
@@ -209,7 +209,7 @@ test('configuration rejects invalid caps and unknown flags', () => {
 function workerDatabase() {
   const tables = {
     contact_research_jobs: [{ company_id: company.id, status: 'pending' }],
-    contact_research_calls: [], pipeline_runs: [], contacts: [], companies: [company],
+    contact_completion_calls: [], contact_completion_locks: [], contact_research_calls: [], pipeline_runs: [], contacts: [], companies: [company],
   };
   return {
     tables,
@@ -221,6 +221,7 @@ function workerDatabase() {
         eq(key, value) { filters.push(row => row[key] === value); return query; },
         limit(value) { limit = value; return query; },
         insert(value) { operation = 'insert'; payload = value; return query; },
+        delete() { operation = 'delete'; return query; },
         update(value) { operation = 'update'; payload = value; return query; },
         maybeSingle() { single = true; return query; },
         single() { single = true; return query; },
@@ -231,6 +232,7 @@ function workerDatabase() {
             tables[table].push(inserted);
             rows = [inserted];
           }
+          if (operation === 'delete') tables[table] = tables[table].filter(row => !rows.includes(row));
           if (operation === 'update') for (const row of rows) Object.assign(row, payload);
           return Promise.resolve({ data: single ? rows[0] ?? null : rows, error: null }).then(resolve);
         },
@@ -238,6 +240,17 @@ function workerDatabase() {
       return query;
     },
     async rpc(name, args) {
+      if (name === 'lock_contact_completion') {
+        if (tables.contact_completion_locks.some(row => row.company_id === args.p_company_id)) return { data: false, error: null };
+        tables.contact_completion_locks.push({ company_id: args.p_company_id, owner: args.p_owner });
+        return { data: true, error: null };
+      }
+      if (name === 'complete_contact_if_unchanged') {
+        const row = tables.contacts.find(row => row.id === args.p_id);
+        if (!row || JSON.stringify(row) !== JSON.stringify(args.p_expected)) return { data: false, error: null };
+        Object.assign(row, args.p_patch);
+        return { data: true, error: null };
+      }
       if (name === 'claim_contact_research') {
         const job = tables.contact_research_jobs.find(row => row.status === 'pending');
         if (job) Object.assign(job, { status: 'running', run_id: args.p_run_id });
@@ -313,4 +326,25 @@ test('migration queues company admissions without score gates and restricts priv
   assert.match(sql, /alter table public.contact_research_calls enable row level security/);
   assert.match(sql, /revoke all on function public.save_researched_contact\(uuid, jsonb\) from public, anon, authenticated/);
   assert.doesNotMatch(sql, /ready_for_contacts_threshold|public\.scores|update public\.contacts/);
+});
+
+test('queued worker defers while pipeline owns the shared company lock', async () => {
+  const db = workerDatabase();
+  db.tables.contact_completion_locks.push({ company_id: company.id, owner: 'pipeline' });
+  await runContactResearch({ db, config: runConfig({}, ['--apply']), env: { TREG_TOKEN: 'test' }, log: () => {},
+    fetchImpl: () => assert.fail('Overlapping worker cannot dispatch') });
+  assert.equal(db.tables.contact_research_jobs[0].status, 'pending');
+  assert.equal(db.tables.pipeline_runs[0].counts.deferred, 1);
+  assert.equal(db.tables.contact_completion_locks[0].owner, 'pipeline');
+});
+
+test('overlapping clients race on atomic checkpoint creation before dispatch', async () => {
+  const checkpoint = memoryCheckpoint();
+  let calls = 0;
+  const opts = { token: 'test', maxRunUsd: 1, maxCallUsd: .1, checkpoint,
+    fetchImpl: async () => { calls++; return apiResponse({ email: 'alex@example.com' }); } };
+  const clients = [createTregClient(opts), createTregClient(opts)];
+  const results = await Promise.allSettled(clients.map(client => client.call(company.id, 'treg.people.email.find', { full_name: 'Alex', domain: 'example.com' })));
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(calls, 1);
 });

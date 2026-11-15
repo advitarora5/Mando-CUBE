@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { completeContact, contactCallKey, contactEmployerMismatch, contactNeedsCompletion } from './contact-completion.mjs';
 
 const personSchema = z.object({
   name: z.string().trim().min(2).max(200),
@@ -76,8 +77,9 @@ export function createTregClient({ token, maxRunUsd, maxCallUsd, fetchImpl = fet
     stats,
     async call(companyId, endpoint, body) {
       if (!['treg.people.search', 'treg.people.email.find', 'treg.people.email.verify'].includes(endpoint)) throw new Error('Unsupported treg endpoint.');
-      const requestKey = createHash('sha256').update(JSON.stringify({ endpoint, body })).digest('hex');
-      const cached = await checkpoint.get(companyId, requestKey);
+      const legacyKey = createHash('sha256').update(JSON.stringify({ endpoint, body })).digest('hex');
+      const requestKey = contactCallKey(endpoint, body) ?? legacyKey;
+      const cached = await checkpoint.get(companyId, requestKey) ?? (requestKey !== legacyKey ? await checkpoint.get(companyId, legacyKey) : null);
       if (cached) {
         if (cached.status !== 'succeeded') throw new Error('Prior call is unresolved. Reconcile its treg call before retrying.');
         return cached;
@@ -94,6 +96,8 @@ export function createTregClient({ token, maxRunUsd, maxCallUsd, fetchImpl = fet
             'content-type': 'application/json', 'X-Treg-Token': token,
             'X-Treg-Route-Max-Cost': String(ceilingMicro / 1e6),
             'X-Treg-Route-Strict-Filters': '1',
+            'X-Treg-Route-Verify': 'false',
+            'Idempotency-Key': `${companyId}:${requestKey}`,
           },
           body: JSON.stringify(body), signal: AbortSignal.timeout(75_000),
         });
@@ -124,46 +128,49 @@ export function createTregClient({ token, maxRunUsd, maxCallUsd, fetchImpl = fet
   };
 }
 
-export async function researchCompany({ company, existing, maxContacts, client, save }) {
+export async function researchCompany({ company, existing, maxContacts, client, save, update }) {
   const domain = companyDomain(company.domain);
   const search = await client.call(company.id, 'treg.people.search', { company_domain: domain, title: 'Workday', limit: maxContacts });
   const people = candidatesForCompany(search.response.output.people, company, maxContacts);
   const summary = { returned: search.response.output.people.length, candidates: people.length, added: 0, preserved: 0, verified: 0, unverified: 0, rejectedEmails: 0 };
+  let remaining = maxContacts;
+  // Complete stored contacts independently of directory coverage, preserving manual identity fields.
+  for (const contact of existing) {
+    if (remaining <= 0) break;
+    if (contactEmployerMismatch(contact) || !contactNeedsCompletion(contact)) continue;
+    const snapshot = structuredClone(contact);
+    const patch = await completeContact({ company: { ...company, domain }, contact: snapshot, call: client.call });
+    if (patch) remaining -= 1;
+    if (patch && await update(snapshot, patch)) {
+      Object.assign(contact, patch);
+      summary[patch.email_verified ? 'verified' : 'unverified'] += 1;
+    }
+  }
   for (const person of people) {
+    if (remaining <= 0) break;
     if (existing.some(contact => normalizedName(contact.name) === normalizedName(person.name)
       || (contact.email && contact.email.toLowerCase() === person.email)
       || (contact.linkedin_url && person.linkedin_url && contact.linkedin_url.toLowerCase().replace(/\/$/, '') === person.linkedin_url.toLowerCase().replace(/\/$/, '')))) {
       summary.preserved += 1;
       continue;
     }
-    let email = person.email;
-    let found = search;
-    if (!email) {
-      found = await client.call(company.id, 'treg.people.email.find', { domain, full_name: person.name });
-      email = text(found.response.output.email)?.toLowerCase() ?? null;
-    }
-    if (email && (!z.string().email().max(254).safeParse(email).success || email.split('@')[1] !== domain
-      || found.response._treg?.domain_match === false)) {
-      email = null;
-      summary.rejectedEmails += 1;
-    }
-    let verification = null;
-    if (email) verification = await client.call(company.id, 'treg.people.email.verify', { email });
-    const state = email ? verificationState(verification.response.output) : { email_status: 'not_found', email_verified: false };
+    // Directory emails still require a corporate-domain match and independent verification.
+    if (person.email && person.email.split('@')[1] !== domain) { person.email = null; summary.rejectedEmails += 1; }
+    const patch = await completeContact({ company: { ...company, domain }, contact: person, call: client.call });
     const contact = {
-      ...person, email, ...state, source: person.linkedin_url,
+      ...person, ...patch, source: person.linkedin_url,
       linkedin_status: person.linkedin_url ? 'provided' : 'not_found',
       contact_sources: {
+        ...patch.contact_sources,
         research: { source: 'treg.people.search', checked_by: search.provider, call_id: search.call_id, company_domain: domain },
-        email: { source: `${person.email ? 'treg.people.search' : 'treg.people.email.find'} via ${found.provider ?? 'treg'}`, call_id: found.call_id },
-        email_verification: { verdict: verification?.response.output.status ?? 'not_found', checked_by: verification?.provider ?? null, call_id: verification?.call_id ?? null },
         linkedin: { status: person.linkedin_url ? 'provided' : 'not_found' },
       },
     };
+    remaining -= 1;
     const added = await save(company.id, contact);
     if (added) {
       summary.added += 1;
-      summary[state.email_verified ? 'verified' : 'unverified'] += 1;
+      summary[contact.email_verified ? 'verified' : 'unverified'] += 1;
       existing.push(contact);
     } else summary.preserved += 1;
   }
