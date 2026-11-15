@@ -248,11 +248,38 @@ export class MemoryStore implements PipelineStore {
     if (c) Object.assign(c, patch);
   }
   async insertContact(contact: Omit<ContactRow, "id"> & { contact_sources?: unknown }) {
+    const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+    const existing = this.contacts.find(c => c.company_id === contact.company_id && (normalize(c.name) === normalize(contact.name) ||
+      (c.linkedin_url && contact.linkedin_url && c.linkedin_url.toLowerCase().replace(/\/$/, "") === contact.linkedin_url.toLowerCase().replace(/\/$/, ""))));
+    if (existing) return existing.id;
     const id = randomUUID();
     this.contacts.push({ id, ...contact });
     return id;
   }
 
+  private contactLocks = new Map<string, string>();
+  private contactCalls = new Map<string, import("../types.ts").ContactCall>();
+  async claimContactResearch(companyId: string, owner: string) {
+    if (this.contactLocks.has(companyId)) return false;
+    this.contactLocks.set(companyId, owner); return true;
+  }
+  async releaseContactResearch(companyId: string, owner: string) {
+    if (this.contactLocks.get(companyId) === owner) this.contactLocks.delete(companyId);
+  }
+  async contactCall(companyId: string, key: string) { return this.contactCalls.get(`${companyId}:${key}`) ?? null; }
+  async startContactCall(companyId: string, key: string, endpoint: string) {
+    void endpoint;
+    if (this.contactCalls.has(`${companyId}:${key}`)) throw new Error("Contact call already claimed");
+    this.contactCalls.set(`${companyId}:${key}`, { status: "running" });
+  }
+  async finishContactCall(companyId: string, key: string, result: import("../types.ts").ContactCall) {
+    this.contactCalls.set(`${companyId}:${key}`, result);
+  }
+  async completeContact(contact: ContactRow, patch: Record<string, unknown>) {
+    const current = this.contacts.find(c => c.id === contact.id);
+    if (!current || JSON.stringify(current) !== JSON.stringify(contact)) return false;
+    Object.assign(current, patch); return true;
+  }
   async paidCall(key: string) { return this.paid.get(key) ?? null; }
   async recordPaidCall(call: { idempotency_key: string; cost_usd: number; outcome: string; response: unknown }) {
     this.paid.set(call.idempotency_key, { outcome: call.outcome, response: call.response, cost_usd: call.cost_usd });

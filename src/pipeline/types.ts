@@ -65,7 +65,7 @@ export interface LLMProvider {
 
 // ---------- treg ----------
 
-export type TregResult = { ok: true; status: number; body: unknown; cost_usd: number; call_id: string | null } | { ok: false; status: number; error: string; cost_usd: number; body?: unknown };
+export type TregResult = { ok: true; status: number; body: unknown; cost_usd: number; call_id: string | null } | { ok: false; status: number; error: string; cost_usd: number; body?: unknown; call_id?: string | null };
 
 export interface TregTransport {
   call(endpoint: string, opts: { query?: Record<string, string | number>; body?: unknown; headers?: Record<string, string>; idempotencyKey?: string; timeoutMs?: number }): Promise<TregResult>;
@@ -142,7 +142,7 @@ export type WorkdaySite = {
 export type CompanyRow = { id: string; name: string; domain: string | null; employee_count: number | null; pipeline: boolean };
 export type ResolverAttempt = { normalized_name: string; company_name: string; found: boolean; probes: number; tried_at: string };
 export type ResolverCutoffs = { foundBefore: string; missBefore: string };
-export type ContactRow = ScoringContact & { id: string; company_id: string };
+export type ContactRow = ScoringContact & { id: string; company_id: string; email_verified?: boolean };
 export type StoredScore = ScoreRow & { id: string; assessed_at: string };
 
 export type RunCounts = Record<string, number>;
@@ -160,6 +160,8 @@ export type ExtractionRecord = {
   cost_usd: number;
   run_id: string | null;
 };
+
+export type ContactCall = { status: string; response?: unknown; provider?: string | null; call_id?: string | null; cost_micro?: number | null };
 
 export interface PipelineStore {
   readonly kind: "supabase" | "memory";
@@ -215,6 +217,12 @@ export interface PipelineStore {
   updateContact(contactId: string, patch: Partial<ContactRow> & { contact_sources?: unknown; enriched_at?: string }): Promise<void>;
   insertContact(contact: Omit<ContactRow, "id"> & { contact_sources?: unknown }): Promise<string>;
 
+  claimContactResearch(companyId: string, owner: string): Promise<boolean>;
+  releaseContactResearch(companyId: string, owner: string): Promise<void>;
+  contactCall(companyId: string, key: string): Promise<ContactCall | null>;
+  startContactCall(companyId: string, key: string, endpoint: string): Promise<void>;
+  finishContactCall(companyId: string, key: string, result: ContactCall): Promise<void>;
+  completeContact(contact: ContactRow, patch: Record<string, unknown>): Promise<boolean>;
   paidCall(key: string): Promise<{ outcome: string; response: unknown; cost_usd: number } | null>;
   recordPaidCall(call: { idempotency_key: string; provider: string; endpoint: string; subject: string; step: string; run_id: string | null; cost_usd: number; outcome: string; response: unknown }): Promise<void>;
 
