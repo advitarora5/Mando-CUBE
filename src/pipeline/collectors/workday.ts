@@ -123,6 +123,10 @@ export async function resolverNames(ctx: PipelineContext, max: number, excluded:
 // the whole candidate batch and prevent discovery from moving through the SEC list.
 export async function resolverCandidates(ctx: PipelineContext, max: number, discoveryOnly = false) {
   if (max <= 0) return [];
+  if (ctx.sectionScope) {
+    if (!ctx.sectionIssuer || !ctx.sectionScope.issuers.some(i => i.cik === ctx.sectionIssuer!.cik && i.name === ctx.sectionIssuer!.name)) throw Error("Section resolver requires an assigned issuer.");
+    return [{ name: ctx.sectionIssuer.name, normalized: normalizeName(ctx.sectionIssuer.name) }];
+  }
   const day = 86400000, now = ctx.now().getTime();
   const excluded = new Set<string>();
   if (discoveryOnly) {
@@ -155,7 +159,7 @@ export class WorkdayResolver implements Collector {
     const podsFor = (kind: string) => WORKDAY_PODS.slice(0, kind === "full_name" ? Number(source.config.full_name_pods ?? 7) : Number(source.config.first_word_pods ?? 3));
     // limit = sites to find; about one name in four has a guessable tenant, so up to six names per wanted site are tried.
     const names = await resolverCandidates(ctx, limits.maxItems * Number(source.config.names_per_site ?? 6), source.config.discovery_only === true);
-    const knownSites = await ctx.store.workdaySites(true);
+    const knownSites = await ctx.store.workdaySites(true, ctx.sectionScope);
     const corporateEnabled = source.config.corporate_discovery === true;
     const companies = corporateEnabled ? await ctx.store.companies() : [];
     const reviews = corporateEnabled ? await ctx.store.reviewItems("pending") : [];
@@ -214,7 +218,9 @@ export class WorkdayResolver implements Collector {
       if (found) foundNames++;
       // A temporary error or an interrupted search is not evidence of absence.
       // Leave it eligible for the next run; HTTP already bounds retries within this run.
-      if (!limits.dryRun && !result.blocked && (found || (!transient && !incomplete))) {
+      if (ctx.sectionScope) {
+        result.resolver_outcome = { status: found ? "found" : result.blocked || transient || incomplete ? "retry" : "miss", probes };
+      } else if (!limits.dryRun && !result.blocked && (found || (!transient && !incomplete))) {
         await ctx.store.saveResolverAttempt({ normalized_name: normalized, company_name: name, found, probes, tried_at: ctx.now().toISOString() });
       }
     }
@@ -233,7 +239,7 @@ export class WorkdayJobs implements Collector {
     const http = new PoliteHttp(ctx, { maxRequests: limits.maxRequests, minDelayMs: limits.minDelayMs, maxRetries: 2 });
     const searchText = String(source.config.search_text ?? "Workday");
     const perSite = Number(source.config.max_jobs_per_site ?? 8);
-    const allSites = await ctx.store.workdaySites(false);
+    const allSites = await ctx.store.workdaySites(false, ctx.sectionScope);
     const enabled = allSites.filter(site => site.enabled && (site.company_id || site.review_item_id || source.config.include_unmatched !== false));
     // Sites saved before the primary-site rule existed: still only the main site per tenant is collected.
     const byTenant = new Map<string, typeof enabled>();
@@ -309,9 +315,9 @@ export class WorkdayJobs implements Collector {
           continue;
         }
         if (!site.id && !limits.dryRun) {
-          const saved = await ctx.store.upsertWorkdaySite({ tenant: site.tenant, pod: site.pod, site: site.site, company_name: site.company_name, normalized_name: site.normalized_name, match_kind: site.match_kind, discovered_from: source.id, capture_id: site.capture_id });
+          const saved = await ctx.store.upsertWorkdaySite({ tenant: site.tenant, pod: site.pod, site: site.site, company_name: site.company_name, normalized_name: site.normalized_name, match_kind: site.match_kind, discovered_from: source.id, capture_id: site.capture_id }, ctx.sectionScope);
           site = { ...site, id: saved.id };
-          if (site.company_id || site.review_item_id) await ctx.store.linkWorkdaySites(site.normalized_name, site.company_id ? { company_id: site.company_id } : { review_item_id: site.review_item_id! });
+          if (site.company_id || site.review_item_id) await ctx.store.linkWorkdaySites(site.normalized_name, site.company_id ? { company_id: site.company_id } : { review_item_id: site.review_item_id! }, ctx.sectionScope);
         }
         for (const posting of postings.slice(0, perSite)) {
           if (result.blocked || http.remaining < 1) break;

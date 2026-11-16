@@ -12,6 +12,8 @@ import { resolveWebsite, WebsiteHttp, WEBSITE_LIMIT, websiteSignature, loadEmplo
 import { collectors } from "./collectors/sources.ts";
 import { extractCapture, loadPrompt, PROMPT_VERSION } from "./extract.ts";
 import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
+import { sectionNames } from "./section-scope.ts";
+import type { ScoringClaim } from "./scoring-queue.ts";
 import type { CollectLimits, PipelineContext, RunCounts, SignalRow, SourceRow, StoredScore } from "./types.ts";
 
 // candidate_keys: short hashes of the names a match pass checked, so a batch can count unique candidates without listing them.
@@ -38,11 +40,26 @@ export async function collectStage(ctx: PipelineContext, source: SourceRow, opts
   bump(r, "items", collected.items.length);
   for (const item of collected.items) {
     try {
+      if (ctx.sectionScope && !sectionNames(ctx.sectionScope).has(String(item.meta?.normalized_name ?? ""))) throw Error("Capture does not belong to this section.");
       const saved = await ctx.store.saveCapture(item, ctx.runId);
+      if (ctx.sectionScope) {
+        const normalized = String(item.meta?.normalized_name ?? "");
+        const issuer = ctx.sectionIssuer ?? ctx.sectionScope.issuers.find(i => normalizeName(i.name) === normalized);
+        if (!issuer || normalizeName(issuer.name) !== normalized || !sectionNames(ctx.sectionScope).has(normalized)) throw Error("Capture does not belong to this section.");
+        await ctx.store.linkSectionCapture(ctx.sectionScope, issuer.cik, saved.id);
+        const canonical = await ctx.store.captureById(saved.id);
+        if (!canonical || canonical.meta?.normalized_name !== normalized) throw Error("Shared capture has a different company context; membership preserved for manual review.");
+      }
       ctx.collected = { ...ctx.collected, [source.id]: saved.id };
       if (saved.inserted) bump(r, "new_captures");
       else { bump(r, "unchanged_captures"); bump(r, "signals_refreshed", await ctx.store.touchSignals(saved.id, ctx.now().toISOString())); }
     } catch (error) { bump(r, "error_store"); r.errors.push(`save capture ${item.url}: ${message(error)}`); }
+  }
+  // A section checkpoint is written only after every returned capture and its membership are durable.
+  if (ctx.sectionScope && ctx.sectionIssuer && collected.resolver_outcome) {
+    const outcome = r.counts.error_store ? { ...collected.resolver_outcome, status: "retry" as const } : collected.resolver_outcome;
+    await ctx.store.saveSectionProgress(ctx.sectionScope, ctx.sectionIssuer.cik, outcome, ctx.now().toISOString());
+    bump(r, `discovery_${outcome.status}`);
   }
   return r;
 }
@@ -53,7 +70,7 @@ export async function extractStage(ctx: PipelineContext, opts: { limit: number; 
   const r = result();
   const prompt = loadPrompt();
   let llm = ctx.llm;
-  const pending = await ctx.store.pendingCaptures(opts.limit, opts.sourceIds);
+  const pending = await ctx.store.pendingCaptures(opts.limit, opts.sourceIds, ctx.sectionScope);
   bump(r, "pending", pending.length);
   for (const capture of pending) {
     try {
@@ -82,11 +99,11 @@ export async function extractStage(ctx: PipelineContext, opts: { limit: number; 
         if (m.ok) bump(r, "llm_dropped_fields", m.checked.dropped.length);
       }
       for (const site of out.sites ?? []) {
-        const saved = await ctx.store.upsertWorkdaySite({ ...site, discovered_from: capture.source_id, capture_id: capture.id });
+        const saved = await ctx.store.upsertWorkdaySite({ ...site, discovered_from: capture.source_id, capture_id: capture.id }, ctx.sectionScope);
         if (saved.inserted) bump(r, "new_workday_sites");
       }
       for (const signal of out.signals) {
-        const saved = await ctx.store.upsertSignal({ ...signal, capture_id: capture.id, extraction_id: signal.method === "llm" ? modelExtractionId : null, seen_at: ctx.now().toISOString() });
+        const saved = await ctx.store.upsertSignal({ ...signal, capture_id: capture.id, extraction_id: signal.method === "llm" ? modelExtractionId : null, seen_at: ctx.now().toISOString() }, ctx.sectionScope);
         bump(r, saved.inserted ? "new_signals" : "seen_signals");
       }
       // Structured reading closes the capture, unless it needs the configured model and the model is down or
@@ -100,6 +117,7 @@ export async function extractStage(ctx: PipelineContext, opts: { limit: number; 
     } catch (error) {
       bump(r, "error_extract");
       r.errors.push(`extract ${capture.url}: ${message(error)}`);
+      if (ctx.sectionScope) continue; // Preserve section evidence for retry, including transient database failures.
       // A capture its reader cannot read would fail on every run: dead-letter it once, with the reason.
       try { await ctx.store.saveExtraction({ capture_id: capture.id, run_id: ctx.runId, method: "structured", model: "", prompt_version: "", status: "dead_letter", output: null, error: message(error).slice(0, 500), attempts: 1, cost_usd: 0 }); }
       catch { /* the store is failing too; the capture stays queued */ }
@@ -132,17 +150,17 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
   if (opts.localIdentity) assertIdentityAdmissionContext(ctx, opts.localIdentity);
   const r = result();
   const settings = await ctx.store.settings();
-  const allReviews = await ctx.store.reviewItems();
+  const allReviews = await ctx.store.reviewItems(undefined, ctx.sectionScope);
   const reviews = new Map(allReviews.filter(item => item.status === "pending").map(item => [item.normalized_name, item]));
   const resolved = new Map(allReviews.filter(item => item.status !== "pending").map(item => [item.normalized_name, item]));
   const groups = new Map<string, SignalRow[]>();
-  for (const signal of (await ctx.store.unassignedSignals()).filter(s => s.company_name)) {
+  for (const signal of (await ctx.store.unassignedSignals(ctx.sectionScope)).filter(s => s.company_name)) {
     const key = normalizeName(signal.company_name);
     if (key) groups.set(key, [...(groups.get(key) ?? []), signal]);
   }
   // Reviews own their signals, so unassignedSignals alone cannot discover recoverable candidates.
   for (const item of reviews.values()) {
-    const signals = await ctx.store.signalsForReview(item.id);
+    const signals = await ctx.store.signalsForReview(item.id, ctx.sectionScope);
     groups.set(item.normalized_name, [...(groups.get(item.normalized_name) ?? []), ...signals]);
   }
   if (opts.localIdentity) for (const name of groups.keys()) if (!opts.localIdentity.names.has(name)) groups.delete(name);
@@ -152,7 +170,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
   const deadline = Date.now() + (opts.localIdentity ? 30 : 5) * 60 * 1000;
   const initialSpend = ctx.spend.spent("treg");
   const known = await ctx.store.companies();
-  const sites = await ctx.store.workdaySites(true);
+  const sites = await ctx.store.workdaySites(true, ctx.sectionScope);
   const http = new WebsiteHttp(ctx);
   for (const [normalized, signals] of groups) {
     if (!signals.length) continue;
@@ -166,7 +184,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         if (!opts.dryRun) {
           const target = done.resolved_company_id ? { company_id: done.resolved_company_id } : { review_item_id: done.id };
           await ctx.store.assignSignals(ids, target);
-          await ctx.store.linkWorkdaySites(normalized, target);
+          await ctx.store.linkWorkdaySites(normalized, target, ctx.sectionScope);
         }
         bump(r, done.status === "rejected" ? "kept_rejected" : "joined_resolved_review");
         continue;
@@ -191,7 +209,7 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
       if (waiting?.reason === "similar_name") {
         if (!opts.dryRun) {
           await ctx.store.assignSignals(ids, { review_item_id: waiting.id });
-          await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id });
+          await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id }, ctx.sectionScope);
           if (lookup.status === "confirmed" && await ctx.store.fillReviewWebsite(waiting.id, lookup.domain!)) bump(r, "review_websites_confirmed");
         }
         bump(r, "pending_reason_similar_name");
@@ -215,12 +233,13 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
       if (waiting) {
         // New signals join before the RPC; on failure the pending review retains them for retry.
         await ctx.store.assignSignals(ids, { review_item_id: waiting.id });
-        await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id });
+        await ctx.store.linkWorkdaySites(normalized, { review_item_id: waiting.id }, ctx.sectionScope);
         if (decision.action === "create" || decision.action === "attach") {
           if (pageName && decision.action === "create") await ctx.store.updatePendingReview(waiting.id, { candidate_name: pageName, candidate_domain: waiting.candidate_domain, reason: waiting.reason, suggested_company_id: waiting.suggested_company_id });
-          const id = await ctx.store.admitReview(waiting.id, lookup.domain!, source!, decision.action === "attach" ? decision.company_id : null, ctx.runId);
-          if (decision.action === "create") { known.push({ id, name: pageName ?? waiting.candidate_name, domain: lookup.domain, employee_count: waiting.employee_count, pipeline: true }); created++; }
-          bump(r, decision.action === "create" ? "new_companies" : "attached_existing");
+          const id = await ctx.store.admitReview(waiting.id, lookup.domain!, source!, decision.action === "attach" ? decision.company_id : null, ctx.runId, ctx.sectionScope);
+          const inserted = decision.action === "create" && await ctx.store.companyCreatedInRun(id, ctx.runId);
+          if (decision.action === "create") { known.push({ id, name: pageName ?? waiting.candidate_name, domain: lookup.domain, employee_count: waiting.employee_count, pipeline: inserted }); if (inserted) created++; }
+          bump(r, inserted ? "new_companies" : "attached_existing");
           bump(r, "recovered_reviews");
         } else {
           await ctx.store.updatePendingReview(waiting.id, { candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, reason: decision.reason, suggested_company_id: decision.suggested_company_id });
@@ -229,21 +248,34 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
         }
       } else if (decision.action === "attach") {
         await ctx.store.assignSignals(ids, { company_id: decision.company_id });
-        await ctx.store.linkWorkdaySites(normalized, { company_id: decision.company_id });
+        await ctx.store.linkWorkdaySites(normalized, { company_id: decision.company_id }, ctx.sectionScope);
         bump(r, "attached_existing");
       } else if (decision.action === "create") {
         const companyName = pageName ?? displayName(name, null);
-        const id = await ctx.store.createPipelineCompany({ name: companyName, domain: lookup.domain, employee_count: null, source: source! }, ctx.runId, { signal_ids: ids, normalized_name: normalized });
+        const id = await ctx.store.createPipelineCompany({ name: companyName, domain: lookup.domain, employee_count: null, source: source! }, ctx.runId, { signal_ids: ids, normalized_name: normalized, scope: ctx.sectionScope });
         known.push({ id, name: companyName, domain: lookup.domain, employee_count: null, pipeline: true });
-        created++; bump(r, "new_companies");
+        const inserted = await ctx.store.companyCreatedInRun(id, ctx.runId);
+        if (inserted) created++;
+        bump(r, inserted ? "new_companies" : "attached_existing");
       } else {
         const item = await ctx.store.addReviewItem({ candidate_name: pageName ?? displayName(name, null), normalized_name: normalized, candidate_domain: lookup.status === "confirmed" ? lookup.domain : null, employee_count: null, suggested_company_id: decision.suggested_company_id, reason: decision.reason });
         await ctx.store.assignSignals(ids, { review_item_id: item.id });
-        await ctx.store.linkWorkdaySites(normalized, { review_item_id: item.id });
+        await ctx.store.linkWorkdaySites(normalized, { review_item_id: item.id }, ctx.sectionScope);
         bump(r, item.inserted ? `review_${decision.reason}` : "review_existing");
       }
       if (lookup.domain) bump(r, "with_website");
-    } catch (error) { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
+    } catch (error) {
+      if (/Company identity requires review/.test(message(error)) && !opts.dryRun) {
+        const item = reviews.get(normalized);
+        if (item) await ctx.store.updatePendingReview(item.id, { candidate_domain: item.candidate_domain, reason: "similar_name", suggested_company_id: null });
+        else {
+          const review = await ctx.store.addReviewItem({ candidate_name: signals[0].company_name!, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: "similar_name" });
+          await ctx.store.assignSignals(signals.map(s => s.id), { review_item_id: review.id });
+          await ctx.store.linkWorkdaySites(normalized, { review_item_id: review.id }, ctx.sectionScope);
+        }
+        bump(r, "review_identity_conflict");
+      } else { bump(r, "error_match"); r.errors.push(`match ${normalized}: ${message(error)}`); }
+    }
   }
   r.requests = http.requests;
   r.treg_spend_usd = ctx.spend.spent("treg") - initialSpend;
@@ -265,13 +297,15 @@ import { buildScoreChange, type ScoreTrigger } from "../domain/ingestion/score-c
 
 // Scores every in-scope company. A new row is appended only when something changed, or every 14 days.
 // Out-of-scope companies (existing companies while scope is pipeline_only) are never touched.
-export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[]; trigger?: ScoreTrigger } = {}): Promise<StageResult> {
+export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: string[]; trigger?: ScoreTrigger; queued?: ScoringClaim } = {}): Promise<StageResult> {
+  if (opts.queued && (ctx.sectionScope || opts.companyIds?.length !== 1 || opts.companyIds[0] !== opts.queued.company_id)) throw Error("Queued scoring requires exactly the claimed company.");
   const r = result();
   const settings = await ctx.store.settings();
   const now = ctx.now();
-  const companies = (await ctx.store.companies()).filter(c => !opts.companyIds || opts.companyIds.includes(c.id));
+  const claimedCompany = opts.queued ? await ctx.store.companyById(opts.queued.company_id) : null;
+  const companies = opts.queued ? (claimedCompany ? [claimedCompany] : []) : (await ctx.store.companies()).filter(c => !opts.companyIds || opts.companyIds.includes(c.id));
   for (const company of companies) {
-    if (!mayScore(settings, company.pipeline)) { bump(r, "out_of_scope"); continue; }
+    if (!opts.queued && !mayScore(settings, company.pipeline)) { bump(r, "out_of_scope"); continue; }
     try {
       const signals = await ctx.store.signalsForCompany(company.id);
       const contacts = await ctx.store.contactsForCompany(company.id);
@@ -289,14 +323,19 @@ export async function scoreStage(ctx: PipelineContext, opts: { companyIds?: stri
       // A lookup that could not run is not evidence that capacity disappeared: keep the saved assessment until it can.
       const deferred = financialsUnavailable(lookup.status) && !!latest && Number(assessment.result.row.budget_score) < Number(latest.budget_score);
       if (deferred) bump(r, "financials_deferred");
-      else if (sameScore(latest, assessment.result.row) && !due) bump(r, "unchanged");
+      else if (sameScore(latest, assessment.result.row) && !due) {
+        if (opts.queued) { await ctx.store.finishScoring(opts.queued, null, now.toISOString()); bump(r, "queue_completed"); }
+        bump(r, "unchanged");
+      }
       else {
         // An unchanged score that is only re-saved because it is due is a refresh; anything else was started by the caller.
         const trigger: ScoreTrigger = sameScore(latest, assessment.result.row) ? "periodic_refresh" : opts.trigger ?? "pipeline_run";
-        await ctx.store.insertScore(assessment.result.row, now.toISOString(), buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId }));
+        const change = buildScoreChange({ previous: latest, row: assessment.result.row, trigger, runId: ctx.runId });
+        if (opts.queued) { await ctx.store.finishScoring(opts.queued, assessment.result.row, now.toISOString(), change); bump(r, "queue_completed"); }
+        else await ctx.store.insertScore(assessment.result.row, now.toISOString(), change);
         bump(r, latest ? "rescored" : "scored");
       }
-      if (!deferred && assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
+      if (!opts.queued && !deferred && assessment.ready_for_contacts && !(await ctx.store.enrichmentStatus(company.id)) && !contacts.length) {
         await ctx.store.setEnrichment(company.id, "pending", "Budget + Release + Timing reached the ready-for-contacts threshold.");
         bump(r, "ready_for_contacts");
       }
