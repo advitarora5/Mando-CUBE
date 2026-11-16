@@ -4,6 +4,8 @@
 //                            [--limit N] [--dry-run] [--max-spend USD] [--no-llm] [--no-treg] [--trigger manual|schedule|import_button]
 //   npm run pipeline -- import <file.csv> [--dry-run]
 //   npm run pipeline -- health
+//   npm run pipeline -- scoring status | enqueue <company-id> | work [--limit 25] [--watch]
+//   npm run pipeline -- sections | section <1-10> [--preview | --limit N --no-llm --no-treg --max-spend USD]
 //   npm run pipeline -- review list | approve <id> [--domain example.com] | merge <id> <company_id> | reject <id> [--note text]
 //
 // Database: PIPELINE_SUPABASE_URL / PIPELINE_SUPABASE_KEY (local or test only; see docs/ingestion-runbook.md).
@@ -11,6 +13,7 @@ import { readFileSync } from "node:fs";
 import { contextFromEnv } from "../src/pipeline/context.ts";
 import { importCsv } from "../src/pipeline/import-csv.ts";
 import { runPipeline } from "../src/pipeline/runner.ts";
+import { sectionCommand } from "./pipeline-sections.mjs";
 
 function flags(argv) {
   const out = { _: [] };
@@ -18,6 +21,9 @@ function flags(argv) {
     const arg = argv[i];
     if (!arg.startsWith("--")) { out._.push(arg); continue; }
     const key = arg.slice(2);
+    if (!["plan", "stage", "source", "limit", "dry-run", "max-spend", "no-llm", "no-treg", "trigger", "enrich-companies", "domain", "note"].includes(key)) {
+      throw new Error("Unrecognized pipeline option. Section previews use: pipeline section <1-10> --preview");
+    }
     const next = argv[i + 1];
     if (next === undefined || next.startsWith("--")) out[key] = true;
     else { out[key] = next; i++; }
@@ -25,12 +31,21 @@ function flags(argv) {
   return out;
 }
 
-const args = flags(process.argv.slice(2));
-const [command, ...rest] = args._;
-const dryRun = !!args["dry-run"];
-const maxSpend = args["max-spend"] != null ? Number(args["max-spend"]) : undefined;
+async function main() {
+  if (process.argv[2] === "scoring") {
+    const { scoringCommand } = await import("./pipeline-scoring.mjs");
+    await scoringCommand(process.argv.slice(3), process.env);
+    return;
+  }
+  if (["section", "sections"].includes(process.argv[2])) {
+    await sectionCommand(process.argv.slice(2), process.env);
+    return;
+  }
+  const args = flags(process.argv.slice(2));
+  const [command, ...rest] = args._;
+  const dryRun = !!args["dry-run"];
+  const maxSpend = args["max-spend"] != null ? Number(args["max-spend"]) : undefined;
 
-try {
   if (command === "run") {
     const ctx = await contextFromEnv(process.env, { dryRun, maxSpend, noLlm: !!args["no-llm"], noTreg: !!args["no-treg"] });
     const report = await runPipeline(ctx, {
@@ -66,10 +81,12 @@ try {
     else if (action === "reject") await ctx.store.resolveReview(id, { action: "reject" }, args.note ?? "rejected via CLI", null);
     else throw new Error(`unknown review action ${action}`);
   } else {
-    console.log("usage: pipeline run|import|health|review  (see the header of scripts/pipeline.mjs)");
+    console.log("usage: pipeline run|import|health|review|sections|section|scoring  (see the header of scripts/pipeline.mjs)");
     process.exitCode = command ? 1 : 0;
   }
-} catch (error) {
+}
+
+main().catch(error => {
   console.error(`x ${error.message}`);
   process.exitCode = 1;
-}
+});

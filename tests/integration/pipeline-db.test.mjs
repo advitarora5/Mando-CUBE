@@ -4,12 +4,14 @@
 // Run: npm run test:integration   (skips when PIPELINE_SUPABASE_URL is not a reachable local database)
 import { test, after } from 'node:test';
 import { randomUUID, createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { normalizeName } from '../../src/domain/ingestion/normalize.ts';
-import { matchStage } from '../../src/pipeline/stages.ts';
+import { matchStage, extractStage } from '../../src/pipeline/stages.ts';
 import assert from 'node:assert/strict';
 import { integrationDatabase } from '../helpers/integration-database.mjs';
 import { SupabaseStore, assertAllowedTarget } from '../../src/pipeline/store/supabase.ts';
 import { runPipeline } from '../../src/pipeline/runner.ts';
+import { workScoringQueue } from '../../src/pipeline/scoring-queue.ts';
 import { discoveryScoreScope } from '../../scripts/discovery-score-scope.mjs';
 import { makeCtx, clock, worldFetch, worldTreg, groundedModel, randomNames, worldTenant } from '../ingestion/helpers.mjs';
 
@@ -24,6 +26,216 @@ const count = async table => (await db.from(table).select('id', { count: 'exact'
 const disabled = [];
 const testTenants = [];
 const cleanupCompanies = [];
+
+test('separate processes admitting the same confirmed host save one company with both sections of evidence', { skip }, async () => {
+  const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, names = randomNames(2, seed + 81281);
+  const domain = `${worldTenant(names[0])}.example`, captures = [], signals = [], runs = [], children = [];
+  const scopes = names.map((name, i) => ({ version, section: i + 5, snapshotSha256: 'e'.repeat(64), ambiguousNames: [], issuers: [{ cik: 9300000 + i, name }] }));
+  let company;
+  try {
+    for (const [i, scope] of scopes.entries()) {
+      await store.ensureSection(scope);
+      const raw = `Fictional parallel admission evidence ${version} ${i}`;
+      const capture = await store.saveCapture({ source: 'workday-site-resolver', url: `https://fixture.example/${version}/${i}`, raw, fingerprint: createHash('sha256').update(raw).digest('hex'), fetched_at: new Date().toISOString(), http_status: 200, content_type: 'text/plain', meta: { normalized_name: normalizeName(names[i]), company_name: names[i] } }, null);
+      captures.push(capture);
+      await store.linkSectionCapture(scope, scope.issuers[0].cik, capture.id);
+      signals.push(await store.upsertSignal({ company_id: null, review_item_id: null, capture_id: capture.id, extraction_id: null, type: 'known_customer', signal_date: null, source_url: `https://fixture.example/${version}/${i}`, quote: raw, confidence: 0.9, company_name: names[i], products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: new Date().toISOString() }));
+      runs.push(await store.startRun({ job: 'fictional_parallel_admission', source_id: null, trigger: 'manual' }));
+    }
+    const childCode = `
+      import { SupabaseStore } from './src/pipeline/store/supabase.ts';
+      const request = JSON.parse(process.argv[1]);
+      const store = new SupabaseStore(process.env.PIPELINE_SUPABASE_URL, process.env.PIPELINE_SUPABASE_KEY);
+      process.stdin.once('data', async () => {
+        try { const id = await store.createPipelineCompany(request.company, request.run, request.attach); console.log(JSON.stringify({ id })); }
+        catch { console.error('Fictional parallel admission failed'); process.exitCode = 1; }
+      });
+      console.log('ready');
+    `;
+    for (const [i, scope] of scopes.entries()) {
+      const request = { company: { name: names[i], domain: i ? `https://www.${domain.toUpperCase()}/careers` : domain, employee_count: null, source: `https://fixture.example/${version}/${i}` }, run: runs[i], attach: { signal_ids: [signals[i].id], normalized_name: normalizeName(names[i]), scope } };
+      const child = spawn(process.execPath, ['--input-type=module', '-e', childCode, JSON.stringify(request)], { cwd: process.cwd(), env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
+      children.push(child);
+      let stdout = '', stderr = '';
+      let ready;
+      const waiting = new Promise(resolve => { ready = resolve; });
+      child.stdout.on('data', chunk => { stdout += chunk; if (stdout.includes('ready\n')) ready(); });
+      child.stderr.on('data', chunk => { stderr += chunk; });
+      child.result = new Promise((resolve, reject) => {
+        child.once('error', reject);
+        child.once('exit', code => { if (code) reject(Error(`Admission child exited ${code}: ${stderr}`)); else resolve(JSON.parse(stdout.trim().split('\n').at(-1))); });
+      });
+      await Promise.race([waiting, child.result.then(() => { throw Error('Admission child exited before barrier'); })]);
+    }
+    for (const child of children) child.stdin.end('go\n');
+    const [a, b] = await Promise.all(children.map(c => c.result));
+    assert.equal(a.id, b.id); company = a.id;
+    const rows = (await db.from('companies').select('id,name,source').eq('domain', domain)).data;
+    assert.equal(rows.length, 1);
+    assert.ok(names.includes(rows[0].name));
+    assert.equal((await db.from('signals').select('id').eq('company_id', company)).data.length, 2);
+    assert.equal((await db.from('company_scoring_jobs').select('company_id').eq('company_id', company)).data.length, 1);
+    const existing = structuredClone(rows[0]);
+    assert.equal(await store.createPipelineCompany({ name: 'Fictional alternative label', domain, employee_count: 999, source: 'https://replacement.example/' }, null, { signal_ids: [], normalized_name: null }), company);
+    assert.deepEqual((await db.from('companies').select('id,name,source').eq('id', company).single()).data, existing);
+    const scored = await workScoringQueue(makeCtx({ store, now: () => new Date() }), { limit: 5, companyId: company });
+    assert.equal(scored.completed, 1);
+    assert.equal((await db.from('scores').select('id').eq('company_id', company)).data.length, 1);
+    await assert.rejects(store.createPipelineCompany({ name: rows[0].name, domain: `different-${domain}`, employee_count: null, source: 'https://fixture.example/' }, null, { signal_ids: [], normalized_name: null }), /identity requires review/);
+    const direct = await db.from('companies').insert({ name: 'Fictional direct duplicate', domain: `https://www.${domain}/` });
+    assert.equal(direct.error?.code, '23505', 'direct/import writes cannot bypass canonical host protection');
+  } finally {
+    for (const child of children) if (child.exitCode === null) child.kill('SIGTERM');
+    for (const c of captures) await store.saveExtraction({ capture_id: c.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+    if (captures.length) await db.from('signals').delete().in('capture_id', captures.map(c => c.id));
+    if (company) await db.from('companies').delete().eq('id', company);
+    await db.from('pipeline_section_issuers').delete().eq('version', version);
+    for (const run of runs) await store.finishRun(run, { status: 'succeeded', counts: {}, requests: 0, llm_spend_usd: 0, treg_spend_usd: 0, error: null });
+  }
+});
+
+test('scoring queue atomically commits, retains newer evidence, recovers claims, and does not lose failed work', { skip }, async () => {
+  const store = new SupabaseStore(url, key), name = randomNames(1, seed + 91691)[0];
+  const company = await store.createPipelineCompany({ name, domain: `${worldTenant(name)}.example`, employee_count: null, source: 'https://fixture.example/' }, null, { signal_ids: [], normalized_name: null });
+  try {
+    const [a, b] = await Promise.all([store.claimScoring(company), store.claimScoring(company)]);
+    const claim = a ?? b;
+    assert.ok(claim); assert.equal([a,b].filter(Boolean).length, 1);
+    const invalid = { company_id: company, rubric_version: 'fictional-invalid', tier: 'Maybe', authority_score: 999, reachability_score: 0, budget_score: 0, release_score: 0, timing_score: 0 };
+    await assert.rejects(store.finishScoring(claim, invalid, new Date().toISOString()));
+    assert.equal((await db.from('scores').select('id').eq('company_id', company)).data.length, 0);
+    assert.equal((await db.from('company_scoring_jobs').select('completed_version').eq('company_id', company).single()).data.completed_version, 0);
+    await store.failScoring(claim, 'score_failed');
+    assert.equal(await store.claimScoring(company), null, 'failure backoff is respected');
+    await db.from('company_scoring_jobs').update({ available_at: new Date(Date.now()-1000).toISOString() }).eq('company_id', company);
+    const ctx = makeCtx({ store, now: () => new Date() });
+    const finish = store.finishScoring.bind(store);
+    store.finishScoring = async (...args) => { await store.enqueueScoring(company); return finish(...args); };
+    assert.equal((await workScoringQueue(ctx, { limit: 1, companyId: company })).completed, 1);
+    let job = (await db.from('company_scoring_jobs').select('*').eq('company_id', company).single()).data;
+    assert.equal(job.status, 'pending'); assert.ok(job.requested_version > job.completed_version);
+    store.finishScoring = finish;
+    assert.equal((await workScoringQueue(ctx, { limit: 1, companyId: company })).completed, 1);
+    assert.equal((await db.from('scores').select('id').eq('company_id', company)).data.length, 1, 'unchanged evidence is acknowledged without a duplicate score');
+    await store.enqueueScoring(company);
+    const abandoned = await store.claimScoring(company);
+    await db.from('company_scoring_jobs').update({ locked_until: new Date(Date.now()-1000).toISOString() }).eq('company_id', company);
+    const replacement = await store.claimScoring(company);
+    assert.notEqual(abandoned.token, replacement.token);
+    await assert.rejects(store.finishScoring(abandoned, null, new Date().toISOString()), /no longer current/);
+    await store.failScoring(abandoned, 'score_failed');
+    job = (await db.from('company_scoring_jobs').select('claim_token').eq('company_id', company).single()).data;
+    assert.equal(job.claim_token, replacement.token);
+    await store.finishScoring(replacement, null, new Date().toISOString());
+  } finally { await db.from('companies').delete().eq('id', company); }
+});
+
+test('direct concurrent inserts cannot bypass canonical website protection', { skip }, async () => {
+  const name = randomNames(1, seed + 107711)[0], domain = `${worldTenant(name)}.example`;
+  try {
+    const results = await Promise.all([
+      db.from('companies').insert({ name, domain }).select('id'),
+      db.from('companies').insert({ name: `${name} alternate`, domain: `https://www.${domain}/careers` }).select('id'),
+    ]);
+    assert.equal(results.filter(r => !r.error).length, 1);
+    assert.equal(results.find(r => r.error).error.code, '23505');
+  } finally { await db.from('companies').delete().in('name', [name, `${name} alternate`]); }
+});
+
+test('concurrent parent and subdomain admissions preserve the ambiguity review rule', { skip }, async () => {
+  const store = new SupabaseStore(url, key), names = randomNames(2, seed + 117721), domain = `${worldTenant(names[0])}.example`;
+  try {
+    const results = await Promise.allSettled(names.map((name, i) => store.createPipelineCompany({ name, domain: i ? `subsidiary.${domain}` : domain, employee_count: null, source: 'https://fixture.example/' }, null, { signal_ids: [], normalized_name: null })));
+    assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+    assert.match(results.find(r => r.status === 'rejected').reason.message, /identity requires review/);
+  } finally { await db.from('companies').delete().in('name', names); }
+});
+
+test('section runs share a real database without consuming other sections and resume across devices', { skip }, async () => {
+  const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, names = randomNames(4, seed + 47213);
+  const scope = (section, offset) => ({ version, section, snapshotSha256: 'b'.repeat(64), ambiguousNames: [], issuers: names.slice(offset, offset + 2).map((name, i) => ({ cik: 9100000 + offset + i, name })) });
+  const a = scope(1, 0), b = scope(2, 2);
+  const ctxFor = scope => ({ ...makeCtx({ store, now: () => new Date(), fetch: worldFetch({ names, existingTenants: 4 }), treg: worldTreg() }), sectionScope: scope });
+  const run = ctx => runPipeline(ctx, { plan: 'section', limit: 1, dryRun: false, trigger: 'manual' });
+  const captureIds = new Set();
+  try {
+    const [ra, rb] = await Promise.all([run(ctxFor(a)), run(ctxFor(b))]);
+    for (const r of [ra, rb]) { assert.deepEqual(r.jobs.flatMap(j => j.errors), []); assert.equal(r.section.found, 1); }
+    const next = await run(ctxFor(a));
+    assert.equal(next.section.found, 2);
+    assert.equal(next.section.pending, 0);
+    assert.ok(next.jobs.some(j => j.job.endsWith('discover:9100001')));
+    assert.ok(!next.jobs.some(j => j.job.endsWith('discover:9100000')));
+    const aCaptures = await store.sectionCaptureIds(a), bCaptures = await store.sectionCaptureIds(b);
+    assert.ok(aCaptures.length > 0 && bCaptures.length > 0);
+    assert.ok(aCaptures.every(id => !bCaptures.includes(id)));
+    const rows = (await store.companies()).filter(c => names.includes(c.name));
+    assert.equal(rows.length, 3);
+    const ids = rows.map(c => c.id);
+    assert.equal((await db.from('scores').select('id').in('company_id', ids)).data.length, 0);
+    await assert.rejects(store.ensureSection({ ...b, snapshotSha256: 'c'.repeat(64) }), /manifest differs/);
+    const reassigned = await db.from('pipeline_section_issuers').update({ section: 9 }).eq('version', version).eq('cik', a.issuers[0].cik);
+    assert.ok(reassigned.error, 'database prevents changing active assignments');
+  } finally {
+    for (const s of [a, b]) for (const id of await store.sectionCaptureIds(s)) captureIds.add(id);
+    for (const id of captureIds) await store.saveExtraction({ capture_id: id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+    if (captureIds.size) await db.from('signals').delete().in('capture_id', [...captureIds]);
+    await db.from('workday_sites').delete().in('normalized_name', names.map(normalizeName));
+    await db.from('review_queue').delete().in('normalized_name', names.map(normalizeName));
+    await db.from('companies').delete().in('name', names);
+    await db.from('website_resolutions').delete().in('normalized_name', names.map(normalizeName));
+    await db.from('pipeline_section_issuers').delete().eq('version', version);
+    // Manifest rows are immutable to service_role; the uniquely named fixture manifest can remain.
+  }
+});
+
+test('section extraction queues and review admission enforce capture membership in the real database', { skip }, async () => {
+  const store = new SupabaseStore(url, key), version = `fixture-${randomUUID()}`, name = randomNames(1, seed + 63179)[0], normalized = normalizeName(name);
+  const scope = { version, section: 3, snapshotSha256: 'd'.repeat(64), ambiguousNames: [], issuers: [{ cik: 9200000, name }] };
+  const captures = [], signals = [], sites = [];
+  let review, company;
+  try {
+    await store.ensureSection(scope);
+    for (const suffix of ['foreign', 'owned']) {
+      const tenant = `${worldTenant(name)}${suffix}`;
+      const raw = `User-agent: *\nAllow: /\nSitemap: https://${tenant}.wd5.myworkdayjobs.com/Careers/siteMap.xml`;
+      const capture = await store.saveCapture({ source: 'workday-site-resolver', url: `https://${tenant}.wd5.myworkdayjobs.com/robots.txt`, fetched_at: new Date().toISOString(), http_status: 200, content_type: 'text/plain', raw,
+        fingerprint: createHash('sha256').update(raw).digest('hex'), meta: { kind: 'workday_robots', tenant, pod: 'wd5', company_name: name, normalized_name: normalized, match_kind: 'full_name' } }, null);
+      captures.push(capture);
+      if (suffix === 'owned') await store.linkSectionCapture(scope, scope.issuers[0].cik, capture.id);
+    }
+    assert.deepEqual((await store.pendingCaptures(1, undefined, scope)).map(c => c.id), [captures[1].id]);
+    await store.saveExtraction({ capture_id: captures[1].id, run_id: null, method: 'llm', model: 'fictional-model', prompt_version: '', status: 'done', output: {}, error: null, attempts: 1, cost_usd: 0 });
+    assert.deepEqual((await store.pendingCaptures(1, undefined, scope)).map(c => c.id), [captures[1].id], 'model success alone does not hide incomplete evidence');
+    const ctx = { ...makeCtx({ store }), sectionScope: scope };
+    await extractStage(ctx, { limit: 1 });
+    assert.equal((await store.pendingCaptures(1, undefined, scope)).length, 0);
+    review = await store.addReviewItem({ candidate_name: name, normalized_name: normalized, candidate_domain: null, employee_count: null, suggested_company_id: null, reason: 'no_website' });
+    for (const [i, capture] of captures.entries()) {
+      const signal = await store.upsertSignal({ company_id: null, review_item_id: review.id, capture_id: capture.id, extraction_id: null, type: 'hiring', signal_date: null,
+        source_url: `https://fixture.example/${version}/${i}`, quote: `Fictional Workday hiring evidence ${i}`, confidence: 0.9, company_name: name, products: null, project_type: null, role_seniority: null, timing_words: null, method: 'structured', seen_at: new Date().toISOString() });
+      signals.push(signal);
+      sites.push(await store.upsertWorkdaySite({ tenant: `${worldTenant(name)}${i}`, pod: 'wd5', site: 'Careers', company_name: name, normalized_name: normalized, match_kind: 'full_name', discovered_from: 'workday-site-resolver', capture_id: capture.id }));
+    }
+    const wrongScope = { ...scope, section: 4, issuers: [] };
+    await assert.rejects(store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, wrongScope), /eligible section evidence/);
+    company = await store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, scope);
+    const savedSignals = (await db.from('signals').select('id,company_id').in('id', signals.map(s => s.id))).data;
+    assert.equal(savedSignals.find(s => s.id === signals[0].id).company_id, null);
+    assert.equal(savedSignals.find(s => s.id === signals[1].id).company_id, company);
+    const savedSites = (await db.from('workday_sites').select('id,company_id').in('id', sites.map(s => s.id))).data;
+    assert.equal(savedSites.find(s => s.id === sites[0].id).company_id, null);
+    assert.equal(savedSites.find(s => s.id === sites[1].id).company_id, company);
+    assert.equal(await store.admitReview(review.id, `${worldTenant(name)}.example`, 'https://fixture.example/proof', null, null, scope), company, 'repeat section admission reuses the resolved company');
+  } finally {
+    for (const c of captures) await store.saveExtraction({ capture_id: c.id, run_id: null, method: 'structured', model: '', prompt_version: '', status: 'done', output: { diagnostic: true }, error: null, attempts: 1, cost_usd: 0 });
+    if (captures.length) await db.from('signals').delete().in('capture_id', captures.map(c => c.id));
+    await db.from('workday_sites').delete().eq('normalized_name', normalized);
+    if (review) await db.from('review_queue').delete().eq('id', review.id);
+    if (company) await db.from('companies').delete().eq('id', company);
+    await db.from('pipeline_section_issuers').delete().eq('version', version);
+  }
+});
 
 test('local AI runner admits and scores a confirmed candidate, holds a mismatch and remains duplicate-safe', { skip }, async () => {
   const store = new SupabaseStore(url, key);

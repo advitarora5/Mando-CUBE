@@ -2,6 +2,9 @@
 // so a teammate's .env.local pointing at production can never receive test or experimental data by accident.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { parseSettings } from "../../domain/ingestion/settings.ts";
+import { normalizeName } from "../../domain/ingestion/normalize.ts";
+import { sectionNames, type SectionScope, type SectionProgress } from "../section-scope.ts";
+import type { ScoringClaim, ScoringQueueStatus } from "../scoring-queue.ts";
 import type { ScoreRow } from "../../domain/scoring/assessment.ts";
 import type { ScoreChange } from "../../domain/ingestion/score-change.ts";
 import type {
@@ -84,7 +87,49 @@ export class SupabaseStore implements PipelineStore {
     return this.check(await this.db.from("raw_captures").select("*").eq("source_id", sourceId)
       .eq("meta->>kind", "workday_index_cache").order("fetched_at", { ascending: false }).limit(1).maybeSingle(), "tenant index cache") as CaptureRow | null;
   }
-  async pendingCaptures(limit: number, sourceIds?: string[]) {
+  async ensureSection(scope: SectionScope) {
+    this.check(await this.db.from("pipeline_section_manifests").upsert({ version: scope.version, snapshot_sha256: scope.snapshotSha256 }, { onConflict: "version", ignoreDuplicates: true }), "register section manifest");
+    const manifest = this.check(await this.db.from("pipeline_section_manifests").select("snapshot_sha256").eq("version", scope.version).single(), "verify section manifest");
+    if (manifest?.snapshot_sha256 !== scope.snapshotSha256) throw Error("Stored section manifest differs from this snapshot.");
+    const rows = scope.issuers.map(i => ({ version: scope.version, cik: i.cik, section: scope.section, snapshot_sha256: scope.snapshotSha256, company_name: i.name, normalized_name: normalizeName(i.name) }));
+    for (let offset = 0; offset < rows.length; offset += 200) this.check(await this.db.from("pipeline_section_issuers").upsert(rows.slice(offset, offset + 200), { onConflict: "version,cik", ignoreDuplicates: true }), "register section");
+    const saved = await this.all<typeof rows[number]>(() => this.db.from("pipeline_section_issuers").select("version,cik,section,snapshot_sha256,company_name,normalized_name").eq("version", scope.version).eq("section", scope.section).order("cik"), "verify section assignments");
+    const expected = new Map(rows.map(row => [row.cik, row]));
+    if (saved.length !== rows.length || saved.some(row => {
+      const e = expected.get(row.cik);
+      return !e || row.section !== e.section || row.snapshot_sha256 !== e.snapshot_sha256 || row.company_name !== e.company_name || row.normalized_name !== e.normalized_name;
+    })) throw Error("Stored section assignment differs from this manifest.");
+  }
+  async sectionProgress(scope: SectionScope) {
+    return this.all<SectionProgress>(() => this.db.from("pipeline_section_issuers").select("cik,status,probes,attempted_at,next_attempt_at").eq("version", scope.version).eq("section", scope.section).order("cik"), "section progress");
+  }
+  async saveSectionProgress(scope: SectionScope, cik: number, outcome: { status: "found" | "miss" | "retry"; probes: number }, at: string) {
+    const rows = this.check(await this.db.from("pipeline_section_issuers").update({ ...outcome, attempted_at: at, next_attempt_at: outcome.status === "retry" ? new Date(Date.parse(at) + 15 * 60000).toISOString() : null })
+      .eq("version", scope.version).eq("section", scope.section).eq("cik", cik).select("cik"), "save section progress");
+    if (!rows?.length) throw Error("Issuer is outside this section.");
+  }
+  async linkSectionCapture(scope: SectionScope, cik: number, captureId: string) {
+    this.check(await this.db.from("pipeline_section_captures").upsert({ version: scope.version, section: scope.section, cik, capture_id: captureId }, { onConflict: "version,cik,capture_id", ignoreDuplicates: true }), "link section capture");
+  }
+  async sectionCaptureIds(scope: SectionScope) {
+    const rows = await this.all<{ capture_id: string }>(() => this.db.from("pipeline_section_captures").select("capture_id").eq("version", scope.version).eq("section", scope.section).order("capture_id").order("cik"), "section captures");
+    return [...new Set(rows.map(row => row.capture_id))];
+  }
+  private async scopedRows<T>(scope: SectionScope, make: (ids: string[]) => { range(from: number, to: number): PromiseLike<{ data: unknown; error: { message: string } | null }> }, what: string): Promise<T[]> {
+    const ids = await this.sectionCaptureIds(scope), out: T[] = [];
+    for (let offset = 0; offset < ids.length; offset += 200) out.push(...await this.all<T>(() => make(ids.slice(offset, offset + 200)), what));
+    return out;
+  }
+  async pendingCaptures(limit: number, sourceIds?: string[], scope?: SectionScope) {
+    if (scope) {
+      const names = sectionNames(scope);
+      const rows = await this.scopedRows<CaptureRow>(scope, ids => {
+        let q = this.db.from("pipeline_section_pending_captures").select("*").in("id", ids).order("fetched_at").order("id");
+        if (sourceIds) q = q.in("source_id", sourceIds);
+        return q;
+      }, "section pending captures");
+      return rows.filter(c => names.has(String(c.meta?.normalized_name ?? ""))).sort((a, b) => a.fetched_at.localeCompare(b.fetched_at) || a.id.localeCompare(b.id)).slice(0, limit);
+    }
     let query = this.db.from("pending_captures").select("*").order("fetched_at", { ascending: true }).limit(limit);
     if (sourceIds) query = query.in("source_id", sourceIds);
     return this.check(await query, "pending captures") as CaptureRow[];
@@ -94,26 +139,35 @@ export class SupabaseStore implements PipelineStore {
     return (this.check(await this.db.from("extractions").upsert(row, { onConflict: "capture_id,method,model" }).select("id").single(), "save extraction") as { id: string }).id;
   }
 
-  async upsertSignal(signal: SignalInput): Promise<{ id: string; inserted: boolean }> {
-    const found = this.check(await this.db.from("signals").select("id, last_seen_at").eq("type", signal.type).eq("source_url", signal.source_url).eq("quote", signal.quote).maybeSingle(), "find signal") as { id: string; last_seen_at: string } | null;
+  async upsertSignal(signal: SignalInput, scope?: SectionScope): Promise<{ id: string; inserted: boolean }> {
+    const found = this.check(await this.db.from("signals").select("id, last_seen_at, company_name, capture_id").eq("type", signal.type).eq("source_url", signal.source_url).eq("quote", signal.quote).maybeSingle(), "find signal") as { id: string; last_seen_at: string; company_name: string | null; capture_id: string } | null;
     if (found) {
+      if (scope) {
+        const issuer = scope.issuers.find(i => normalizeName(i.name) === normalizeName(signal.company_name));
+        if (!issuer || normalizeName(found.company_name) !== normalizeName(signal.company_name)) throw Error("Shared signal has a different company context; manual review required.");
+        await this.linkSectionCapture(scope, issuer.cik, found.capture_id);
+      }
       if (Date.parse(signal.seen_at) > Date.parse(found.last_seen_at)) this.check(await this.db.from("signals").update({ last_seen_at: signal.seen_at }).eq("id", found.id), "touch signal");
       return { id: found.id, inserted: false };
     }
     const { seen_at, ...rest } = signal;
     const res = await this.db.from("signals").insert({ ...rest, first_seen_at: seen_at, last_seen_at: seen_at }).select("id").single();
-    if (res.error?.code === "23505") return this.upsertSignal(signal);
+    if (res.error?.code === "23505") return this.upsertSignal(signal, scope);
     return { id: (this.check(res, "insert signal") as { id: string }).id, inserted: true };
   }
   async touchSignals(captureId: string, seenAt: string) {
     const rows = this.check(await this.db.from("signals").update({ last_seen_at: seenAt }).eq("capture_id", captureId).lt("last_seen_at", seenAt).select("id"), "touch signals") as { id: string }[];
     return rows.length;
   }
-  async unassignedSignals() {
+  async unassignedSignals(scope?: SectionScope) {
+    if (scope) {
+      const names = sectionNames(scope);
+      return (await this.scopedRows<SignalRow>(scope, ids => this.db.from("signals").select("*").in("capture_id", ids).is("company_id", null).is("review_item_id", null).order("id"), "section unassigned signals")).filter(s => names.has(normalizeName(s.company_name)));
+    }
     return this.all<SignalRow>(() => this.db.from("signals").select("*").is("company_id", null).is("review_item_id", null).order("id"), "unassigned signals");
   }
   async assignSignals(ids: string[], target: { company_id: string } | { review_item_id: string }) {
-    if (ids.length) this.check(await this.db.from("signals").update(target).in("id", ids), "assign signals");
+    if (ids.length) this.check(await this.db.rpc("pipeline_assign_signals", { p_ids: ids, p_company: "company_id" in target ? target.company_id : null, p_review: "review_item_id" in target ? target.review_item_id : null }), "assign signals");
   }
   async signalsForCompany(companyId: string) {
     return this.all<SignalRow>(() => this.db.from("signals").select("*").eq("company_id", companyId).order("id"), "company signals");
@@ -123,7 +177,30 @@ export class SupabaseStore implements PipelineStore {
     const rows = await this.all<{ id: string; name: string; domain: string | null; employee_count: number | null; company_origins: unknown }>(() => this.db.from("companies").select("id, name, domain, employee_count, company_origins(origin)").order("id"), "companies");
     return rows.map(r => ({ id: r.id, name: r.name, domain: r.domain, employee_count: r.employee_count, pipeline: Array.isArray(r.company_origins) ? r.company_origins.length > 0 : !!r.company_origins }));
   }
-  async createPipelineCompany(c: { name: string; domain: string | null; employee_count: number | null; source: string }, runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null }) {
+  async companyCreatedInRun(companyId: string, runId: string | null) {
+    const row = this.check(await this.db.from("company_origins").select("run_id").eq("company_id", companyId).maybeSingle(), "company admission origin");
+    return !!row && row.run_id === runId;
+  }
+  async companyById(id: string): Promise<CompanyRow | null> {
+    const row = this.check(await this.db.from("companies").select("id,name,domain,employee_count,company_origins(origin)").eq("id", id).maybeSingle(), "scoring company");
+    return row ? { id: row.id, name: row.name, domain: row.domain, employee_count: row.employee_count, pipeline: Array.isArray(row.company_origins) ? row.company_origins.length > 0 : !!row.company_origins } : null;
+  }
+  async enqueueScoring(companyId: string) { this.check(await this.db.rpc("enqueue_company_scoring", { p_company: companyId }), "enqueue scoring"); }
+  async claimScoring(companyId?: string) { return this.check(await this.db.rpc("claim_company_scoring", { p_company: companyId ?? null }), "claim scoring") as ScoringClaim | null; }
+  async finishScoring(claim: ScoringClaim, score: ScoreRow | null, assessedAt: string, change?: ScoreChange) {
+    this.check(await this.db.rpc("finish_company_scoring", { p_company: claim.company_id, p_token: claim.token, p_version: claim.version, p_score: score, p_assessed_at: assessedAt, p_change: change ?? null }), "finish scoring");
+  }
+  async failScoring(claim: ScoringClaim, reason: "score_failed" | "financials_deferred") {
+    this.check(await this.db.rpc("fail_company_scoring", { p_company: claim.company_id, p_token: claim.token, p_version: claim.version, p_reason: reason }), "retry scoring");
+  }
+  async scoringQueueStatus(): Promise<ScoringQueueStatus> {
+    const rows = await this.all<{ status: keyof ScoringQueueStatus }>(() => this.db.from("company_scoring_jobs").select("status").order("company_id"), "scoring queue status");
+    const counts: ScoringQueueStatus = { pending: 0, running: 0, retry: 0, done: 0 };
+    for (const row of rows) counts[row.status]++;
+    return counts;
+  }
+  async createPipelineCompany(c: { name: string; domain: string | null; employee_count: number | null; source: string }, runId: string | null, attach: { signal_ids: string[]; normalized_name: string | null; scope?: SectionScope }) {
+    if (attach.scope) return this.check(await this.db.rpc("pipeline_create_section_company", { p_name: c.name, p_domain: c.domain ?? "", p_employee_count: c.employee_count, p_source: c.source, p_run_id: runId, p_signal_ids: attach.signal_ids, p_normalized_name: attach.normalized_name, p_version: attach.scope.version, p_section: attach.scope.section }), "create section company") as string;
     return this.check(await this.db.rpc("pipeline_create_company", { p_name: c.name, p_domain: c.domain ?? "", p_employee_count: c.employee_count, p_source: c.source, p_run_id: runId, p_signal_ids: attach.signal_ids, p_normalized_name: attach.normalized_name }), "create company") as string;
   }
   async addReviewItem(item: Omit<ReviewItem, "id" | "status" | "resolved_company_id" | "created_at">): Promise<{ id: string; inserted: boolean }> {
@@ -133,10 +210,19 @@ export class SupabaseStore implements PipelineStore {
     if (res.error?.code === "23505") return this.addReviewItem(item);
     return { id: (this.check(res, "add review item") as { id: string }).id, inserted: true };
   }
-  async signalsForReview(itemId: string) {
+  async signalsForReview(itemId: string, scope?: SectionScope) {
+    if (scope) {
+      const names = sectionNames(scope);
+      return (await this.scopedRows<SignalRow>(scope, ids => this.db.from("signals").select("*").in("capture_id", ids).eq("review_item_id", itemId).is("company_id", null).order("id"), "section review signals")).filter(s => names.has(normalizeName(s.company_name)));
+    }
     return this.all<SignalRow>(() => this.db.from("signals").select("*").eq("review_item_id", itemId).is("company_id", null).order("id"), "review signals");
   }
-  async websiteEvidenceCaptures(name: string, limit: number): Promise<WebsiteCapture[]> {
+  async websiteEvidenceCaptures(name: string, limit: number, scope?: SectionScope): Promise<WebsiteCapture[]> {
+    if (scope) {
+      const rows = await this.scopedRows<WebsiteCapture & { signals: { last_seen_at: string }[] }>(scope, ids => this.db.from("raw_captures").select("*, signals(last_seen_at)").in("id", ids)
+        .eq("source_id", "workday-career-sites").eq("meta->>kind", "workday_job").eq("meta->>normalized_name", name).eq("http_status", 200).order("fetched_at", { ascending: false }).order("id"), "section website evidence");
+      return rows.sort((a, b) => b.fetched_at.localeCompare(a.fetched_at) || a.id.localeCompare(b.id)).slice(0, limit).map(({ signals, ...c }) => ({ ...c, last_seen_at: signals.reduce((latest, s) => s.last_seen_at > latest ? s.last_seen_at : latest, c.fetched_at) }));
+    }
     const rows = this.check(await this.db.from("raw_captures").select("*, signals(last_seen_at)")
       .eq("source_id", "workday-career-sites").eq("meta->>kind", "workday_job").eq("meta->>normalized_name", name).eq("http_status", 200)
       .order("fetched_at", { ascending: false }).order("id").limit(limit), "website evidence captures") as (WebsiteCapture & { signals: { last_seen_at: string }[] })[];
@@ -154,10 +240,19 @@ export class SupabaseStore implements PipelineStore {
     const rows = this.check(await this.db.from("review_queue").update(patch).eq("id", id).eq("status", "pending").neq("reason", "similar_name").select("id"), "update pending review") as { id: string }[];
     if (!rows.length) throw Error("review is no longer eligible");
   }
-  async admitReview(id: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null) {
+  async admitReview(id: string, domain: string, source: string, existingCompanyId: string | null, runId: string | null, scope?: SectionScope) {
+    if (scope) return this.check(await this.db.rpc("pipeline_admit_section_review", { p_item: id, p_domain: domain, p_source: source, p_existing_company: existingCompanyId, p_run_id: runId, p_version: scope.version, p_section: scope.section, p_signal_ids: (await this.signalsForReview(id, scope)).map(s => s.id) }), "admit section review") as string;
     return this.check(await this.db.rpc("pipeline_admit_review", { p_item: id, p_domain: domain, p_source: source, p_existing_company: existingCompanyId, p_run_id: runId }), "admit review") as string;
   }
-  async reviewItems(status?: ReviewItem["status"]) {
+  async reviewItems(status?: ReviewItem["status"], scope?: SectionScope) {
+    if (scope) {
+      const names = [...sectionNames(scope)], rows: ReviewItem[] = [];
+      for (let offset = 0; offset < names.length; offset += 200) rows.push(...await this.all<ReviewItem>(() => {
+        const q = this.db.from("review_queue").select("*").in("normalized_name", names.slice(offset, offset + 200)).order("created_at", { ascending: false }).order("id");
+        return status ? q.eq("status", status) : q;
+      }, "section reviews"));
+      return rows;
+    }
     return this.all<ReviewItem>(() => {
       const query = this.db.from("review_queue").select("*").order("created_at", { ascending: false }).order("id");
       return status ? query.eq("status", status) : query;
@@ -170,21 +265,47 @@ export class SupabaseStore implements PipelineStore {
     return company;
   }
 
-  async workdaySites(onlyEnabled: boolean) {
+  async workdaySites(onlyEnabled: boolean, scope?: SectionScope) {
+    if (scope) {
+      const names = sectionNames(scope);
+      return (await this.scopedRows<WorkdaySite>(scope, ids => {
+        const q = this.db.from("workday_sites").select("*").in("capture_id", ids).order("created_at").order("id");
+        return onlyEnabled ? q.eq("enabled", true) : q;
+      }, "section sites")).filter(s => names.has(s.normalized_name));
+    }
     return this.all<WorkdaySite>(() => {
       const query = this.db.from("workday_sites").select("*").order("created_at").order("id");
       return onlyEnabled ? query.eq("enabled", true) : query;
     }, "workday sites");
   }
-  async upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }) {
-    const found = this.check(await this.db.from("workday_sites").select("id").eq("tenant", site.tenant).eq("pod", site.pod).eq("site", site.site).maybeSingle(), "find site") as { id: string } | null;
-    if (found) return { id: found.id, inserted: false };
-    return { id: (this.check(await this.db.from("workday_sites").insert(site).select("id").single(), "add site") as { id: string }).id, inserted: true };
+  async upsertWorkdaySite(site: Omit<WorkdaySite, "id" | "company_id" | "review_item_id" | "enabled"> & { discovered_from: string }, scope?: SectionScope): Promise<{ id: string; inserted: boolean }> {
+    const found = this.check(await this.db.from("workday_sites").select("id, normalized_name, capture_id").eq("tenant", site.tenant).eq("pod", site.pod).eq("site", site.site).maybeSingle(), "find site") as { id: string; normalized_name: string; capture_id: string | null } | null;
+    if (found) {
+      if (scope) {
+        const issuer = scope.issuers.find(i => normalizeName(i.name) === site.normalized_name);
+        if (!issuer || found.normalized_name !== site.normalized_name) throw Error("Shared site has a different company context; manual review required.");
+        if (!found.capture_id && site.capture_id) {
+          this.check(await this.db.from("workday_sites").update({ capture_id: site.capture_id }).eq("id", found.id).is("capture_id", null), "fill site provenance");
+          const saved = this.check(await this.db.from("workday_sites").select("capture_id").eq("id", found.id).single(), "site provenance");
+          found.capture_id = saved?.capture_id ?? null;
+        }
+        if (found.capture_id) await this.linkSectionCapture(scope, issuer.cik, found.capture_id);
+      }
+      return { id: found.id, inserted: false };
+    }
+    const inserted = await this.db.from("workday_sites").insert(site).select("id").single();
+    if (inserted.error?.code === "23505") return this.upsertWorkdaySite(site, scope);
+    return { id: (this.check(inserted, "add site") as { id: string }).id, inserted: true };
   }
   async markSiteChecked(id: string, status: string, at: string) {
     this.check(await this.db.from("workday_sites").update({ last_checked_at: at, last_status: status }).eq("id", id), "mark site");
   }
-  async linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }) {
+  async linkWorkdaySites(normalizedName: string, target: { company_id: string } | { review_item_id: string }, scope?: SectionScope) {
+    if (scope) {
+      const sites = (await this.workdaySites(false, scope)).filter(s => s.normalized_name === normalizedName);
+      for (let offset = 0; offset < sites.length; offset += 200) this.check(await this.db.from("workday_sites").update(target).in("id", sites.slice(offset, offset + 200).map(s => s.id)).is("company_id", null), "link section sites");
+      return;
+    }
     this.check(await this.db.from("workday_sites").update(target).eq("normalized_name", normalizedName).is("company_id", null), "link sites");
   }
   async resolverAttempts(names: string[]) {

@@ -4,11 +4,13 @@ import { collectStage, extractStage, matchStage, scoreStage, type StageResult } 
 import { enrichStage } from "./enrich.ts";
 import type { PipelineContext, RunStatus, SourceRow } from "./types.ts";
 import { assertIdentityAdmissionContext, type LocalIdentityAdmission } from "./local-identity-admission.ts";
+import { discoveryBatch, sectionNames } from "./section-scope.ts";
+import { normalizeName } from "../domain/ingestion/normalize.ts";
 
-export type Plan = "daily" | "weekly" | "rescore" | "all" | "collect" | "extract" | "match" | "score" | "enrich";
+export type Plan = "daily" | "weekly" | "rescore" | "all" | "collect" | "extract" | "match" | "score" | "enrich" | "section";
 export type RunOptions = { plan: Plan; source?: string; limit: number; dryRun: boolean; trigger: "schedule" | "manual" | "import_button"; enrichCompanies?: number; freeEnrichOnly?: boolean; localIdentity?: LocalIdentityAdmission };
 export type JobReport = { job: string; source_id: string | null; status: RunStatus; ms: number } & StageResult;
-export type RunReport = { jobs: JobReport[]; alerts: string[]; ms: number; treg_spend_usd: number; llm_spend_usd: number };
+export type RunReport = { jobs: JobReport[]; alerts: string[]; ms: number; treg_spend_usd: number; llm_spend_usd: number; section?: { version: string; number: number; assigned: number; held_ambiguous: number; pending: number; found: number; miss: number; retry: number } };
 
 export function statusOf(r: StageResult): RunStatus {
   if (r.blocked) return "blocked";
@@ -53,14 +55,52 @@ async function checkAlerts(ctx: PipelineContext, report: RunReport, sourceId: st
 }
 
 export async function runPipeline(ctx: PipelineContext, opts: RunOptions): Promise<RunReport> {
+  if (!!ctx.sectionScope !== (opts.plan === "section")) throw Error("Section scope requires the section plan; global plans cannot use a section context.");
+  if (opts.plan === "section" && (opts.dryRun || !Number.isSafeInteger(opts.limit) || opts.limit < 1 || opts.limit > 100)) throw Error("Section execution requires a limit from 1 to 100; use --preview for an offline preview.");
   if (opts.localIdentity) assertIdentityAdmissionContext(ctx, opts.localIdentity);
   const report: RunReport = { jobs: [], alerts: [], ms: 0, treg_spend_usd: 0, llm_spend_usd: 0 };
   const started = Date.now();
   // A run that crashed stays "running" forever; close those (older than 6 hours) so health shows the truth.
-  try { const closed = await ctx.store.closeStaleRuns(new Date(ctx.now().getTime() - 6 * 3600000).toISOString()); if (closed) ctx.log.warn(`closed ${closed} stale run(s) as failed`); }
+  try { const closed = ctx.sectionScope ? 0 : await ctx.store.closeStaleRuns(new Date(ctx.now().getTime() - 6 * 3600000).toISOString()); if (closed) ctx.log.warn(`closed ${closed} stale run(s) as failed`); }
   catch (error) { ctx.log.error(`could not close stale runs: ${(error as Error).message}`); }
   const sources = await ctx.store.sources();
   const byId = (id: string) => sources.find(s => s.id === id);
+  if (ctx.sectionScope) {
+    const scope = ctx.sectionScope;
+    const resolver = byId("workday-site-resolver"), postings = byId("workday-career-sites");
+    if (!resolver?.enabled || resolver.type !== "workday_site_resolver" || !postings?.enabled || postings.type !== "workday_career_site") throw Error("Section execution requires enabled Workday resolver and career-site sources.");
+    await ctx.store.ensureSection(scope); // Fails before any provider call if the migration is missing or assignments differ.
+    const batch = discoveryBatch(scope, await ctx.store.sectionProgress(scope), opts.limit, ctx.now());
+    const settings = await ctx.store.settings();
+    let remaining = Math.min(resolver.max_requests_per_run, settings.max_requests_per_run);
+    for (const issuer of batch) {
+      if (remaining < 1 || ctx.signal?.aborted) break;
+      ctx.sectionIssuer = issuer;
+      let entry: JobReport;
+      try {
+        entry = await job(ctx, report, `section:${scope.section}:discover:${issuer.cik}`, resolver.id, opts.trigger,
+          () => collectStage(ctx, { ...resolver, max_requests_per_run: remaining }, { limit: 1, dryRun: false }));
+      } finally { delete ctx.sectionIssuer; }
+      remaining -= entry.requests;
+      if (entry.status !== "succeeded") break;
+    }
+    const extractOwn = () => job(ctx, report, `section:${scope.section}:extract`, null, opts.trigger,
+      () => extractStage(ctx, { limit: Math.max(opts.limit * 10, 200), sourceIds: [resolver.id, postings.id] }));
+    await extractOwn();
+    const requestBudget = Math.max(0, settings.max_requests_per_run - report.jobs.reduce((n, j) => n + j.requests, 0));
+    if (requestBudget > 0 && !ctx.signal?.aborted) await job(ctx, report, `section:${scope.section}:postings`, postings.id, opts.trigger,
+      () => collectStage(ctx, { ...postings, max_requests_per_run: Math.min(postings.max_requests_per_run, requestBudget) }, { limit: opts.limit, dryRun: false }));
+    await extractOwn();
+    if (!ctx.signal?.aborted) await job(ctx, report, `section:${scope.section}:match`, null, opts.trigger, () => matchStage(ctx));
+    const progress = await ctx.store.sectionProgress(scope);
+    const allowed = sectionNames(scope);
+    report.section = { version: scope.version, number: scope.section, assigned: scope.issuers.length,
+      held_ambiguous: scope.issuers.filter(i => !allowed.has(normalizeName(i.name))).length,
+      pending: progress.filter(p => p.status === "pending").length, found: progress.filter(p => p.status === "found").length,
+      miss: progress.filter(p => p.status === "miss").length, retry: progress.filter(p => p.status === "retry").length };
+    report.ms = Date.now() - started;
+    return report; // No global collectors, score pass, or contact enrichment in a section run.
+  }
   const collect = async (source: SourceRow | undefined) => {
     if (!source) return;
     if (!source.enabled && opts.source !== source.id) { ctx.log.info(`skip disabled source ${source.id}`); return; }
