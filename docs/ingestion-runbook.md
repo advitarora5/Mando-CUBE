@@ -66,6 +66,16 @@ Apply repository migrations through the normal release process before relying on
 `--limit` is items per source (for the resolver: Workday sites to find; it tries up to six names per site).
 `--no-llm` and `--no-treg` switch those off for one run.
 
+Workday HTTP requests (`*.myworkdayjobs.com` and `*.myworkdaysite.com`) use Node's
+built-in HTTPS client through the pipeline context. Other providers continue to use
+`fetch`. This avoids the observed Workday challenge responses specific to Node's
+`fetch` transport without requiring curl, a browser, or additional credentials.
+Robots rules, pacing, timeouts, request budgets, and evidence checks still apply.
+An explicit `cf-mitigated: challenge` response stops the source as
+`captcha: Cloudflare challenge (HTTP ...)` without retries; ordinary 429 responses
+retain the existing backoff. A transport change does not guarantee continued access
+if Workday changes its security policy.
+
 Discovery selects unattempted company names in SEC list order. Attempt history is checked in
 pages of up to 200 names until the requested batch is filled or the list is exhausted, so later
 runs advance beyond previously probed names even deep into the list.

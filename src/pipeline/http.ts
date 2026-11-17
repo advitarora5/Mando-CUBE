@@ -16,6 +16,10 @@ type Options = { maxRequests: number; minDelayMs: number; timeoutMs?: number; ma
 const CAPTCHA = /captcha|cf-chl-|challenge-platform|are you a (robot|human)|verify you are human|px-captcha|access denied|request blocked|unusual traffic/i;
 const UNAVAILABLE = /(temporarily|currently|service) unavailable|under maintenance|scheduled maintenance|page (is )?not available|this (site|page) (can't|cannot) be reached|something went wrong|no longer available/i;
 
+function cloudflareChallenge(res: Response): boolean {
+  return res.headers.get("cf-mitigated")?.toLowerCase() === "challenge";
+}
+
 type Rule = { allow: boolean; path: string };
 
 export function parseRobots(text: string, agentToken: string): Rule[] {
@@ -112,7 +116,9 @@ export class PoliteHttp {
     if (!rules) {
       const got = await this.raw(`${u.protocol}//${u.host}/robots.txt`, { headers: { "user-agent": this.userAgent(url) } });
       if ("ok" in got) { if (STOPPING_FAILURES.includes(got.kind)) return got; rules = "unavailable"; }
+      else if (cloudflareChallenge(got.res)) return { ok: false, kind: "captcha", status: got.res.status, message: `Cloudflare challenge (HTTP ${got.res.status})`, url };
       else if (got.res.status === 404 || got.res.status === 410) rules = [];
+      else if (got.res.status === 429 || got.res.status === 503) return { ok: false, kind: "rate_limited", status: got.res.status, message: `robots.txt returned HTTP ${got.res.status}`, url };
       else if (got.res.status === 401 || got.res.status === 403) return { ok: false, kind: CAPTCHA.test(got.body.slice(0, 5000)) ? "captcha" : "blocked", status: got.res.status, message: `robots.txt returned HTTP ${got.res.status}`, url };
       else if (got.res.status >= 400 || CAPTCHA.test(got.body.slice(0, 5000))) rules = "unavailable";
       else rules = parseRobots(got.body, "mando-cube-ingestion");
@@ -145,6 +151,7 @@ export class PoliteHttp {
       const { res, body } = got;
       const status = res.status;
       const contentType = res.headers.get("content-type");
+      if (cloudflareChallenge(res)) return { ok: false, kind: "captcha", status, message: `Cloudflare challenge (HTTP ${status})`, url };
       if (status === 429 || status === 503) {
         if (attempt < retries) { await this.deps.sleep(this.backoff(attempt, res.headers.get("retry-after"))); continue; }
         return { ok: false, kind: "rate_limited", status, message: `HTTP ${status} after ${attempt + 1} attempts`, url };

@@ -6,6 +6,7 @@ import { llmFromEnv } from "./llm.ts";
 import { MemoryStore } from "./store/memory.ts";
 import { SupabaseStore } from "./store/supabase.ts";
 import { tregFromEnv } from "./treg.ts";
+import { createPipelineFetch } from "./transport.ts";
 import type { Logger, PipelineContext, PipelineStore } from "./types.ts";
 
 export const consoleLogger: Logger = {
@@ -43,7 +44,7 @@ export async function contextFromEnv(env: NodeJS.ProcessEnv, opts: { dryRun: boo
     log: consoleLogger, now,
   });
   return {
-    store, now, log: consoleLogger, fetch: globalThis.fetch.bind(globalThis), contactReviews,
+    store, now, log: consoleLogger, fetch: createPipelineFetch(), contactReviews,
     treg: opts.noTreg ? null : await tregFromEnv(env), llm, spend,
     contact: env.PIPELINE_CONTACT ?? "", sleep: (ms) => new Promise(resolve => setTimeout(resolve, ms)), runId: null,
   };
