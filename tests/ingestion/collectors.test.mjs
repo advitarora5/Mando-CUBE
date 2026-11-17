@@ -170,6 +170,20 @@ test('429 backs off (honouring Retry-After, capped) and gives up after two retri
   assert.ok(slept.includes(30000), 'Retry-After of 120 s is capped at 30 s');
 });
 
+test('Cloudflare challenge on a 429 is named and stops without retrying', async () => {
+  const fetch = jobsWorld({ jobs: response(429, CAPTCHA_PAGE, { 'cf-mitigated': 'challenge' }) });
+  const out = await new WorkdayJobs().collect(source('workday-career-sites'), limits, makeCtx({ store: await storeWithSite(), fetch }));
+  assert.match(out.blocked, /^captcha: Cloudflare challenge \(HTTP 429\)/);
+  assert.equal(fetch.calls.filter(c => c.method === 'POST').length, 1);
+});
+
+test('a challenge while checking robots stops before fetching jobs', async () => {
+  const fetch = jobsWorld({ robots: response(429, CAPTCHA_PAGE, { 'cf-mitigated': 'challenge' }) });
+  const out = await new WorkdayJobs().collect(source('workday-career-sites'), limits, makeCtx({ store: await storeWithSite(), fetch }));
+  assert.match(out.blocked, /^captcha: Cloudflare challenge \(HTTP 429\)/);
+  assert.equal(fetch.calls.length, 1);
+});
+
 test('403 stops the source as blocked', async () => {
   const out = await new WorkdayJobs().collect(source('workday-career-sites'), limits, makeCtx({ store: await storeWithSite(), fetch: jobsWorld({ jobs: response(403, 'Forbidden') }) }));
   assert.match(out.blocked, /^blocked/);
