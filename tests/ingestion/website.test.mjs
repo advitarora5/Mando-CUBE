@@ -219,6 +219,17 @@ test('pending website review: retries when due, admits atomically with source/si
   const count = ctx.store.companyRows.length; await matchStage(ctx); assert.equal(ctx.store.companyRows.length, count);
 });
 
+test('pending website review: a failed website check preserves the recorded domain', async () => {
+  const { ctx, item } = await pendingWorld();
+  const cached = ctx.store.websites.get(item.normalized_name);
+  item.candidate_domain = 'alder.example';
+  ctx.store.websites.set(item.normalized_name, { ...cached, status: 'error', reason: 'temporary website outage' });
+  const result = await matchStage(ctx);
+  assert.ok(result.counts.error_website > 0);
+  assert.equal(item.status, 'pending');
+  assert.equal(item.candidate_domain, 'alder.example');
+});
+
 test('pending website review: a failed admission leaves the review pending; cached verification permits retry', async () => {
   const { ctx, item } = await pendingWorld();
   ctx.treg = worldTreg(); ctx.now.advanceDays(7); ctx.store.failAfter = { admitReview: 0 };

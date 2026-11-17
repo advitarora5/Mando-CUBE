@@ -57,6 +57,7 @@ test('matching: exact website merges, similar name and missing website go to rev
   assert.equal(similar.action, 'review'); assert.equal(similar.reason, 'similar_name'); assert.equal(similar.suggested_company_id, 'c1');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: null }, known, { canCreate: true }).reason, 'no_website');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com', domain_confirmed: false }, known, { canCreate: true }).reason, 'no_website');
+  assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'careers.brookfield.com', domain_confirmed: false }, known, { canCreate: true }).reason, 'no_website');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com', workday_verified: false }, known, { canCreate: true }).reason, 'untrusted_signal');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com' }, known, { canCreate: false }).reason, 'over_run_cap');
   assert.equal(decideMatch({ ...base, name: 'Newco', domain: 'newco.com' }, known, { canCreate: true }).action, 'create');

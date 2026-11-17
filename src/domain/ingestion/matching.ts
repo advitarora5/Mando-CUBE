@@ -41,7 +41,7 @@ export function decideMatch(candidate: Candidate, known: KnownCompany[], room: {
   const owner = ownerId ? known.find(company => company.id === ownerId) : undefined;
   if (owner) return { action: "attach", company_id: owner.id, why: `${candidate.name} is a known name of ${owner.name}` };
   // Explicit parent/subdomain relationships are ambiguous; do not guess a registrable domain.
-  const related = domain && known.find(company => { const other = normalizeDomain(company.domain); return other && (domain.endsWith(`.${other}`) || other.endsWith(`.${domain}`)); });
+  const related = domain && candidate.domain_confirmed && known.find(company => { const other = normalizeDomain(company.domain); return other && (domain.endsWith(`.${other}`) || other.endsWith(`.${domain}`)); });
   if (related) return { action: "review", reason: "similar_name", suggested_company_id: related.id, why: "website is a parent or subdomain of an existing company" };
 
   const similar = known.find(company => isSimilarName(company.name, candidate.name));
