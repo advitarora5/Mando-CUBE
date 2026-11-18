@@ -203,6 +203,8 @@ export async function matchStage(ctx: PipelineContext, opts: { dryRun?: boolean;
       if (lookup.status === "error") {
         bump(r, "error_website"); r.errors.push(`website ${normalized}: ${lookup.reason}`);
         if (/treg HTTP (401|402|403|429)|zero charge/i.test(lookup.reason)) { r.blocked = lookup.reason; break; }
+        // A failed website check is retryable and should not replace a pending review's evidence.
+        if (waiting) continue;
       }
       // Verification can fill an empty website on human-only reviews, but never resolve them or
       // overwrite a person's website choice. Rejected/resolved reviews were handled above.
