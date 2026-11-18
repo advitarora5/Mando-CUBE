@@ -11,6 +11,21 @@ export function contactNeedsCompletion(contact) {
 export function contactEmployerMismatch(contact) {
   return contact.contact_sources?.role_review?.status === 'different_employer';
 }
+export function emailVerificationState(verified) {
+  const result = verified.response?.output;
+  const raw = verified.response?.raw;
+  const verdict = typeof result?.status === 'string' ? result.status.toLowerCase() : null;
+  const provider = verified.response?._treg?.served_by ?? verified.provider;
+  // OrbiSearch documents "safe", rather than "valid". Require the routed
+  // affirmative result and matching native mailbox evidence. Catch-all domains
+  // retain our conservative risky label pending mailbox-specific resolution.
+  const orbiSafe = provider === 'orbisearch.people.email.verify' && verdict === 'safe' && result.valid === true &&
+    raw?.status === 'safe' && raw.substatus === 'deliverable' && raw.is_domain_catch_all === false &&
+    raw.is_disposable !== true && raw.is_role_account !== true;
+  const isVerified = (verdict === 'valid' && result.valid === true) || orbiSafe ||
+    (verdict === 'verified' && result.valid !== false && ['filtrat.people.email.verify', 'filtrat.people.email.verify.resolve_catchall'].includes(provider));
+  return { email_status: isVerified ? 'valid' : verdict === 'invalid' ? 'invalid' : 'risky', email_verified: isVerified };
+}
 export async function completeContact({ company, contact, call }) {
   if (!contactNeedsCompletion(contact) || contactEmployerMismatch(contact)) return null;
   let email = contact.email;
@@ -28,14 +43,7 @@ export async function completeContact({ company, contact, call }) {
   let state = { email_status: 'not_found', email_verified: false };
   if (email) {
     const verified = await call(company.id, 'treg.people.email.verify', { email });
-    const result = verified.response?.output;
-    const verdict = typeof result?.status === 'string' ? result.status.toLowerCase() : null;
-    const provider = verified.response?._treg?.served_by ?? verified.provider;
-    // Filtrat reports a successful verification as "verified" without a separate valid flag.
-    const isVerified = (verdict === 'valid' && result.valid === true)
-      || (verdict === 'verified' && result.valid !== false && ['filtrat.people.email.verify', 'filtrat.people.email.verify.resolve_catchall'].includes(provider));
-    state = { email_status: isVerified ? 'valid' : verdict === 'invalid' ? 'invalid' : 'risky',
-      email_verified: isVerified };
+    state = emailVerificationState(verified);
     completion[contactCallKey('treg.people.email.verify', { email })] = { verdict: state.email_status, provider: verified.provider, call_id: verified.call_id, endpoint: 'treg.people.email.verify' };
   }
   if (!contact.email && state.email_status === 'invalid') email = null;
