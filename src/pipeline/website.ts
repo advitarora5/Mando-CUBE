@@ -3,11 +3,12 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { createHash } from "node:crypto";
 import { normalizeDomain, normalizeName } from "../domain/ingestion/normalize.ts";
+import { websiteIdentityAliases } from "../data/website-identity-aliases.ts";
 import { htmlToText } from "../domain/ingestion/quote.ts";
 import { crawlerUserAgent, parseRobots, robotsAllows } from "./http.ts";
 import type { PipelineContext, WebsiteResolution, WorkdaySite, EmployerWebsiteLink } from "./types.ts";
 
-export const WEBSITE_VERSION = 9;
+export const WEBSITE_VERSION = 10;
 export const WEBSITE_LIMIT = 50;
 const GUESS_TLDS = ["com", "org", "edu", "net", "tv"];
 const CAREERS_PATHS = ["/careers", "/jobs", "/about/careers", "/company/careers"];
@@ -99,6 +100,7 @@ export class WebsiteHttp {
       if (!robotsAllows(parseRobots(robots, "mando-cube-ingestion"), url.pathname + url.search)) throw Error("website disallowed by robots.txt");
       const res = await this.read(url, maxBody);
       if (res.status >= 300 && res.status < 400 && res.location) { url = safeUrl(new URL(res.location, url).href); continue; }
+      if (res.status >= 300 && res.status < 400) throw Error(`website redirect HTTP ${res.status} has no Location header`);
       if (res.status !== 200) throw Error(`website HTTP ${res.status}`);
       const head = res.body.slice(0, 20000);
       // A normal careers page can load reCAPTCHA for an application form. That is not itself
@@ -155,7 +157,7 @@ export function careersLinks(html: string, base: string, companyHost: string): s
 // loose: the page's name only has to start with the target (a tenant slug "nexstar" for "Nexstar Media Group").
 // It is used for guessed domains only, which must also pass the reciprocal Workday-link proof.
 const compact = (value: string) => normalizeName(value).replace(/ /g, "");
-export function pageIdentity(html: string, name: string, loose = false): string | null {
+export function pageIdentity(html: string, name: string, loose = false, aliases: readonly string[] = []): string | null {
   const target = normalizeName(name); if (!target) return null;
   const names: string[] = [];
   for (const match of html.matchAll(/<meta\b[^>]*>/gi)) if (/^(og:site_name|application-name)$/i.test(attr(match[0], "property") || attr(match[0], "name"))) names.push(attr(match[0], "content"));
@@ -184,7 +186,8 @@ export function pageIdentity(html: string, name: string, loose = false): string 
       walk(JSON.parse(match[1]));
     } catch { /* broken structured data is not evidence */ }
   }
-  return names.find(value => loose ? compact(value.replace(/<[^>]+>/g, " ")).startsWith(compact(name)) : normalizeName(value.replace(/<[^>]+>/g, " ")) === target) ?? null;
+  const accepted = new Set([target, ...aliases.map(normalizeName)]);
+  return names.find(value => loose ? compact(value.replace(/<[^>]+>/g, " ")).startsWith(compact(name)) : accepted.has(normalizeName(value.replace(/<[^>]+>/g, " ")))) ?? null;
 }
 // tenantOnly (guessed slug domains): a link to any career site of the tenant proves the tenant is theirs. The company may link
 // a different site than the one picked as primary (M&T Bank links /MTB while the primary pick was Wilmington Trust's site).
@@ -193,7 +196,7 @@ function workdayLink(html: string, base: string, sites: WorkdaySite[], tenantOnl
 }
 // A branded page on a shared social/document/ATS platform is not a corporate website.
 function sharedPlatform(domain: string): boolean {
-  return ["sharepoint.com", "myworkdayjobs.com", "myworkdaysite.com", "linkedin.com", "facebook.com", "instagram.com", "youtube.com"].some(host => domain === host || domain.endsWith(`.${host}`));
+  return ["sharepoint.com", "mcas.ms", "myworkdayjobs.com", "myworkdaysite.com", "linkedin.com", "facebook.com", "instagram.com", "youtube.com"].some(host => domain === host || domain.endsWith(`.${host}`));
 }
 
 // Only stored JSON from the exact enabled Workday tenant/site can vouch for an employer link.
@@ -266,6 +269,9 @@ export async function resolveWebsite(ctx: PipelineContext, name: string, sites: 
     const sourceCandidates = sourceDomains.slice(0, 5).map(domain => ({ domain, company_name: name }));
     candidates.push(...sourceCandidates);
     const confirmed = new Set<string>(); let failures = 0, identityFailures = 0;
+    // Only independently identity-matched pages can establish a corporate
+    // navigation relationship. No registrable-domain or parent-company guessing.
+    const identityHomeLinks = new Map<string, Set<string>>();
     const visitedDomains = new Set<string>();
     const checkCandidates = async (rows: typeof candidates, loose = false) => {
       for (const candidate of rows) {
@@ -280,7 +286,10 @@ export async function resolveWebsite(ctx: PipelineContext, name: string, sites: 
           const home = await http.page(`https://${domain}/`);
           // Guessed domains: a redirect to another domain, or a parked "for sale" page, is never evidence.
           if (loose && (normalizeDomain(new URL(home.url).hostname) !== domain || PARKED.test(home.html.slice(0, 30000)))) { base.evidence.checks.push({ domain, url: home.url, reason: "guessed domain redirects elsewhere or is parked" }); continue; }
-          const identity = pageIdentity(home.html, name, loose);
+          const homeHost = normalizeDomain(new URL(home.url).hostname)!;
+          const aliases = websiteIdentityAliases.find(row => row.company === normalized && row.domain === homeHost)?.names ?? [];
+          const identity = pageIdentity(home.html, name, loose, aliases);
+          if (identity) identityHomeLinks.set(homeHost, new Set(links(home.html, home.url).map(link => normalizeDomain(link.url.hostname)).filter((host): host is string => !!host)));
           // Guessed slug domains without a name match (M&T Bank on mtb.com) may still pass on the exact Workday link below.
           const slugDomain = loose && sites.some(s => domain.split(".").slice(-2, -1)[0] === s.tenant);
           if (!identity && !slugDomain) { base.evidence.checks.push({ domain, url: home.url, reason: "no exact company identity in page metadata" }); continue; }
@@ -294,7 +303,6 @@ export async function resolveWebsite(ctx: PipelineContext, name: string, sites: 
             continue;
           }
           let proof = workdayLink(home.html, home.url, sites, loose); let proofUrl = home.url;
-          const homeHost = normalizeDomain(new URL(home.url).hostname)!;
           const queue = careersLinks(home.html, home.url, homeHost);
           const visited = new Set([home.url]);
           // Up to three explicitly linked careers pages, including a job-search page linked from
@@ -380,11 +388,16 @@ export async function resolveWebsite(ctx: PipelineContext, name: string, sites: 
       base.evidence.candidates.push(...extra);
       await checkCandidates(extra);
     }
+    // A corporate root and an explicitly linked investor subdomain are one
+    // website only when BOTH already passed identity and Workday corroboration.
+    // Keep all checks as evidence; unrelated or unlinked domains remain ambiguous.
+    const canonical = [...confirmed].filter(host => ![...confirmed].some(parent =>
+      host.endsWith(`.${parent}`) && identityHomeLinks.has(host) && identityHomeLinks.get(parent)?.has(host)));
     // Unrelated failures do not veto a complete proof. A second verified domain or an
     // identity-matched candidate whose proof could not finish still prevents admission.
     if (sourceDomains.length > sourceCandidates.length) base.reason = "employer website candidate cap reached; human review required";
-    else if (confirmed.size > 1) base.reason = "multiple websites corroborate this company; human review required";
-    else if (confirmed.size === 1 && identityFailures === 0) { base.domain = [...confirmed][0]; base.status = "confirmed"; base.reason = base.evidence.checks.some(check => check.employer_link) ? "independent company identity and corporate link from observed Workday posting" : "independent company identity and reciprocal Workday career link"; base.next_check_at = new Date(+checked + 30 * DAY).toISOString(); }
+    else if (canonical.length > 1) base.reason = "multiple websites corroborate this company; human review required";
+    else if (canonical.length === 1 && identityFailures === 0) { base.domain = canonical[0]; base.status = "confirmed"; base.reason = base.evidence.checks.some(check => check.employer_link) ? "independent company identity and corporate link from observed Workday posting" : "independent company identity and reciprocal Workday career link"; base.next_check_at = new Date(+checked + 30 * DAY).toISOString(); }
     else if (failures) { base.status = "error"; base.reason = "one or more website checks failed; retry required"; }
     else base.reason = "no uniquely corroborated website";
   } catch (error) { base.status = "error"; base.reason = (error as Error).message; }
